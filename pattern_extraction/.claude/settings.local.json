@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//root/autodl-tmp/Loris/**)",
+      "Bash(HF_HUB_OFFLINE=1 python pattern_extraction/demo.py)",
+      "Bash(cd /root/autodl-tmp/Loris && python pattern_extraction/demo.py 2>&1)",
+      "Bash(cd /root/autodl-tmp/Loris && python pattern_extraction/extract.py --help 2>&1 | tail -20)",
+      "Bash(cd /root/autodl-tmp/Loris && python -m pattern_extraction.extract --help 2>&1 | tail -20)",
+      "Bash(grep -r \"XMLToSentence\\\\|corpus\\\\|entity\\\\|pattern\" /root/autodl-tmp/MetaPAD --include=*.md --include=*.txt)",
+      "Bash(grep -r \"<PERSON>\\\\|<ORG>\\\\|<LOCATION>\" /root/autodl-tmp/MetaPAD --include=*.py --include=*.h --include=*.cpp)",
+      "Bash(xargs ls:*)"
+    ]
+  }
+}

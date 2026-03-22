@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /root/autodl-tmp/Loris -type d -not -path */.*)",
+      "Bash(find /root/autodl-tmp/Loris -maxdepth 2 -name README* -o -name *.md)",
+      "Bash(python:*)"
+    ]
+  }
+}

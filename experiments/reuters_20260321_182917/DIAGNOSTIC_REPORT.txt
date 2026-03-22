@@ -1,0 +1,50 @@
+========================================================================
+  LORIS PIPELINE DIAGNOSTIC REPORT
+  All retries exhausted — human intervention required.
+========================================================================
+
+### Data stats
+  Labels: ['earn', 'acq', 'money-fx', 'grain', 'crude', 'trade', 'interest', 'ship', 'wheat', 'corn', 'sugar', 'oilseed', 'dlr', 'gnp', 'coffee', 'veg-oil', 'gold', 'nat-gas', 'money-supply', 'livestock']
+  Label counts per doc (val): min=1  max=4  mean=1.14
+  Label freq (val): [168.0, 82.0, 22.0, 21.0, 25.0, 25.0, 16.0, 10.0, 9.0, 9.0, 8.0, 4.0, 7.0, 9.0, 8.0, 4.0, 6.0, 8.0, 8.0, 6.0]
+
+### Final hyperparameters
+  subset_size: 2000
+  val_ratio: 0.2
+  top_labels: 20
+  n_clusters: None
+  min_coverage: 0.02
+  max_entropy_threshold: 1.0
+  tfidf_top_k: 20
+  router_feat_dim: 128
+  router_hidden_dim: 256
+  k_models: 3
+  router_sigma: 0.1
+  router_num_samples: 500
+  router_epochs: 30
+  router_lr: 0.001
+  max_trials: 400
+  top_n_rules: 20
+  min_coverage_rule: 0.00375
+  min_rules: 1
+  min_avg_coverage: 0.03
+  min_f1_gain: 0.005
+  max_avg_body_len: 8
+  max_retries: 3
+
+### Issues per attempt
+  Attempt 1: ['empty_ruleset']
+  Attempt 2: ['empty_ruleset']
+  Attempt 3: ['empty_ruleset']
+  Attempt 4: ['empty_ruleset']
+
+### Last rule set
+  Rules found: N/A
+
+### Recommendations
+  1. Increase --subset_size for more training data.
+  2. Try fewer --top_labels (e.g. 10) for a simpler labelling task.
+  3. Manually lower min_coverage_rule below current value.
+  4. Check pattern coverage stats in patterns.json.
+  5. Add stronger pre-trained models (encoder/LoRA) to the pool.
+========================================================================

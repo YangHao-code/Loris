@@ -1,0 +1,26 @@
+{
+  "label_names": [
+    "earn",
+    "acq",
+    "money-fx",
+    "grain",
+    "crude",
+    "trade",
+    "interest",
+    "ship",
+    "wheat",
+    "corn",
+    "sugar",
+    "oilseed",
+    "dlr",
+    "gnp",
+    "coffee",
+    "veg-oil",
+    "gold",
+    "nat-gas",
+    "money-supply",
+    "livestock"
+  ],
+  "n_rules": 0,
+  "rules": []
+}

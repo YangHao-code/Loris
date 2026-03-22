@@ -1,0 +1,62 @@
+# LORIS entity-regex patterns — bundled default configuration.
+#
+# Copy this file to a custom location and pass the path to PatternAbstractor
+# via `regex_config_path` to use domain-specific entity patterns.
+#
+# Format
+# ------
+# Each entry under `patterns` has three fields:
+#   name    (str)        — Human-readable label for this pattern type.
+#   pattern (str)        — Python regex string.
+#   flags   (list[str])  — Optional re flag names to apply when compiling.
+#                          Supported: IGNORECASE (I), MULTILINE (M), DOTALL (S).
+#
+# Examples of custom entries
+# --------------------------
+# - name: version
+#   pattern: '\bv\d+\.\d+(?:\.\d+)?\b'
+#   flags: [IGNORECASE]
+#
+# - name: ipv4
+#   pattern: '\b\d{1,3}(?:\.\d{1,3}){3}\b'
+#   flags: []
+#
+# - name: ticket
+#   pattern: '\b(?:JIRA|TICKET|BUG)-\d+\b'
+#   flags: [IGNORECASE]
+
+patterns:
+  - name: id
+    # Alphanumeric identifier starting with 2+ uppercase letters, e.g. AB123, XY4401
+    pattern: '\b[A-Z]{2,}\d+\b'
+    flags: []
+
+  - name: error
+    # Error codes: ERR-XXX, ERR_XXX, or ERROR: XXX (case-insensitive)
+    pattern: '\bERR[-_]\w+\b|\bERROR:\s*\w+'
+    flags: [IGNORECASE]
+
+  - name: date_iso
+    # ISO 8601 date: YYYY-MM-DD
+    pattern: '\b\d{4}-\d{2}-\d{2}\b'
+    flags: []
+
+  - name: date_us
+    # US date format: MM/DD/YYYY
+    pattern: '\b\d{2}/\d{2}/\d{4}\b'
+    flags: []
+
+  - name: money
+    # Monetary value: $N or $N.NN
+    pattern: '\$\d+(?:\.\d{2})?'
+    flags: []
+
+  - name: percentage
+    # Percentage value: N% or N.N%
+    pattern: '\b\d+(?:\.\d+)?\s*%'
+    flags: []
+
+  - name: version
+    # Software version: vN.N or N.N.N
+    pattern: '\bv?\d+\.\d+(?:\.\d+)?\b'
+    flags: [IGNORECASE]

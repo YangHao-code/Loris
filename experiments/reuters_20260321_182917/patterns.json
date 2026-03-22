@@ -1,0 +1,4326 @@
+{
+  "version": "0.1.0",
+  "n_classes": 20,
+  "label_names": null,
+  "n_patterns": 324,
+  "patterns": [
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bcredits\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bearnings\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "net\\ profit",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bsplit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bname\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bacquisition\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bdiv\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "the\\ acquisition",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bacquire\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "10\\ cts",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "three\\ cts",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bholders\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bincludes\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bresults\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bdividend\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bcharge\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bbarrels\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bassets\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 6.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 4.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 4.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 3.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 4.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "two\\ cts",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "a\\ share",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "net\\ excludes",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "tax\\ credit",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "its\\ board",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bshareholders\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "one\\ ct",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bexcludes\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bshrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bshrs\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "common\\ stock",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bmerger\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "4\\ cts",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "common\\ shares",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bqtr\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b\\-\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b\\-\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bvs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\brecord\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b\\-\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b\\-\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcts\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b\\-\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b\\-\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshr\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b\\-\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b\\-\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b\\-\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b\\-\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "cts\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "000\\ vs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "vs\\ loss",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b\\-\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b\\-\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bit\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\byear\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 3.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "common\\ share",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bextraordinary\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bprofit\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bloss\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.5,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "FreqPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bnet\\b",
+        "flags": 0
+      },
+      "op": ">=",
+      "eta": 2.0,
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bstake\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bsaid\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bsaid\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bgroup\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\boffer\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bdlrs\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bmln\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcompany\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcompany\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcompany\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcompany\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bstock\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcompany\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcompany\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bgroup\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bgroup\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcompany\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcompany\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\boffer\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\boffer\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcompany\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcompany\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcompany\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "mln\\ dlrs",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ dlrs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "mln\\ dlrs",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bpct\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bpct\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bgroup\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bpct\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bpct\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\boffer\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\boffer\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bpct\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bpct\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bstock\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bgroup\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bgroup\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "company\\ said",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b1986\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\boffer\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\boffer\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshares\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bstock\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bgroup\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "company\\ said",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b1986\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\b1986\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b1986\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\boffer\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\boffer\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bbillion\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bshare\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bstock\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bstock\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\boffer\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bstock\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "BeforePredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bstock\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b000\\b",
+        "flags": 0
+      },
+      "r2": {
+        "raw": "\\bcommon\\b",
+        "flags": 0
+      },
+      "sim": false,
+      "threshold": 0.85
+    }
+  ]
+}

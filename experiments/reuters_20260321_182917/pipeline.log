@@ -1,0 +1,255 @@
+2026-03-21 18:29:17,715  INFO      loris_pipeline — Experiment directory: /root/autodl-tmp/Loris/experiments/reuters_20260321_182917
+2026-03-21 18:29:17,716  INFO      loris_pipeline — Loading Reuters-21578 …
+2026-03-21 18:29:17,915  INFO      loris_pipeline — Top-20 labels: ['earn', 'acq', 'money-fx', 'grain', 'crude', 'trade', 'interest', 'ship', 'wheat', 'corn']
+2026-03-21 18:29:17,933  INFO      loris_pipeline — Sampled 2000 training documents.
+2026-03-21 18:29:18,015  INFO      loris_pipeline — Data loaded in 0.3s — train=1600  val=400  test=1921  labels=20
+2026-03-21 18:29:18,016  INFO      loris_pipeline — Added PretrainedEncoderClassifier (roberta-base).
+2026-03-21 18:29:18,020  INFO      loris_pipeline — Model pool: ['tfidf_svm_unigram', 'tfidf_svm_bigram', 'tfidf_lr_bigram', 'textcnn', 'bilstm', 'encoder_mlp']
+2026-03-21 18:29:18,020  INFO      loris_pipeline — Training  tfidf_svm_unigram …
+2026-03-21 18:29:19,179  INFO      loris_pipeline —   tfidf_svm_unigram       micro-F1=0.8616  macro-F1=0.6656  (1.2s)
+2026-03-21 18:29:19,180  INFO      loris_pipeline — Training  tfidf_svm_bigram …
+2026-03-21 18:29:20,134  INFO      loris_pipeline —   tfidf_svm_bigram        micro-F1=0.8401  macro-F1=0.5475  (1.0s)
+2026-03-21 18:29:20,134  INFO      loris_pipeline — Training  tfidf_lr_bigram …
+2026-03-21 18:29:22,368  INFO      loris_pipeline —   tfidf_lr_bigram         micro-F1=0.6420  macro-F1=0.1165  (2.2s)
+2026-03-21 18:29:22,368  INFO      loris_pipeline — Training  textcnn …
+2026-03-21 18:29:22,430  INFO      models.neural_classifier — Vocabulary size: 9925
+2026-03-21 18:29:25,776  INFO      models.neural_classifier — Epoch 1/5 | loss=0.2405 | val_micro_f1=0.4357
+2026-03-21 18:29:26,002  INFO      models.neural_classifier — Epoch 2/5 | loss=0.1396 | val_micro_f1=0.4959
+2026-03-21 18:29:26,223  INFO      models.neural_classifier — Epoch 3/5 | loss=0.1243 | val_micro_f1=0.5488
+2026-03-21 18:29:26,440  INFO      models.neural_classifier — Epoch 4/5 | loss=0.1100 | val_micro_f1=0.5610
+2026-03-21 18:29:26,666  INFO      models.neural_classifier — Epoch 5/5 | loss=0.0992 | val_micro_f1=0.5935
+2026-03-21 18:29:26,667  INFO      models.neural_classifier — Training complete. Best val Micro-F1: 0.5935
+2026-03-21 18:29:26,709  INFO      loris_pipeline —   textcnn                 micro-F1=0.5935  macro-F1=0.1047  (4.3s)
+2026-03-21 18:29:26,709  INFO      loris_pipeline — Training  bilstm …
+2026-03-21 18:29:26,776  INFO      models.neural_classifier — Vocabulary size: 9925
+2026-03-21 18:29:27,443  INFO      models.neural_classifier — Epoch 1/5 | loss=0.3433 | val_micro_f1=0.0000
+2026-03-21 18:29:27,725  INFO      models.neural_classifier — Epoch 2/5 | loss=0.1742 | val_micro_f1=0.4194
+2026-03-21 18:29:27,959  INFO      models.neural_classifier — Epoch 3/5 | loss=0.1599 | val_micro_f1=0.4229
+2026-03-21 18:29:28,183  INFO      models.neural_classifier — Epoch 4/5 | loss=0.1471 | val_micro_f1=0.4482
+2026-03-21 18:29:28,418  INFO      models.neural_classifier — Epoch 5/5 | loss=0.1368 | val_micro_f1=0.4680
+2026-03-21 18:29:28,419  INFO      models.neural_classifier — Training complete. Best val Micro-F1: 0.4680
+2026-03-21 18:29:28,455  INFO      loris_pipeline —   bilstm                  micro-F1=0.4680  macro-F1=0.0453  (1.7s)
+2026-03-21 18:29:28,455  INFO      loris_pipeline — Training  encoder_mlp …
+2026-03-21 18:29:28,455  INFO      models.pretrained_encoder_classifier — Loading tokeniser: roberta-base
+2026-03-21 18:29:28,651  INFO      models.pretrained_encoder_classifier — MLP path — loading roberta-base
+2026-03-21 18:29:52,291  INFO      models.pretrained_encoder_classifier — Epoch 1/3 | loss=0.2879 | val_micro_f1=0.6705
+2026-03-21 18:30:13,590  INFO      models.pretrained_encoder_classifier — Epoch 2/3 | loss=0.1067 | val_micro_f1=0.8026
+2026-03-21 18:30:34,777  INFO      models.pretrained_encoder_classifier — Epoch 3/3 | loss=0.0833 | val_micro_f1=0.8128
+2026-03-21 18:30:34,792  INFO      models.pretrained_encoder_classifier — MLP training complete. Best val Micro-F1: 0.8128
+2026-03-21 18:30:35,844  INFO      loris_pipeline —   encoder_mlp             micro-F1=0.8128  macro-F1=0.2741  (67.4s)
+2026-03-21 18:30:35,844  INFO      loris_pipeline — Best single-model val micro-F1 (baseline): 0.8616
+2026-03-21 18:30:35,844  INFO      loris_pipeline — 
+2026-03-21 18:30:35,844  INFO      loris_pipeline — ============================================================
+2026-03-21 18:30:35,844  INFO      loris_pipeline — PIPELINE ATTEMPT 1 / 4
+2026-03-21 18:30:35,844  INFO      loris_pipeline — ============================================================
+2026-03-21 18:30:35,844  INFO      loris_pipeline — === Step 3.1  Pattern Abstraction ===
+2026-03-21 18:30:35,852  INFO      pattern_extraction.pattern_abstractor — PatternAbstractor.fit() called on 1600 documents.
+2026-03-21 18:30:35,856  INFO      pattern_extraction.pattern_abstractor — Step 1 | Embedding and clustering 1600 documents.
+2026-03-21 18:30:35,856  INFO      pattern_extraction.pattern_abstractor — Loading sentence-transformer model 'sentence-transformers/all-MiniLM-L6-v2'.
+2026-03-21 18:31:03,703  INFO      pattern_extraction.pattern_abstractor — Auto k-selection chose k=3.
+2026-03-21 18:31:05,590  INFO      pattern_extraction.pattern_abstractor — Step 1 | Selected k=3 clusters.
+2026-03-21 18:31:05,590  INFO      pattern_extraction.pattern_abstractor — Step 2 | Anchor extraction and pattern generation.
+2026-03-21 18:31:06,349  INFO      pattern_extraction.pattern_abstractor — Loaded spaCy model 'en_core_web_sm'.
+2026-03-21 18:32:59,580  INFO      pattern_extraction.pattern_abstractor —   Cluster 0 | 585 docs | 18087 anchors | 20796 candidate predicates
+2026-03-21 18:33:08,883  INFO      pattern_extraction.pattern_abstractor —   Cluster 1 | 443 docs | 4222 anchors | 5312 candidate predicates
+2026-03-21 18:34:08,337  INFO      pattern_extraction.pattern_abstractor —   Cluster 2 | 572 docs | 13068 anchors | 14873 candidate predicates
+2026-03-21 18:34:08,399  INFO      pattern_extraction.pattern_abstractor — Step 2 | Total unique candidate predicates: 37758
+2026-03-21 18:34:08,400  INFO      pattern_extraction.pattern_abstractor — Step 3 | Screening by coverage [0.020, 0.900] and entropy < 1.000.
+2026-03-21 18:42:58,380  INFO      pattern_extraction.pattern_abstractor — Step 3 | Predicates surviving screening: 324 / 37758
+2026-03-21 18:42:58,415  INFO      pattern_extraction.pattern_store — PatternStore saved 324 predicates to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/patterns.json.
+2026-03-21 18:42:58,415  INFO      loris_pipeline — Pattern Abstraction done in 742.6s — 324 predicates extracted, 3 clusters, saved to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/patterns.json
+2026-03-21 18:42:58,420  INFO      loris_pipeline — === Step 3.2  Dynamic Router ===
+2026-03-21 18:42:58,420  INFO      loris_pipeline — Building document features (TF-IDF + TruncatedSVD) …
+2026-03-21 18:43:00,460  INFO      loris_pipeline — Building oracle masks for 1600 documents …
+2026-03-21 18:43:05,792  INFO      loris_pipeline — Training SelectionNetwork for 30 epochs …
+2026-03-21 18:43:05,806  INFO      loris_pipeline —   [Router epoch   5/30]  L_imit=0.6750  L_ent=1.7895  L_total=0.4960
+2026-03-21 18:43:05,814  INFO      loris_pipeline —   [Router epoch  10/30]  L_imit=0.6325  L_ent=1.7763  L_total=0.4549
+2026-03-21 18:43:05,821  INFO      loris_pipeline —   [Router epoch  15/30]  L_imit=0.5722  L_ent=1.7297  L_total=0.3993
+2026-03-21 18:43:05,829  INFO      loris_pipeline —   [Router epoch  20/30]  L_imit=0.4936  L_ent=1.6201  L_total=0.3316
+2026-03-21 18:43:05,836  INFO      loris_pipeline —   [Router epoch  25/30]  L_imit=0.4131  L_ent=1.4610  L_total=0.2670
+2026-03-21 18:43:05,844  INFO      loris_pipeline —   [Router epoch  30/30]  L_imit=0.3534  L_ent=1.3115  L_total=0.2223
+2026-03-21 18:43:05,845  INFO      loris_pipeline — Router done in 7.4s — selected models: ['encoder_mlp', 'textcnn', 'tfidf_svm_bigram']  (frequency: {'tfidf_svm_unigram': 0, 'tfidf_svm_bigram': 400, 'tfidf_lr_bigram': 0, 'textcnn': 400, 'bilstm': 0, 'encoder_mlp': 400})
+2026-03-21 18:43:05,846  INFO      loris_pipeline — Registered ML predicate: loris_clf_encoder_mlp
+2026-03-21 18:43:05,846  INFO      loris_pipeline — Registered ML predicate: loris_clf_textcnn
+2026-03-21 18:43:05,846  INFO      loris_pipeline — Registered ML predicate: loris_clf_tfidf_svm_bigram
+2026-03-21 18:43:05,846  INFO      loris_pipeline — === Step 3.3  Rule Discovery ===
+2026-03-21 18:43:05,846  INFO      loris_pipeline — Candidate predicates=324  ML models=3  labels=20  max_trials=100  top_n=10
+2026-03-21 18:44:22,696  INFO      rule_discovery.loris_rule_discovery — RDLSet saved 0 rules to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/rules.json.
+2026-03-21 18:44:22,696  INFO      loris_pipeline — Rule Discovery done in 76.8s — 0 rules found, saved to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/rules.json
+2026-03-21 18:44:22,696  WARNING   loris_pipeline — ✗ Quality issues on attempt 1: ['empty_ruleset']
+2026-03-21 18:44:22,696  WARNING   loris_pipeline — Auto-tuning hyperparams (attempt 1) — issues: ['empty_ruleset']
+2026-03-21 18:44:22,696  WARNING   loris_pipeline —   ↳ empty_ruleset → min_coverage_rule=0.0150  max_trials=200  top_n=15
+2026-03-21 18:44:22,696  INFO      loris_pipeline — 
+2026-03-21 18:44:22,696  INFO      loris_pipeline — ============================================================
+2026-03-21 18:44:22,696  INFO      loris_pipeline — PIPELINE ATTEMPT 2 / 4
+2026-03-21 18:44:22,696  INFO      loris_pipeline — ============================================================
+2026-03-21 18:44:22,696  INFO      loris_pipeline — === Step 3.1  Pattern Abstraction ===
+2026-03-21 18:44:22,704  INFO      pattern_extraction.pattern_abstractor — PatternAbstractor.fit() called on 1600 documents.
+2026-03-21 18:44:22,708  INFO      pattern_extraction.pattern_abstractor — Step 1 | Embedding and clustering 1600 documents.
+2026-03-21 18:44:22,708  INFO      pattern_extraction.pattern_abstractor — Loading sentence-transformer model 'sentence-transformers/all-MiniLM-L6-v2'.
+2026-03-21 18:44:43,091  INFO      pattern_extraction.pattern_abstractor — Auto k-selection chose k=3.
+2026-03-21 18:44:45,198  INFO      pattern_extraction.pattern_abstractor — Step 1 | Selected k=3 clusters.
+2026-03-21 18:44:45,198  INFO      pattern_extraction.pattern_abstractor — Step 2 | Anchor extraction and pattern generation.
+2026-03-21 18:44:46,053  INFO      pattern_extraction.pattern_abstractor — Loaded spaCy model 'en_core_web_sm'.
+2026-03-21 18:46:38,885  INFO      pattern_extraction.pattern_abstractor —   Cluster 0 | 585 docs | 18087 anchors | 20796 candidate predicates
+2026-03-21 18:46:48,168  INFO      pattern_extraction.pattern_abstractor —   Cluster 1 | 443 docs | 4222 anchors | 5312 candidate predicates
+2026-03-21 18:47:48,092  INFO      pattern_extraction.pattern_abstractor —   Cluster 2 | 572 docs | 13068 anchors | 14873 candidate predicates
+2026-03-21 18:47:48,156  INFO      pattern_extraction.pattern_abstractor — Step 2 | Total unique candidate predicates: 37758
+2026-03-21 18:47:48,156  INFO      pattern_extraction.pattern_abstractor — Step 3 | Screening by coverage [0.020, 0.900] and entropy < 1.000.
+2026-03-21 18:56:37,283  INFO      pattern_extraction.pattern_abstractor — Step 3 | Predicates surviving screening: 324 / 37758
+2026-03-21 18:56:37,317  INFO      pattern_extraction.pattern_store — PatternStore saved 324 predicates to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/patterns.json.
+2026-03-21 18:56:37,317  INFO      loris_pipeline — Pattern Abstraction done in 734.6s — 324 predicates extracted, 3 clusters, saved to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/patterns.json
+2026-03-21 18:56:37,322  INFO      loris_pipeline — === Step 3.2  Dynamic Router ===
+2026-03-21 18:56:37,322  INFO      loris_pipeline — Building document features (TF-IDF + TruncatedSVD) …
+2026-03-21 18:56:39,247  INFO      loris_pipeline — Building oracle masks for 1600 documents …
+2026-03-21 18:56:44,503  INFO      loris_pipeline — Training SelectionNetwork for 30 epochs …
+2026-03-21 18:56:44,513  INFO      loris_pipeline —   [Router epoch   5/30]  L_imit=0.6717  L_ent=1.7896  L_total=0.4927
+2026-03-21 18:56:44,522  INFO      loris_pipeline —   [Router epoch  10/30]  L_imit=0.6294  L_ent=1.7760  L_total=0.4517
+2026-03-21 18:56:44,531  INFO      loris_pipeline —   [Router epoch  15/30]  L_imit=0.5690  L_ent=1.7292  L_total=0.3961
+2026-03-21 18:56:44,539  INFO      loris_pipeline —   [Router epoch  20/30]  L_imit=0.4902  L_ent=1.6186  L_total=0.3283
+2026-03-21 18:56:44,548  INFO      loris_pipeline —   [Router epoch  25/30]  L_imit=0.4085  L_ent=1.4527  L_total=0.2632
+2026-03-21 18:56:44,557  INFO      loris_pipeline —   [Router epoch  30/30]  L_imit=0.3521  L_ent=1.3034  L_total=0.2218
+2026-03-21 18:56:44,558  INFO      loris_pipeline — Router done in 7.2s — selected models: ['encoder_mlp', 'textcnn', 'tfidf_svm_bigram']  (frequency: {'tfidf_svm_unigram': 0, 'tfidf_svm_bigram': 400, 'tfidf_lr_bigram': 0, 'textcnn': 400, 'bilstm': 0, 'encoder_mlp': 400})
+2026-03-21 18:56:44,560  INFO      loris_pipeline — Registered ML predicate: loris_clf_encoder_mlp
+2026-03-21 18:56:44,560  INFO      loris_pipeline — Registered ML predicate: loris_clf_textcnn
+2026-03-21 18:56:44,560  INFO      loris_pipeline — Registered ML predicate: loris_clf_tfidf_svm_bigram
+2026-03-21 18:56:44,560  INFO      loris_pipeline — === Step 3.3  Rule Discovery ===
+2026-03-21 18:56:44,560  INFO      loris_pipeline — Candidate predicates=324  ML models=3  labels=20  max_trials=200  top_n=15
+2026-03-21 18:59:33,379  INFO      rule_discovery.loris_rule_discovery — RDLSet saved 0 rules to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/rules.json.
+2026-03-21 18:59:33,379  INFO      loris_pipeline — Rule Discovery done in 168.8s — 0 rules found, saved to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/rules.json
+2026-03-21 18:59:33,379  WARNING   loris_pipeline — ✗ Quality issues on attempt 2: ['empty_ruleset']
+2026-03-21 18:59:33,379  WARNING   loris_pipeline — Auto-tuning hyperparams (attempt 2) — issues: ['empty_ruleset']
+2026-03-21 18:59:33,379  WARNING   loris_pipeline —   ↳ empty_ruleset → min_coverage_rule=0.0075  max_trials=400  top_n=20
+2026-03-21 18:59:33,379  INFO      loris_pipeline — 
+2026-03-21 18:59:33,379  INFO      loris_pipeline — ============================================================
+2026-03-21 18:59:33,379  INFO      loris_pipeline — PIPELINE ATTEMPT 3 / 4
+2026-03-21 18:59:33,379  INFO      loris_pipeline — ============================================================
+2026-03-21 18:59:33,379  INFO      loris_pipeline — === Step 3.1  Pattern Abstraction ===
+2026-03-21 18:59:33,387  INFO      pattern_extraction.pattern_abstractor — PatternAbstractor.fit() called on 1600 documents.
+2026-03-21 18:59:33,390  INFO      pattern_extraction.pattern_abstractor — Step 1 | Embedding and clustering 1600 documents.
+2026-03-21 18:59:33,390  INFO      pattern_extraction.pattern_abstractor — Loading sentence-transformer model 'sentence-transformers/all-MiniLM-L6-v2'.
+2026-03-21 18:59:54,494  INFO      pattern_extraction.pattern_abstractor — Auto k-selection chose k=3.
+2026-03-21 18:59:56,388  INFO      pattern_extraction.pattern_abstractor — Step 1 | Selected k=3 clusters.
+2026-03-21 18:59:56,388  INFO      pattern_extraction.pattern_abstractor — Step 2 | Anchor extraction and pattern generation.
+2026-03-21 18:59:57,116  INFO      pattern_extraction.pattern_abstractor — Loaded spaCy model 'en_core_web_sm'.
+2026-03-21 19:01:49,689  INFO      pattern_extraction.pattern_abstractor —   Cluster 0 | 585 docs | 18087 anchors | 20796 candidate predicates
+2026-03-21 19:01:58,881  INFO      pattern_extraction.pattern_abstractor —   Cluster 1 | 443 docs | 4222 anchors | 5312 candidate predicates
+2026-03-21 19:02:59,252  INFO      pattern_extraction.pattern_abstractor —   Cluster 2 | 572 docs | 13068 anchors | 14873 candidate predicates
+2026-03-21 19:02:59,314  INFO      pattern_extraction.pattern_abstractor — Step 2 | Total unique candidate predicates: 37758
+2026-03-21 19:02:59,314  INFO      pattern_extraction.pattern_abstractor — Step 3 | Screening by coverage [0.020, 0.900] and entropy < 1.000.
+2026-03-21 19:11:48,042  INFO      pattern_extraction.pattern_abstractor — Step 3 | Predicates surviving screening: 324 / 37758
+2026-03-21 19:11:48,076  INFO      pattern_extraction.pattern_store — PatternStore saved 324 predicates to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/patterns.json.
+2026-03-21 19:11:48,076  INFO      loris_pipeline — Pattern Abstraction done in 734.7s — 324 predicates extracted, 3 clusters, saved to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/patterns.json
+2026-03-21 19:11:48,081  INFO      loris_pipeline — === Step 3.2  Dynamic Router ===
+2026-03-21 19:11:48,081  INFO      loris_pipeline — Building document features (TF-IDF + TruncatedSVD) …
+2026-03-21 19:11:50,057  INFO      loris_pipeline — Building oracle masks for 1600 documents …
+2026-03-21 19:11:55,333  INFO      loris_pipeline — Training SelectionNetwork for 30 epochs …
+2026-03-21 19:11:55,343  INFO      loris_pipeline —   [Router epoch   5/30]  L_imit=0.6663  L_ent=1.7889  L_total=0.4874
+2026-03-21 19:11:55,352  INFO      loris_pipeline —   [Router epoch  10/30]  L_imit=0.6231  L_ent=1.7734  L_total=0.4457
+2026-03-21 19:11:55,360  INFO      loris_pipeline —   [Router epoch  15/30]  L_imit=0.5588  L_ent=1.7200  L_total=0.3868
+2026-03-21 19:11:55,368  INFO      loris_pipeline —   [Router epoch  20/30]  L_imit=0.4767  L_ent=1.5976  L_total=0.3170
+2026-03-21 19:11:55,377  INFO      loris_pipeline —   [Router epoch  25/30]  L_imit=0.3975  L_ent=1.4315  L_total=0.2544
+2026-03-21 19:11:55,385  INFO      loris_pipeline —   [Router epoch  30/30]  L_imit=0.3453  L_ent=1.2927  L_total=0.2160
+2026-03-21 19:11:55,386  INFO      loris_pipeline — Router done in 7.3s — selected models: ['encoder_mlp', 'textcnn', 'tfidf_svm_bigram']  (frequency: {'tfidf_svm_unigram': 0, 'tfidf_svm_bigram': 400, 'tfidf_lr_bigram': 0, 'textcnn': 400, 'bilstm': 0, 'encoder_mlp': 400})
+2026-03-21 19:11:55,387  INFO      loris_pipeline — Registered ML predicate: loris_clf_encoder_mlp
+2026-03-21 19:11:55,387  INFO      loris_pipeline — Registered ML predicate: loris_clf_textcnn
+2026-03-21 19:11:55,387  INFO      loris_pipeline — Registered ML predicate: loris_clf_tfidf_svm_bigram
+2026-03-21 19:11:55,387  INFO      loris_pipeline — === Step 3.3  Rule Discovery ===
+2026-03-21 19:11:55,387  INFO      loris_pipeline — Candidate predicates=324  ML models=3  labels=20  max_trials=400  top_n=20
+2026-03-21 19:18:47,244  INFO      rule_discovery.loris_rule_discovery — RDLSet saved 0 rules to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/rules.json.
+2026-03-21 19:18:47,244  INFO      loris_pipeline — Rule Discovery done in 411.9s — 0 rules found, saved to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/rules.json
+2026-03-21 19:18:47,245  WARNING   loris_pipeline — ✗ Quality issues on attempt 3: ['empty_ruleset']
+2026-03-21 19:18:47,245  WARNING   loris_pipeline — Auto-tuning hyperparams (attempt 3) — issues: ['empty_ruleset']
+2026-03-21 19:18:47,245  WARNING   loris_pipeline —   ↳ empty_ruleset → min_coverage_rule=0.0037  max_trials=400  top_n=20
+2026-03-21 19:18:47,245  INFO      loris_pipeline — 
+2026-03-21 19:18:47,245  INFO      loris_pipeline — ============================================================
+2026-03-21 19:18:47,245  INFO      loris_pipeline — PIPELINE ATTEMPT 4 / 4
+2026-03-21 19:18:47,245  INFO      loris_pipeline — ============================================================
+2026-03-21 19:18:47,245  INFO      loris_pipeline — === Step 3.1  Pattern Abstraction ===
+2026-03-21 19:18:47,253  INFO      pattern_extraction.pattern_abstractor — PatternAbstractor.fit() called on 1600 documents.
+2026-03-21 19:18:47,256  INFO      pattern_extraction.pattern_abstractor — Step 1 | Embedding and clustering 1600 documents.
+2026-03-21 19:18:47,256  INFO      pattern_extraction.pattern_abstractor — Loading sentence-transformer model 'sentence-transformers/all-MiniLM-L6-v2'.
+2026-03-21 19:19:07,108  INFO      pattern_extraction.pattern_abstractor — Auto k-selection chose k=3.
+2026-03-21 19:19:08,792  INFO      pattern_extraction.pattern_abstractor — Step 1 | Selected k=3 clusters.
+2026-03-21 19:19:08,792  INFO      pattern_extraction.pattern_abstractor — Step 2 | Anchor extraction and pattern generation.
+2026-03-21 19:19:09,668  INFO      pattern_extraction.pattern_abstractor — Loaded spaCy model 'en_core_web_sm'.
+2026-03-21 19:21:02,387  INFO      pattern_extraction.pattern_abstractor —   Cluster 0 | 585 docs | 18087 anchors | 20796 candidate predicates
+2026-03-21 19:21:11,548  INFO      pattern_extraction.pattern_abstractor —   Cluster 1 | 443 docs | 4222 anchors | 5312 candidate predicates
+2026-03-21 19:22:11,183  INFO      pattern_extraction.pattern_abstractor —   Cluster 2 | 572 docs | 13068 anchors | 14873 candidate predicates
+2026-03-21 19:22:11,246  INFO      pattern_extraction.pattern_abstractor — Step 2 | Total unique candidate predicates: 37758
+2026-03-21 19:22:11,247  INFO      pattern_extraction.pattern_abstractor — Step 3 | Screening by coverage [0.020, 0.900] and entropy < 1.000.
+2026-03-21 19:31:00,371  INFO      pattern_extraction.pattern_abstractor — Step 3 | Predicates surviving screening: 324 / 37758
+2026-03-21 19:31:00,405  INFO      pattern_extraction.pattern_store — PatternStore saved 324 predicates to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/patterns.json.
+2026-03-21 19:31:00,405  INFO      loris_pipeline — Pattern Abstraction done in 733.2s — 324 predicates extracted, 3 clusters, saved to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/patterns.json
+2026-03-21 19:31:00,410  INFO      loris_pipeline — === Step 3.2  Dynamic Router ===
+2026-03-21 19:31:00,410  INFO      loris_pipeline — Building document features (TF-IDF + TruncatedSVD) …
+2026-03-21 19:31:02,650  INFO      loris_pipeline — Building oracle masks for 1600 documents …
+2026-03-21 19:31:07,930  INFO      loris_pipeline — Training SelectionNetwork for 30 epochs …
+2026-03-21 19:31:07,942  INFO      loris_pipeline —   [Router epoch   5/30]  L_imit=0.6619  L_ent=1.7879  L_total=0.4831
+2026-03-21 19:31:07,952  INFO      loris_pipeline —   [Router epoch  10/30]  L_imit=0.6190  L_ent=1.7710  L_total=0.4419
+2026-03-21 19:31:07,961  INFO      loris_pipeline —   [Router epoch  15/30]  L_imit=0.5564  L_ent=1.7173  L_total=0.3847
+2026-03-21 19:31:07,970  INFO      loris_pipeline —   [Router epoch  20/30]  L_imit=0.4762  L_ent=1.5987  L_total=0.3163
+2026-03-21 19:31:07,979  INFO      loris_pipeline —   [Router epoch  25/30]  L_imit=0.3972  L_ent=1.4365  L_total=0.2536
+2026-03-21 19:31:07,988  INFO      loris_pipeline —   [Router epoch  30/30]  L_imit=0.3457  L_ent=1.2954  L_total=0.2161
+2026-03-21 19:31:07,988  INFO      loris_pipeline — Router done in 7.6s — selected models: ['encoder_mlp', 'textcnn', 'tfidf_svm_bigram']  (frequency: {'tfidf_svm_unigram': 0, 'tfidf_svm_bigram': 400, 'tfidf_lr_bigram': 0, 'textcnn': 400, 'bilstm': 0, 'encoder_mlp': 400})
+2026-03-21 19:31:07,990  INFO      loris_pipeline — Registered ML predicate: loris_clf_encoder_mlp
+2026-03-21 19:31:07,990  INFO      loris_pipeline — Registered ML predicate: loris_clf_textcnn
+2026-03-21 19:31:07,990  INFO      loris_pipeline — Registered ML predicate: loris_clf_tfidf_svm_bigram
+2026-03-21 19:31:07,990  INFO      loris_pipeline — === Step 3.3  Rule Discovery ===
+2026-03-21 19:31:07,990  INFO      loris_pipeline — Candidate predicates=324  ML models=3  labels=20  max_trials=400  top_n=20
+2026-03-21 19:38:00,766  INFO      rule_discovery.loris_rule_discovery — RDLSet saved 0 rules to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/rules.json.
+2026-03-21 19:38:00,766  INFO      loris_pipeline — Rule Discovery done in 412.8s — 0 rules found, saved to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/rules.json
+2026-03-21 19:38:00,766  WARNING   loris_pipeline — ✗ Quality issues on attempt 4: ['empty_ruleset']
+2026-03-21 19:38:00,766  ERROR     loris_pipeline — All 4 retries exhausted.
+2026-03-21 19:38:00,766  ERROR     root — 
+========================================================================
+  LORIS PIPELINE DIAGNOSTIC REPORT
+  All retries exhausted — human intervention required.
+========================================================================
+
+### Data stats
+  Labels: ['earn', 'acq', 'money-fx', 'grain', 'crude', 'trade', 'interest', 'ship', 'wheat', 'corn', 'sugar', 'oilseed', 'dlr', 'gnp', 'coffee', 'veg-oil', 'gold', 'nat-gas', 'money-supply', 'livestock']
+  Label counts per doc (val): min=1  max=4  mean=1.14
+  Label freq (val): [168.0, 82.0, 22.0, 21.0, 25.0, 25.0, 16.0, 10.0, 9.0, 9.0, 8.0, 4.0, 7.0, 9.0, 8.0, 4.0, 6.0, 8.0, 8.0, 6.0]
+
+### Final hyperparameters
+  subset_size: 2000
+  val_ratio: 0.2
+  top_labels: 20
+  n_clusters: None
+  min_coverage: 0.02
+  max_entropy_threshold: 1.0
+  tfidf_top_k: 20
+  router_feat_dim: 128
+  router_hidden_dim: 256
+  k_models: 3
+  router_sigma: 0.1
+  router_num_samples: 500
+  router_epochs: 30
+  router_lr: 0.001
+  max_trials: 400
+  top_n_rules: 20
+  min_coverage_rule: 0.00375
+  min_rules: 1
+  min_avg_coverage: 0.03
+  min_f1_gain: 0.005
+  max_avg_body_len: 8
+  max_retries: 3
+
+### Issues per attempt
+  Attempt 1: ['empty_ruleset']
+  Attempt 2: ['empty_ruleset']
+  Attempt 3: ['empty_ruleset']
+  Attempt 4: ['empty_ruleset']
+
+### Last rule set
+  Rules found: N/A
+
+### Recommendations
+  1. Increase --subset_size for more training data.
+  2. Try fewer --top_labels (e.g. 10) for a simpler labelling task.
+  3. Manually lower min_coverage_rule below current value.
+  4. Check pattern coverage stats in patterns.json.
+  5. Add stronger pre-trained models (encoder/LoRA) to the pool.
+========================================================================
+Diagnostic report written to /root/autodl-tmp/Loris/experiments/reuters_20260321_182917/DIAGNOSTIC_REPORT.txt

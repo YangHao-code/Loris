@@ -1,0 +1,52 @@
+{
+  "label_names": [
+    "earn",
+    "acq",
+    "money-fx",
+    "grain",
+    "crude",
+    "trade",
+    "interest",
+    "ship",
+    "wheat",
+    "corn",
+    "sugar",
+    "oilseed",
+    "dlr",
+    "gnp",
+    "coffee",
+    "veg-oil",
+    "gold",
+    "nat-gas",
+    "money-supply",
+    "livestock"
+  ],
+  "n_rules": 1,
+  "rules": [
+    {
+      "body": [
+        {
+          "type": "FreqPredicate",
+          "attr": "cnt",
+          "r": {
+            "raw": "000\\ vs",
+            "flags": 0
+          },
+          "op": "<",
+          "eta": 19.0,
+          "sim": false,
+          "threshold": 0.85
+        },
+        {
+          "type": "LabelPredicate",
+          "label": "earn",
+          "op": "contains"
+        }
+      ],
+      "consequence": "earn",
+      "score": 0.05,
+      "coverage": 0.42,
+      "trial_number": 63
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+2026-03-21 20:43:51,813  INFO      loris_pipeline — Experiment directory: /root/autodl-tmp/Loris/experiments/reuters_20260321_204351
+2026-03-21 20:43:51,814  INFO      loris_pipeline — Loading Reuters-21578 …
+2026-03-21 20:43:51,986  INFO      loris_pipeline — Top-20 labels: ['earn', 'acq', 'money-fx', 'grain', 'crude', 'trade', 'interest', 'ship', 'wheat', 'corn']
+2026-03-21 20:43:52,271  INFO      loris_pipeline — Data loaded in 0.5s — train=6072  val=1519  test=1921  labels=20
+2026-03-21 20:43:52,272  INFO      loris_pipeline — Added PretrainedEncoderClassifier (roberta-base).
+2026-03-21 20:43:52,276  INFO      loris_pipeline — Model pool: ['tfidf_svm_unigram', 'tfidf_svm_bigram', 'tfidf_lr_bigram', 'textcnn', 'bilstm', 'encoder_mlp']
+2026-03-21 20:43:52,276  INFO      loris_pipeline — Training  tfidf_svm_unigram …
+2026-03-21 20:43:54,117  INFO      loris_pipeline —   tfidf_svm_unigram       micro-F1=0.9142  macro-F1=0.8395  (1.8s)
+2026-03-21 20:43:54,118  INFO      loris_pipeline — Training  tfidf_svm_bigram …
+2026-03-21 20:43:57,234  INFO      loris_pipeline —   tfidf_svm_bigram        micro-F1=0.9027  macro-F1=0.7970  (3.1s)
+2026-03-21 20:43:57,234  INFO      loris_pipeline — Training  tfidf_lr_bigram …
+2026-03-21 20:44:02,300  INFO      loris_pipeline —   tfidf_lr_bigram         micro-F1=0.7622  macro-F1=0.2994  (5.1s)
+2026-03-21 20:44:02,300  INFO      loris_pipeline — Training  textcnn …
+2026-03-21 20:44:02,491  INFO      models.neural_classifier — Vocabulary size: 15000
+2026-03-21 20:44:06,638  INFO      models.neural_classifier — Epoch 1/5 | loss=0.1598 | val_micro_f1=0.5884
+2026-03-21 20:44:07,979  INFO      models.neural_classifier — Epoch 2/5 | loss=0.1059 | val_micro_f1=0.7001
+2026-03-21 20:44:09,291  INFO      models.neural_classifier — Epoch 3/5 | loss=0.0787 | val_micro_f1=0.7779
+2026-03-21 20:44:10,268  INFO      models.neural_classifier — Epoch 4/5 | loss=0.0649 | val_micro_f1=0.8134
+2026-03-21 20:44:11,517  INFO      models.neural_classifier — Epoch 5/5 | loss=0.0543 | val_micro_f1=0.8152
+2026-03-21 20:44:11,518  INFO      models.neural_classifier — Training complete. Best val Micro-F1: 0.8152
+2026-03-21 20:44:11,642  INFO      loris_pipeline —   textcnn                 micro-F1=0.8152  macro-F1=0.5071  (9.3s)
+2026-03-21 20:44:11,642  INFO      loris_pipeline — Training  bilstm …
+2026-03-21 20:44:11,852  INFO      models.neural_classifier — Vocabulary size: 15000
+2026-03-21 20:44:13,993  INFO      models.neural_classifier — Epoch 1/5 | loss=0.2048 | val_micro_f1=0.4194
+2026-03-21 20:44:15,062  INFO      models.neural_classifier — Epoch 2/5 | loss=0.1303 | val_micro_f1=0.6110
+2026-03-21 20:44:15,920  INFO      models.neural_classifier — Epoch 3/5 | loss=0.1132 | val_micro_f1=0.6076
+2026-03-21 20:44:16,776  INFO      models.neural_classifier — Epoch 4/5 | loss=0.1036 | val_micro_f1=0.6346
+2026-03-21 20:44:17,636  INFO      models.neural_classifier — Epoch 5/5 | loss=0.0943 | val_micro_f1=0.6927
+2026-03-21 20:44:17,638  INFO      models.neural_classifier — Training complete. Best val Micro-F1: 0.6927
+2026-03-21 20:44:17,769  INFO      loris_pipeline —   bilstm                  micro-F1=0.6927  macro-F1=0.1490  (6.1s)
+2026-03-21 20:44:17,769  INFO      loris_pipeline — Training  encoder_mlp …
+2026-03-21 20:44:17,769  INFO      models.pretrained_encoder_classifier — Loading tokeniser: roberta-base
+2026-03-21 20:44:18,004  INFO      models.pretrained_encoder_classifier — MLP path — loading roberta-base
+2026-03-21 20:45:41,228  INFO      models.pretrained_encoder_classifier — Epoch 1/3 | loss=0.1655 | val_micro_f1=0.8659
+2026-03-21 20:47:01,497  INFO      models.pretrained_encoder_classifier — Epoch 2/3 | loss=0.0442 | val_micro_f1=0.9264
+2026-03-21 20:48:21,355  INFO      models.pretrained_encoder_classifier — Epoch 3/3 | loss=0.0311 | val_micro_f1=0.9417
+2026-03-21 20:48:21,371  INFO      models.pretrained_encoder_classifier — MLP training complete. Best val Micro-F1: 0.9417
+2026-03-21 20:48:25,375  INFO      loris_pipeline —   encoder_mlp             micro-F1=0.9417  macro-F1=0.8798  (247.6s)
+2026-03-21 20:48:25,375  INFO      loris_pipeline — Best single-model val micro-F1 (baseline): 0.9417
+2026-03-21 20:48:25,376  INFO      loris_pipeline — 
+2026-03-21 20:48:25,376  INFO      loris_pipeline — ============================================================
+2026-03-21 20:48:25,376  INFO      loris_pipeline — PIPELINE ATTEMPT 1 / 4
+2026-03-21 20:48:25,376  INFO      loris_pipeline — ============================================================
+2026-03-21 20:48:25,376  INFO      loris_pipeline — === Step 3.1  Pattern Abstraction ===
+2026-03-21 20:48:25,391  INFO      pattern_extraction.pattern_abstractor — PatternAbstractor.fit() called on 6072 documents.
+2026-03-21 20:48:25,405  INFO      pattern_extraction.pattern_abstractor — Step 1 | Embedding and clustering 6072 documents.
+2026-03-21 20:48:25,405  INFO      pattern_extraction.pattern_abstractor — Loading sentence-transformer model 'sentence-transformers/all-MiniLM-L6-v2'.
+2026-03-21 20:48:52,211  INFO      pattern_extraction.pattern_abstractor — Auto k-selection chose k=4.
+2026-03-21 20:48:55,498  INFO      pattern_extraction.pattern_abstractor — Step 1 | Selected k=4 clusters.
+2026-03-21 20:48:55,498  INFO      pattern_extraction.pattern_abstractor — Step 2 | Anchor extraction and pattern generation.
+2026-03-21 20:48:56,730  INFO      pattern_extraction.pattern_abstractor — Loaded spaCy model 'en_core_web_sm'.
+2026-03-21 20:57:22,044  INFO      pattern_extraction.pattern_abstractor —   Cluster 0 | 2139 docs | 38841 anchors | 42010 candidate predicates
+2026-03-21 20:57:23,321  INFO      pattern_extraction.pattern_abstractor —   Cluster 1 | 317 docs | 553 anchors | 1283 candidate predicates
+2026-03-21 20:58:30,265  INFO      pattern_extraction.pattern_abstractor —   Cluster 2 | 1420 docs | 12353 anchors | 13769 candidate predicates
