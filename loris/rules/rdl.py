@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
+from sklearn.metrics import f1_score
 
 from loris.document import Document
 from loris.predicates import (

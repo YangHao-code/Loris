@@ -70,9 +70,10 @@ class _CPUSentenceTransformer(_RealST):
 _st.SentenceTransformer = _CPUSentenceTransformer
 
 import run_loris_chase_pipeline as _cp  # noqa: E402
+import loris.pipeline.orchestrator as _orch  # noqa: E402
 
 _NEURAL_KEYS = ("textcnn", "bilstm", "encoder_mlp", "lora_slm")
-_orig_init_models = _cp.init_models
+_orig_init_models = _orch.init_models
 
 
 def _deterministic_init_models(*args, **kwargs):
@@ -82,6 +83,10 @@ def _deterministic_init_models(*args, **kwargs):
     return pool
 
 
+# Patch the name that orchestrator.main() actually calls. After the Phase 6
+# migration main lives in loris.pipeline.orchestrator and resolves init_models
+# from its own module globals, so patching the shim alias is not enough.
+_orch.init_models = _deterministic_init_models
 _cp.init_models = _deterministic_init_models
 
 
