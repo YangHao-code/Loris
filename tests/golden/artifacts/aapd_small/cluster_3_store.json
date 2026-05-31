@@ -1,0 +1,565 @@
+{
+  "version": "0.1.0",
+  "n_classes": 30,
+  "label_names": null,
+  "n_patterns": 47,
+  "patterns": [
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:mathematicals|mathematical|conceptses|reasonings|conceptss|reasoning|concepts|logicals|theories|logical|theorys|logics|theory|logic)\\b",
+        "flags": 2,
+        "sim_text": "logic"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:morphologicals|morphological|syntactics|semantics|syntactic|lexicals|semantic|lexical)\\b",
+        "flags": 2,
+        "sim_text": "semantics"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:programings|programming|schedulings|broadcasts|channelses|programing|programses|scheduling|broadcast|channelss|programss|channels|networks|programs|formats|network|format)\\b",
+        "flags": 2,
+        "sim_text": "programming"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:morphologicals|morphological|semantically|syntactics|semantics|syntactic|lexicals|semantic|lexical)\\b",
+        "flags": 2,
+        "sim_text": "semantic"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:programmes|programses|programme|programss|fundings|programs|projects|funding|program|project|plans|plan)\\b",
+        "flags": 2,
+        "sim_text": "programs"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:programmes|programses|programme|programss|fundings|programs|projects|funding|program|project|plans|plan)\\b",
+        "flags": 2,
+        "sim_text": "program"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:linguistically|morphologicals|geographicals|morphological|geographical|linguistic|culturals|cultural|linguals|lingual)\\b",
+        "flags": 2,
+        "sim_text": "linguistic"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:agentses|agentss|agents|agent|fbis|fbi)\\b",
+        "flags": 2,
+        "sim_text": "agent"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:constraintses|constraintss|constraints|constraint|restraints|restraint)\\b",
+        "flags": 2,
+        "sim_text": "constraint"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:implementations|implementation|processeses|transitions|procedures|processess|processing|progresses|transition|procedure|processed|processes|progresss|progress|process|steps|step)\\b",
+        "flags": 2,
+        "sim_text": "processes"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:implementationses|implementationss|specificationses|implementations|specificationss|specifications|specification|interfaces|interface|specs|spec)\\b",
+        "flags": 2,
+        "sim_text": "specification"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:agentses|agentss|agents|agent|fbis|fbi)\\b",
+        "flags": 2,
+        "sim_text": "agents"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:philosophicals|philosophical|discussions|discourses|discussion|moralities|discourse|moralitys|contexts|morality|context)\\b",
+        "flags": 2,
+        "sim_text": "discourse"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:robustness|sluggishes|sluggishs|strongers|sluggish|stronger|growths|strongs|growth|robust|strong|weaks|weak)\\b",
+        "flags": 2,
+        "sim_text": "robust"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:resourceses|resourcess|naturally|resources|energies|minerals|energys|mineral|natural|natures|energy|nature|waters|water)\\b\\s+\\b(?:languageses|languagess|englishes|languages|englishs|language|arabics|english|spokens|arabic|spoken|words|word)\\b",
+        "flags": 2,
+        "sim_text": "natural language"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:componentses|constituents|componentss|constituent|ingredients|components|ingredient|component|elements|products|element|factors|product|factor|cores|core)\\b",
+        "flags": 2,
+        "sim_text": "components"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:parsings|parsing|parser|parse)\\b",
+        "flags": 2,
+        "sim_text": "parsing"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:mathematicals|mathematical|conceptses|reasonings|conceptss|reasoning|concepts|logicals|theories|logical|theorys|logics|theory|logic)\\b",
+        "flags": 2,
+        "sim_text": "logics"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:misunderstandings|misunderstanding|contradictions|ambiguitieses|contradiction|ambiguitiess|ambiguities|vaguenesses|vaguenesss|ambiguity|inherents|vagueness|inherent)\\b",
+        "flags": 2,
+        "sim_text": "ambiguity"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:epistemologies|epistemologys|epistemology|ontologieses|ontologiess|ontologies|ontology)\\b",
+        "flags": 2,
+        "sim_text": "ontology"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:programings|programming|schedulings|broadcasts|channelses|programing|programses|scheduling|broadcast|channelss|programss|channels|networks|programs|formats|network|format)\\b\\s+\\b(?:languageses|languagess|englishes|languages|englishs|language|arabics|english|spokens|arabic|spoken|words|word)\\b",
+        "flags": 2,
+        "sim_text": "programming language"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\bacl2\\b",
+        "flags": 2,
+        "sim_text": "acl2"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:mathematicals|mathematical|conceptses|reasonings|conceptss|reasoning|concepts|logicals|theories|logical|theorys|logics|theory|logic)\\b\\s+\\b(?:programings|programming|schedulings|broadcasts|channelses|programing|programses|scheduling|broadcast|channelss|programss|channels|networks|programs|formats|network|format)\\b",
+        "flags": 2,
+        "sim_text": "logic programming"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:morphologicals|morphological|phonologicals|grammaticals|phonological|grammatical|syntactics|semantics|syntactic|semantic|lexical)\\b",
+        "flags": 2,
+        "sim_text": "lexical"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:grammars|grammar)\\b",
+        "flags": 2,
+        "sim_text": "grammar"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:literaries|literature|writingses|literarys|writingss|literary|poetries|sciences|writings|poetrys|science|textses|poetry|textss|texts)\\b",
+        "flags": 2,
+        "sim_text": "literature"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:grammars|grammar)\\b",
+        "flags": 2,
+        "sim_text": "grammars"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:infinite|finites|finite|spaces|space)\\b\\s+\\b(?:languages|language|meanings|meaning|phrases|wordses|phrase|wordss|names|words|name|word)\\b",
+        "flags": 2,
+        "sim_text": "infinite word"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:institutionalizes|institutionalize|formalization|formalizeses|formalizings|formalizess|formalizing|formalises|formalized|formalizes|formalise|formalize)\\b",
+        "flags": 2,
+        "sim_text": "formalize"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:inventivenesses|expressiveness|inventivenesss|inventiveness|playfulnesses|directnesses|musicalities|playfulnesss|directnesss|musicalitys|playfulness|directness|musicality|lyricisms|lyricism)\\b",
+        "flags": 2,
+        "sim_text": "expressiveness"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:accepteds|informals|accepted|formally|informal|formal|balls|fulls|ball|full)\\b\\s+\\b(?:substantiations|substantiation|confirmations|confirmation|disarmaments|verification|compliances|disarmament|inspections|monitorings|validations|compliance|inspection|monitoring|validation|checks|check)\\b",
+        "flags": 2,
+        "sim_text": "formal verification"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:descriptionses|descriptionss|descriptions|explanations|describeses|describings|description|descriptive|explanation|describess|describing|references|describes|reference)\\b\\s+\\b(?:mathematicals|mathematical|conceptses|reasonings|conceptss|reasoning|concepts|logicals|theories|logical|theorys|logics|theory|logic)\\b",
+        "flags": 2,
+        "sim_text": "description logic"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:expressiveness|imaginatives|imaginative|expressive|sensuouses|sensuouss|lyricals|sensuals|sensuous|lyrical|poetics|sensual|poetic)\\b\\s+\\b(?:powerfulnesses|electricities|powerfulnesss|electricitys|powerfulness|electricity|pressures|controls|energies|powerful|powerses|pressure|control|energys|powerss|energy|powers|power)\\b",
+        "flags": 2,
+        "sim_text": "expressive power"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:morphological|phonologies|morphology|phonologys|phonology|syntaxes|syntaxs|syntax)\\b",
+        "flags": 2,
+        "sim_text": "morphology"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:responsivenesses|responsivenesss|adaptabilities|responsiveness|adaptabilitys|orderlinesses|scalabilities|adaptability|durabilities|orderlinesss|scalabilitys|durabilitys|hardinesses|lustinesses|orderliness|scalability|durability|hardinesss|lustinesss|robustness|validities|hardiness|lustiness|validitys|validity)\\b",
+        "flags": 2,
+        "sim_text": "robustness"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:parsings|parsing|parser|parse)\\b",
+        "flags": 2,
+        "sim_text": "parse"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:parserses|parserss|parsers|parser|lalrs|lalr)\\b",
+        "flags": 2,
+        "sim_text": "parser"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:componentses|constituents|componentss|constituent|ingredients|components|ingredient|component|elements|products|element|factors|product|factor|cores|core)\\b",
+        "flags": 2,
+        "sim_text": "component"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:personalizes|personalize|synthesises|synthesise|footnotes|memorises|annotate|encrypts|footnote|memorise|encrypt)\\b",
+        "flags": 2,
+        "sim_text": "annotate"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b(?:morphologicals|morphological|syntactics|semantics|syntactic|lexicals|semantic|lexical)\\b",
+        "flags": 2,
+        "sim_text": "semantics"
+      },
+      "r2": {
+        "raw": "\\b(?:programings|programming|schedulings|broadcasts|channelses|programing|programses|scheduling|broadcast|channelss|programss|channels|networks|programs|formats|network|format)\\b",
+        "flags": 2,
+        "sim_text": "programming"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b(?:morphologicals|morphological|syntactics|semantics|syntactic|lexicals|semantic|lexical)\\b",
+        "flags": 2,
+        "sim_text": "semantics"
+      },
+      "r2": {
+        "raw": "\\b(?:morphologicals|morphological|semantically|syntactics|semantics|syntactic|lexicals|semantic|lexical)\\b",
+        "flags": 2,
+        "sim_text": "semantic"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b(?:morphologicals|morphological|syntactics|semantics|syntactic|lexicals|semantic|lexical)\\b",
+        "flags": 2,
+        "sim_text": "semantics"
+      },
+      "r2": {
+        "raw": "\\b(?:programmes|programses|programme|programss|fundings|programs|projects|funding|program|project|plans|plan)\\b",
+        "flags": 2,
+        "sim_text": "program"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b(?:morphologicals|morphological|syntactics|semantics|syntactic|lexicals|semantic|lexical)\\b",
+        "flags": 2,
+        "sim_text": "semantics"
+      },
+      "r2": {
+        "raw": "\\b(?:linguistically|morphologicals|geographicals|morphological|geographical|linguistic|culturals|cultural|linguals|lingual)\\b",
+        "flags": 2,
+        "sim_text": "linguistic"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b(?:programings|programming|schedulings|broadcasts|channelses|programing|programses|scheduling|broadcast|channelss|programss|channels|networks|programs|formats|network|format)\\b",
+        "flags": 2,
+        "sim_text": "programming"
+      },
+      "r2": {
+        "raw": "\\b(?:programmes|programses|programme|programss|fundings|programs|projects|funding|program|project|plans|plan)\\b",
+        "flags": 2,
+        "sim_text": "programs"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b(?:programings|programming|schedulings|broadcasts|channelses|programing|programses|scheduling|broadcast|channelss|programss|channels|networks|programs|formats|network|format)\\b",
+        "flags": 2,
+        "sim_text": "programming"
+      },
+      "r2": {
+        "raw": "\\b(?:programmes|programses|programme|programss|fundings|programs|projects|funding|program|project|plans|plan)\\b",
+        "flags": 2,
+        "sim_text": "program"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b(?:morphologicals|morphological|semantically|syntactics|semantics|syntactic|lexicals|semantic|lexical)\\b",
+        "flags": 2,
+        "sim_text": "semantic"
+      },
+      "r2": {
+        "raw": "\\b(?:linguistically|morphologicals|geographicals|morphological|geographical|linguistic|culturals|cultural|linguals|lingual)\\b",
+        "flags": 2,
+        "sim_text": "linguistic"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b(?:programmes|programses|programme|programss|fundings|programs|projects|funding|program|project|plans|plan)\\b",
+        "flags": 2,
+        "sim_text": "programs"
+      },
+      "r2": {
+        "raw": "\\b(?:programmes|programses|programme|programss|fundings|programs|projects|funding|program|project|plans|plan)\\b",
+        "flags": 2,
+        "sim_text": "program"
+      },
+      "sim": true,
+      "threshold": 0.45
+    }
+  ]
+}

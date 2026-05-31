@@ -149,6 +149,7 @@ class _Pattern:
 
     raw: str
     flags: int = 0
+    sim_text: str = ""  # plain-language anchor for embedding (used when sim=True)
 
     # ------------------------------------------------------------------
     # Compiled pattern property (not stored in dataclass — derived on demand)
@@ -347,9 +348,11 @@ class MatchPredicate(TextualPredicate):
     def __call__(self, doc: Document) -> bool:
         text = self.attr_value(doc)
         if self.sim:
-            emb_pat = _get_embedding(self.r.raw)
-            emb_txt = _get_embedding(text)
-            return _cosine_similarity(emb_pat, emb_txt) >= self.threshold
+            emb_pat = _get_embedding(self.r.sim_text or self.r.raw)
+            for sent in _split_sentences(text):
+                if _cosine_similarity(emb_pat, _get_embedding(sent)) >= self.threshold:
+                    return True
+            return False
         return self.r.search(text) is not None
 
     def __repr__(self) -> str:
@@ -413,7 +416,7 @@ class FreqPredicate(TextualPredicate):
         text = self.attr_value(doc)
         if self.sim:
             sentences = _split_sentences(text)
-            emb_pat = _get_embedding(self.r.raw)
+            emb_pat = _get_embedding(self.r.sim_text or self.r.raw)
             count = sum(
                 1 for s in sentences
                 if _cosine_similarity(emb_pat, _get_embedding(s)) >= self.threshold
@@ -481,8 +484,8 @@ class CooccurPredicate(TextualPredicate):
         text = self.attr_value(doc)
         if self.sim:
             sentences = _split_sentences(text)
-            emb_r1 = _get_embedding(self.r1.raw)
-            emb_r2 = _get_embedding(self.r2.raw)
+            emb_r1 = _get_embedding(self.r1.sim_text or self.r1.raw)
+            emb_r2 = _get_embedding(self.r2.sim_text or self.r2.raw)
             found_r1 = any(
                 _cosine_similarity(emb_r1, _get_embedding(s)) >= self.threshold
                 for s in sentences
@@ -558,8 +561,8 @@ class BeforePredicate(TextualPredicate):
         text = self.attr_value(doc)
         if self.sim:
             sentences = _split_sentences(text)
-            emb_r1 = _get_embedding(self.r1.raw)
-            emb_r2 = _get_embedding(self.r2.raw)
+            emb_r1 = _get_embedding(self.r1.sim_text or self.r1.raw)
+            emb_r2 = _get_embedding(self.r2.sim_text or self.r2.raw)
             pos_r1 = None
             pos_r2 = None
             for i, s in enumerate(sentences):
@@ -657,6 +660,40 @@ class MLPredicate(Predicate):
         return repr(self)
 
 
+@dataclass(frozen=True)
+class MLThresholdPredicate(Predicate):
+    """
+    Threshold-based ML predicate for multi-label classification.
+
+    Unlike :class:`MLPredicate` which uses argmax (single-label), this
+    predicate fires when the model's predicted probability for *label*
+    exceeds *threshold*.  This enables coverage on rare labels that would
+    never be the argmax prediction.
+    """
+
+    model_name: str
+    label: str
+    threshold: float = 0.5
+
+    def __call__(self, doc: Document) -> bool:
+        model = _get_ml_model(self.model_name)
+        if hasattr(model, "predict_proba_single"):
+            proba = model.predict_proba_single(doc.cnt)
+            label_idx = model.label_index(self.label)
+            return float(proba[label_idx]) >= self.threshold
+        # fallback to argmax
+        if hasattr(model, "predict"):
+            return model.predict(doc.cnt) == self.label
+        return False
+
+    def __repr__(self) -> str:
+        return (f"ml_thresh({self.model_name!r}, label={self.label!r}, "
+                f"thresh={self.threshold:.2f})")
+
+    def __str__(self) -> str:
+        return repr(self)
+
+
 # ---------------------------------------------------------------------------
 # LabelPredicate — label-set operations on x.lbl
 # ---------------------------------------------------------------------------
@@ -720,6 +757,82 @@ class LabelPredicate(Predicate):
 
 
 # ---------------------------------------------------------------------------
+# SimPredicate — document similarity predicate for Chase propagation
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class SimPredicate(Predicate):
+    """
+    Document similarity predicate: ``sim(x, y) > threshold``.
+
+    A normal body predicate.  When a rule body contains a SimPredicate,
+    the rule becomes *pairwise*: for every document *x*, iterate over
+    neighbours *y* with ``cosine(x, y) > threshold``.
+
+    - :class:`LabelPredicate` instances in the same body check **y**'s
+      labels (the neighbour), not *x*'s.
+    - Textual predicates still check **x**'s text.
+    - The rule consequence applies to **x**.
+
+    Example rules::
+
+        sim(x, y, 0.85) ∧ τ ∈ y.lbl → add τ to x.lbl
+        sim(x, y, 0.90) ∧ A ∈ y.lbl ∧ match(x.cnt, "kw") → add B to x.lbl
+
+    ``__call__`` is a stub — actual evaluation uses SpMV on a precomputed
+    sparse adjacency matrix:
+    ``(sim_graph[θ] @ label_state[:, τ_idx]) > 0``.
+    """
+
+    threshold: float = 0.85
+
+    def __call__(self, doc: Document) -> bool:
+        return True  # stub — evaluated via sim_graph
+
+    def __repr__(self) -> str:
+        return f"sim(x, y, >{self.threshold:.2f})"
+
+    def __str__(self) -> str:
+        return repr(self)
+
+
+# ---------------------------------------------------------------------------
+# GroupPredicate — attribute-equality predicate for group-based propagation
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class GroupPredicate(Predicate):
+    """
+    Attribute-equality predicate: ``x.attr == y.attr`` (cross-document grouping).
+
+    Paper formalism: ``doc(x) ∧ doc(y) ∧ x.attr == y.attr ∧ label(A∈y.lbl) → add A to x``
+
+    When a rule body contains a GroupPredicate, the rule is *pairwise*:
+    for document *x*, find all documents *y* sharing the same group
+    (same value of ``attr_name``).  If any *y* has the required label
+    (checked via LabelPredicate in the same body), the rule fires on *x*.
+
+    Virtual attributes (cluster IDs, prediction patterns from intermediate
+    models) are stored externally as numpy arrays indexed by document position.
+
+    ``__call__`` is a stub — actual evaluation uses precomputed group
+    membership arrays.
+    """
+
+    attr_name: str
+    group_count: int = 0
+
+    def __call__(self, doc: Document) -> bool:
+        return True  # stub — evaluated via group membership arrays
+
+    def __repr__(self) -> str:
+        return f"x.{self.attr_name} == y.{self.attr_name}"
+
+    def __str__(self) -> str:
+        return repr(self)
+
+
+# ---------------------------------------------------------------------------
 # Serialization helpers
 # ---------------------------------------------------------------------------
 
@@ -737,15 +850,21 @@ def predicate_to_dict(p: Predicate) -> Dict[str, Any]:
     """
     base: Dict[str, Any] = {"type": type(p).__name__}
 
+    def _pat_dict(pat: _Pattern) -> Dict[str, Any]:
+        d: Dict[str, Any] = {"raw": pat.raw, "flags": pat.flags}
+        if pat.sim_text:
+            d["sim_text"] = pat.sim_text
+        return d
+
     if isinstance(p, MatchPredicate):
         base["attr"] = p.attr
-        base["r"] = {"raw": p.r.raw, "flags": p.r.flags}
+        base["r"] = _pat_dict(p.r)
         base["sim"] = p.sim
         base["threshold"] = p.threshold
 
     elif isinstance(p, FreqPredicate):
         base["attr"] = p.attr
-        base["r"] = {"raw": p.r.raw, "flags": p.r.flags}
+        base["r"] = _pat_dict(p.r)
         base["op"] = p.op
         base["eta"] = p.eta
         base["sim"] = p.sim
@@ -753,9 +872,14 @@ def predicate_to_dict(p: Predicate) -> Dict[str, Any]:
 
     elif isinstance(p, (CooccurPredicate, BeforePredicate)):
         base["attr"] = p.attr
-        base["r1"] = {"raw": p.r1.raw, "flags": p.r1.flags}
-        base["r2"] = {"raw": p.r2.raw, "flags": p.r2.flags}
+        base["r1"] = _pat_dict(p.r1)
+        base["r2"] = _pat_dict(p.r2)
         base["sim"] = p.sim
+        base["threshold"] = p.threshold
+
+    elif isinstance(p, MLThresholdPredicate):
+        base["model_name"] = p.model_name
+        base["label"] = p.label
         base["threshold"] = p.threshold
 
     elif isinstance(p, MLPredicate):
@@ -765,6 +889,13 @@ def predicate_to_dict(p: Predicate) -> Dict[str, Any]:
     elif isinstance(p, LabelPredicate):
         base["label"] = p.label
         base["op"] = p.op
+
+    elif isinstance(p, SimPredicate):
+        base["threshold"] = p.threshold
+
+    elif isinstance(p, GroupPredicate):
+        base["attr_name"] = p.attr_name
+        base["group_count"] = p.group_count
 
     else:
         raise TypeError(f"Unknown predicate type: {type(p).__name__!r}")
@@ -824,6 +955,12 @@ def predicate_from_dict(d: Dict[str, Any]) -> Predicate:
             sim=d.get("sim", False),
             threshold=d.get("threshold", 0.85),
         )
+    if ptype == "MLThresholdPredicate":
+        return MLThresholdPredicate(
+            model_name=d["model_name"],
+            label=d["label"],
+            threshold=float(d.get("threshold", 0.5)),
+        )
     if ptype == "MLPredicate":
         return MLPredicate(
             model_name=d["model_name"],
@@ -834,8 +971,18 @@ def predicate_from_dict(d: Dict[str, Any]) -> Predicate:
             label=d["label"],
             op=d.get("op", "contains"),
         )
+    if ptype == "SimPredicate":
+        return SimPredicate(
+            threshold=float(d.get("threshold", 0.85)),
+        )
+    if ptype == "GroupPredicate":
+        return GroupPredicate(
+            attr_name=d["attr_name"],
+            group_count=int(d.get("group_count", 0)),
+        )
     raise ValueError(
         f"Unknown predicate type {ptype!r}. "
         "Expected one of: MatchPredicate, FreqPredicate, "
-        "CooccurPredicate, BeforePredicate, MLPredicate, LabelPredicate."
+        "CooccurPredicate, BeforePredicate, MLPredicate, MLThresholdPredicate, "
+        "LabelPredicate, SimPredicate, GroupPredicate."
     )

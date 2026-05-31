@@ -1,0 +1,24 @@
+# Generated experiment outputs (large, not source)
+experiments/
+results/
+tests/golden/_run/
+tests/golden/_run_check/
+tests/golden/*.log
+
+# Python caches / build
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# Data artifacts (kept out of git; regenerate via scripts)
+*.npy
+embeddings_*.npy
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,601 @@
+{
+  "version": "0.1.0",
+  "n_classes": 30,
+  "label_names": null,
+  "n_patterns": 53,
+  "patterns": [
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:interferences|interventions|interference|interferings|intervention|interfering)\\b",
+        "flags": 2,
+        "sim_text": "interference"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:televisions|broadcasts|channelses|television|broadcast|channelss|channels|networks|channel|network|cables|cable)\\b",
+        "flags": 2,
+        "sim_text": "channels"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:codifications|regulationses|codification|regulationss|regulations|codeses|ruleses|codess|coding|ruless|coded|codes|rules|code)\\b",
+        "flags": 2,
+        "sim_text": "coding"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:approximations|calculationses|approximation|calculationss|calculations|measurements|calculation|measurement|predictions|appraisals|estimation|prediction|appraisal|estimates|estimate)\\b",
+        "flags": 2,
+        "sim_text": "estimation"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:deciphers|decipher|decoding|decrypts|decoded|decoder|decodes|decrypt|decode)\\b",
+        "flags": 2,
+        "sim_text": "decoding"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:freestyles|olympicses|freestyle|olympicss|olympics|relaying|relayses|medleys|olympic|relayss|medley|relays|relay)\\b",
+        "flags": 2,
+        "sim_text": "relay"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:mimo)\\b",
+        "flags": 2,
+        "sim_text": "mimo"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:denses|sparse|dense|thins|thin)\\b",
+        "flags": 2,
+        "sim_text": "sparse"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:electrodynamicses|electrodynamicss|electrodynamics|mathematicals|mathematical|relativities|relativitys|relativity|gravities|gravitys|theories|gravity|quantum|theorys|theory)\\b",
+        "flags": 2,
+        "sim_text": "quantum"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b\\s+\\b(?:codifications|regulationses|codification|regulationss|regulations|codeses|ruleses|codess|coding|ruless|coded|codes|rules|code)\\b",
+        "flags": 2,
+        "sim_text": "network coding"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:televisions|broadcasts|channelses|television|broadcast|channelss|channels|networks|channel|network|cables|cable)\\b\\s+\\b(?:approximations|calculationses|approximation|calculationss|calculations|measurements|calculation|measurement|predictions|appraisals|estimation|prediction|appraisal|estimates|estimate)\\b",
+        "flags": 2,
+        "sim_text": "channel estimation"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:multiplexing|multiplexed|multiplexe)\\b",
+        "flags": 2,
+        "sim_text": "multiplexing"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:confidentialities|confidentialitys|confidentiality|secretivenesses|secretivenesss|secretiveness|silences|secrecy|silence)\\b",
+        "flags": 2,
+        "sim_text": "secrecy"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:partnerships|friendships|investments|partnership|friendship|investment|mutually|commons|common|mutual|trusts|trust)\\b\\s+\\b(?:intelligences|intelligence|information|knowledges|knowledge|provideds|accesses|provided|accesss|sources|access|source|infos|info)\\b",
+        "flags": 2,
+        "sim_text": "mutual information"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:discretes|ternaries|discrete|ternarys|ternary|binary)\\b\\s+\\b(?:erasures|erasure)\\b\\s+\\b(?:televisions|broadcasts|channelses|television|broadcast|channelss|channels|networks|channel|network|cables|cable)\\b",
+        "flags": 2,
+        "sim_text": "binary erasure channel"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:deciphers|decipher|decrypts|decrypt|decode)\\b\\s+\\b(?:sophistications|complexitieses|computationals|sophistication|complexitiess|complexnesses|computational|complexities|complexnesss|dimensionses|complexness|dimensionss|complexity|dimensions|inherents|inherent)\\b",
+        "flags": 2,
+        "sim_text": "decode complexity"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:powerfulnesses|electricities|powerfulnesss|electricitys|powerfulness|electricity|pressures|controls|energies|powerful|powerses|pressure|control|energys|powered|powerss|energy|powers|power)\\b\\s+\\b(?:allocationses|allocationss|allocations|allocateds|allocation|allotments|allocated|allotment)\\b",
+        "flags": 2,
+        "sim_text": "power allocation"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:denses|sparse|dense|thins|thin)\\b\\s+\\b(?:frequencies|signallings|frequencys|signalings|signalling|frequency|signaling|signalses|signalss|warnings|signals|warning|signal|signs|sign)\\b",
+        "flags": 2,
+        "sim_text": "sparse signal"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:decipherers|decipherer|decoderses|decoderss|decoders|decoder)\\b",
+        "flags": 2,
+        "sim_text": "decoder"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:eavesdroppers|eavesdropper)\\b",
+        "flags": 2,
+        "sim_text": "eavesdropper"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:televisions|broadcasts|channelses|television|broadcast|channelss|channels|networks|channel|network|cables|cable)\\b\\s+\\b(?:intelligences|intelligence|information|knowledges|knowledge|provideds|accesses|provided|accesss|sources|access|source|infos|info)\\b",
+        "flags": 2,
+        "sim_text": "channel information"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:televisions|broadcasts|channelses|television|broadcast|channelss|channels|networks|channel|network|cables|cable)\\b\\s+\\b(?:governments|government|nationals|provinces|federals|national|province|stateses|federal|nations|statess|nation|stated|states|state)\\b\\s+\\b(?:intelligences|intelligence|information|knowledges|knowledge|provideds|accesses|provided|accesss|sources|access|source|infos|info)\\b",
+        "flags": 2,
+        "sim_text": "channel state information"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:freestyles|olympicses|freestyle|olympicss|olympics|relaying|relayses|medleys|olympic|relayss|medley|relays|relay)\\b\\s+\\b(?:televisions|broadcasts|channelses|television|broadcast|channelss|channels|networks|channel|network|cables|cable)\\b",
+        "flags": 2,
+        "sim_text": "relay channel"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:transmittings|communicates|transmitteds|transmitting|communicate|transmitses|transmitted|transmitss|transmits|transmit|conveys|convey)\\b\\s+\\b(?:powerfulnesses|electricities|powerfulnesss|electricitys|powerfulness|electricity|pressures|controls|energies|powerful|powerses|pressure|control|energys|powered|powerss|energy|powers|power)\\b",
+        "flags": 2,
+        "sim_text": "transmit power"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:quantisations|quantisation|quantization)\\b",
+        "flags": 2,
+        "sim_text": "quantization"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:wirelesses|wirelesss|cellular|phoneses|wireless|mobiles|phoness|mobile|phones|cells|phone|cell)\\b\\s+\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "cellular network"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:broadcastings|broadcasting|broadcastses|broadcastss|televisions|broadcasts|television|broadcast|aireds|radios|aired|radio)\\b\\s+\\b(?:televisions|broadcasts|channelses|television|broadcast|channelss|channels|networks|channel|network|cables|cable)\\b",
+        "flags": 2,
+        "sim_text": "broadcast channel"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:extraneouses|impertinents|extraneouss|immaterials|impertinent|invertibles|extraneous|immaterial|invertible|orthogonal|symmetrics|symmetric|vectorses|vectorss|vectors)\\b\\s+\\b(?:tournaments|semifinals|tournament|matcheses|semifinal|lucifers|matchess|matching|lucifer|matched|matches|finals|draws|final|match|draw)\\b\\s+\\b(?:followings|following|pursuals|pursual|pursuit|chases|chase)\\b",
+        "flags": 2,
+        "sim_text": "orthogonal matching pursuit"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:approximations|calculationses|approximation|calculationss|calculations|measurements|calculation|measurement|predictions|appraisals|estimation|prediction|appraisal|estimates|estimate)\\b\\s+\\b(?:performanceses|performancess|performances|performance|qualities|successes|qualitys|successs|quality|success|bests|wells|best|well)\\b",
+        "flags": 2,
+        "sim_text": "estimation performance"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:encodeses|encodings|encodeds|encodess|encoding|encoded|encoder|encodes|encode)\\b",
+        "flags": 2,
+        "sim_text": "encode"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:gaussian)\\b\\s+\\b(?:vibrations|noiseless|vibration|soundses|soundss|noises|sounds|noise|sound)\\b",
+        "flags": 2,
+        "sim_text": "gaussian noise"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:kelvins|kelvin|k)\\b\\s+\\b(?:denses|sparse|dense|thins|thin)\\b",
+        "flags": 2,
+        "sim_text": "k sparse"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:progressives|progressive|imperfect)\\b\\s+\\b(?:televisions|broadcasts|channelses|television|broadcast|channelss|channels|networks|channel|network|cables|cable)\\b\\s+\\b(?:approximations|calculationses|approximation|calculationss|calculations|measurements|calculation|measurement|predictions|appraisals|estimation|prediction|appraisal|estimates|estimate)\\b",
+        "flags": 2,
+        "sim_text": "imperfect channel estimation"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:somethings|something|pretties|prettys|muches|pretty|quites|muchs|quite|spots|bits|lots|much|spot|bit|lot)\\b\\s+\\b(?:errorses|mistakes|errorss|mistake|errors|faults|error|fault)\\b\\s+\\b(?:increaseses|increasess|inflations|increases|inflation|highers|rateses|higher|ratess|rating|rates|rises|rate|rise)\\b",
+        "flags": 2,
+        "sim_text": "bit error rate"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:interferences|interventions|interference|interferings|intervention|interfering)\\b\\s+\\b(?:developments|development|investments|businesses|directions|financials|investment|management|managerses|businesss|direction|financial|managerss|business|managers)\\b",
+        "flags": 2,
+        "sim_text": "interference management"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:differents|numerouses|different|numerouss|variouses|multiple|numerous|similars|variouss|similar|typeses|various|typess|types)\\b\\s+\\b(?:transmitters|transmitter|antennases|antennass|antennas|aerials|antenna|aerial)\\b",
+        "flags": 2,
+        "sim_text": "multiple antenna"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:parameters|parameter|vectorses|vectorss|scalars|vectors|scalar|vector)\\b\\s+\\b(?:quantisations|quantisation|quantization)\\b",
+        "flags": 2,
+        "sim_text": "vector quantization"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:televisions|broadcasts|channelses|television|broadcast|channelss|channels|networks|channel|network|cables|cable)\\b\\s+\\b(?:model)\\b",
+        "flags": 2,
+        "sim_text": "channel model"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:televisions|broadcasts|channelses|television|broadcast|channelss|channels|networks|channel|network|cables|cable)\\b\\s+\\b(?:conditioning|conditionses|anonymities|conditional|conditioned|conditionss|anonymitys|conditions|anonymity|condition|hospitals|hospital|patients|statuses|unclears|patient|statuss|unclear|status)\\b",
+        "flags": 2,
+        "sim_text": "channel condition"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:encoderses|encoderss|encoders|encoder|codecs|codec)\\b",
+        "flags": 2,
+        "sim_text": "encoder"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:confidentialities|confidentialitys|confidentiality|secretivenesses|secretivenesss|secretiveness|silences|secrecy|silence)\\b\\s+\\b(?:capabilities|capacitieses|capabilitys|capacitiess|capability|capacities|increases|capacity|increase|supplies|supplys|supply|costs|cost)\\b",
+        "flags": 2,
+        "sim_text": "secrecy capacity"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:cloudses|cloudss|clouds|ashes|cloud|dusts|ashs|dust|ash)\\b\\s+\\b(?:radiocommunications|radiocommunication|broadcastings|broadcasting|broadcastses|broadcastss|televisions|broadcasts|television|wirelesses|broadcast|wirelesss|channels|wireless|channel|radio)\\b\\s+\\b(?:informations|admittances|information|accessions|admissions|admittance|provideses|providings|accession|admission|internets|providess|providing|accessed|internet|provides|entrees|provide|access|entree)\\b\\s+\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "cloud radio access network"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:randomness|randomly|random)\\b\\s+\\b(?:codifications|regulationses|codification|regulationss|regulations|codeses|ruleses|codess|coding|ruless|coded|codes|rules|code)\\b",
+        "flags": 2,
+        "sim_text": "random code"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:interferences|interventions|interference|interferings|intervention|interfering)\\b\\s+\\b(?:televisions|broadcasts|channelses|television|broadcast|channelss|channels|networks|channel|network|cables|cable)\\b",
+        "flags": 2,
+        "sim_text": "interference channel"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:physiologicals|physiological|behaviourals|behaviorals|behavioural|perceptuals|behavioral|cognitions|perceptual|cognition|cognitive)\\b\\s+\\b(?:radiocommunications|radiocommunication|broadcastings|broadcasting|broadcastses|broadcastss|televisions|broadcasts|television|wirelesses|broadcast|wirelesss|channels|wireless|channel|radio)\\b",
+        "flags": 2,
+        "sim_text": "cognitive radio"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:boisterouses|boisterouss|boisterous|raucouses|raucouss|raucous|rowdies|rowdys|louds|noisy|rowdy|loud)\\b\\s+\\b(?:televisions|broadcasts|channelses|television|broadcast|channelss|channels|networks|channel|network|cables|cable)\\b",
+        "flags": 2,
+        "sim_text": "noisy channel"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b\\s+\\b(?:capabilities|capacitieses|capabilitys|capacitiess|capability|capacities|increases|capacity|increase|supplies|supplys|supply|costs|cost)\\b",
+        "flags": 2,
+        "sim_text": "network capacity"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:radiocommunications|radiocommunication|broadbands|broadband|cellulars|cellular|phoneses|verizons|wireless|mobiles|phoness|verizon|mobile|phones|radios|radio)\\b\\s+\\b(?:communicationses|communicationss|communicatings|communications|communicating|communication|technologies|technologys|knowledges|serviceses|technology|knowledge|servicess|systemses|services|systemss|systems)\\b",
+        "flags": 2,
+        "sim_text": "wireless communication"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:differents|numerouses|different|numerouss|variouses|multiple|numerous|similars|variouss|similar|typeses|various|typess|types)\\b\\s+\\b(?:informations|admittances|information|accessions|admissions|admittance|provideses|providings|accession|admission|internets|providess|providing|accessed|internet|provides|entrees|provide|access|entree)\\b\\s+\\b(?:televisions|broadcasts|channelses|television|broadcast|channelss|channels|networks|channel|network|cables|cable)\\b",
+        "flags": 2,
+        "sim_text": "multiple access channel"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:perceptuals|perceptual|temporals|spacials|temporal|spacial|spatial)\\b\\s+\\b(?:multiplexing|multiplexed|multiplexe)\\b",
+        "flags": 2,
+        "sim_text": "spatial multiplexing"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:compressive|tensiles|tensile)\\b\\s+\\b(?:feelings|feeling|sensing|feels|kinds|minds|sense|sorts|feel|kind|mind|sort)\\b",
+        "flags": 2,
+        "sim_text": "compressive sensing"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b(?:televisions|broadcasts|channelses|television|broadcast|channelss|channels|networks|channel|network|cables|cable)\\b",
+        "flags": 2,
+        "sim_text": "channels"
+      },
+      "r2": {
+        "raw": "\\b(?:deciphers|decipher|decoding|decrypts|decoded|decoder|decodes|decrypt|decode)\\b",
+        "flags": 2,
+        "sim_text": "decoding"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b(?:codifications|regulationses|codification|regulationss|regulations|codeses|ruleses|codess|coding|ruless|coded|codes|rules|code)\\b",
+        "flags": 2,
+        "sim_text": "coding"
+      },
+      "r2": {
+        "raw": "\\b(?:deciphers|decipher|decoding|decrypts|decoded|decoder|decodes|decrypt|decode)\\b",
+        "flags": 2,
+        "sim_text": "decoding"
+      },
+      "sim": true,
+      "threshold": 0.45
+    }
+  ]
+}
