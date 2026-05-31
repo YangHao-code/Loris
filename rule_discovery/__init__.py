@@ -10,10 +10,16 @@ from rule_discovery.loris_rule_discovery import (
     RuleLearner,
     evaluate_configuration,
 )
+from rule_discovery.hybrid_rule_discovery import (
+    HybridRuleLearner,
+    evaluate_hybrid_configuration,
+)
 
 __all__ = [
     "RDL",
     "RDLSet",
     "RuleLearner",
     "evaluate_configuration",
+    "HybridRuleLearner",
+    "evaluate_hybrid_configuration",
 ]

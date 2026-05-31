@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -49,9 +50,11 @@ from pattern_extraction.predicates import (
     CooccurPredicate,
     BeforePredicate,
     MLPredicate,
+    MLThresholdPredicate,
     LabelPredicate,
     predicate_to_dict,
     predicate_from_dict,
+    _get_ml_model,
 )
 
 logger = logging.getLogger(__name__)
@@ -85,9 +88,11 @@ class RDL:
 
     body: Tuple[Predicate, ...]
     consequence: str
+    consequence_op: str = "add"  # "add" | "remove" | "replace"
     score: float = 0.0
     coverage: float = 0.0
     trial_number: int = -1
+    val_stats: Dict[str, Any] = field(default_factory=dict)
 
     def fires(self, doc: Document) -> bool:
         """判断规则是否在文档上触发（所有前提谓词均满足）。"""
@@ -105,8 +110,9 @@ class RDL:
 
     def __repr__(self) -> str:
         body_str = " ∧ ".join(repr(p) for p in self.body) if self.body else "⊤"
+        op_sym = {"add": "+", "remove": "-", "replace": "="}.get(self.consequence_op, "+")
         return (
-            f"RDL({body_str} → {self.consequence!r}, "
+            f"RDL({body_str} → {op_sym}{self.consequence!r}, "
             f"score={self.score:.4f}, coverage={self.coverage:.4f})"
         )
 
@@ -115,9 +121,11 @@ class RDL:
         return {
             "body": [predicate_to_dict(p) for p in self.body],
             "consequence": self.consequence,
+            "consequence_op": self.consequence_op,
             "score": self.score,
             "coverage": self.coverage,
             "trial_number": self.trial_number,
+            "val_stats": self.val_stats,
         }
 
     @classmethod
@@ -127,9 +135,11 @@ class RDL:
         return cls(
             body=body,
             consequence=d["consequence"],
+            consequence_op=d.get("consequence_op", "add"),
             score=d.get("score", 0.0),
             coverage=d.get("coverage", 0.0),
             trial_number=d.get("trial_number", -1),
+            val_stats=d.get("val_stats", {}),
         )
 
 
@@ -157,23 +167,18 @@ class RDLSet:
         self.label_names = list(label_names)
         self._label2idx = {name: i for i, name in enumerate(self.label_names)}
 
-    # [CORE LOGIC] 多标签预测：多条规则各自独立触发，取并集构成多标签输出
-    def predict(self, docs: List[Document]) -> np.ndarray:
+    # [CORE LOGIC] 双集合 Chase 语义：ADD→pos, REMOVE→neg, 返回 pos & ~neg
+    def predict(self, docs: List[Document], propagate_labels: bool = False) -> np.ndarray:
         """
         Apply all discovered rules to produce multi-hot predictions.
 
-        Parameters
-        ----------
-        docs : List[Document]
-            待预测文档列表。
-
-        Returns
-        -------
-        np.ndarray, shape (n_docs, n_labels), dtype float32
-            Multi-hot 预测矩阵。
+        Uses dual-set semantics (Church-Rosser): ADD rules write to pos set,
+        REMOVE rules write to neg set. Final prediction = pos & ~neg.
+        Rule application order does not affect results.
         """
         n_labels = len(self.label_names)
-        predictions = np.zeros((len(docs), n_labels), dtype=np.float32)
+        pos = np.zeros((len(docs), n_labels), dtype=bool)
+        neg = np.zeros((len(docs), n_labels), dtype=bool)
 
         for rule in self.rules:
             label_idx = self._label2idx.get(rule.consequence)
@@ -181,9 +186,111 @@ class RDLSet:
                 continue
             for i, doc in enumerate(docs):
                 if rule.fires(doc):
-                    predictions[i, label_idx] = 1.0
+                    if rule.consequence_op == "remove":
+                        neg[i, label_idx] = True
+                    else:  # "add"
+                        pos[i, label_idx] = True
+                    if propagate_labels:
+                        if rule.consequence_op == "add":
+                            doc.lbl.add(rule.consequence)
+                        elif rule.consequence_op == "remove":
+                            doc.lbl.discard(rule.consequence)
 
-        return predictions
+        return (pos & ~neg).astype(np.float32)
+
+    def predict_on_base(
+        self,
+        docs: List[Document],
+        base_predictions: np.ndarray,
+        propagate_labels: bool = False,
+    ) -> np.ndarray:
+        """Apply rules on top of base predictions using dual-set semantics."""
+        n_labels = len(self.label_names)
+        pos = (np.asarray(base_predictions, dtype=np.float32) > 0)
+        neg = np.zeros((len(docs), n_labels), dtype=bool)
+        for rule in self.rules:
+            label_idx = self._label2idx.get(rule.consequence)
+            if label_idx is None:
+                continue
+            for i, doc in enumerate(docs):
+                if rule.fires(doc):
+                    if rule.consequence_op == "remove":
+                        neg[i, label_idx] = True
+                    else:  # "add"
+                        pos[i, label_idx] = True
+                    if propagate_labels:
+                        if rule.consequence_op == "add":
+                            doc.lbl.add(rule.consequence)
+                        elif rule.consequence_op == "remove":
+                            doc.lbl.discard(rule.consequence)
+        return (pos & ~neg).astype(np.float32)
+
+    def chase_predict(
+        self,
+        docs: List[Document],
+        base_predictions: Optional[np.ndarray] = None,
+        max_rounds: int = 100,
+        time_limit_sec: Optional[float] = None,
+        conflict_mode: str = "halt",
+        enable_transitivity: bool = True,
+        sim_graphs: Optional[Dict] = None,
+        sim_decay: float = 1.0,
+        sim_conf_threshold: float = 0.0,
+        virtual_attrs: Optional[Dict] = None,
+    ) -> "ChaseResult":
+        """Apply rules using multi-label chase semantics.
+
+        Instead of a single-pass rule application, this method iteratively
+        applies rules until a fixpoint is reached, with formal conflict
+        detection and optional transitivity propagation.
+
+        Parameters
+        ----------
+        docs : List[Document]
+            Documents to classify.
+        base_predictions : np.ndarray, optional
+            (n_docs, n_labels) base model predictions to seed from.
+        max_rounds : int
+            Maximum chase iterations.
+        time_limit_sec : float or None
+            Wall-clock time limit.
+        conflict_mode : str
+            ``"halt"`` | ``"negative_wins"`` | ``"positive_wins"``.
+        enable_transitivity : bool
+            Whether to propagate labels via subset relations.
+        sim_graphs : dict, optional
+            {threshold: csr_matrix} for SimPredicate evaluation.
+
+        Returns
+        -------
+        ChaseResult
+        """
+        from chase_inference.multi_chase import MultiChase
+        chase = MultiChase.from_rdlset(
+            self,
+            max_rounds=max_rounds,
+            time_limit_sec=time_limit_sec,
+            conflict_mode=conflict_mode,
+            enable_transitivity=enable_transitivity,
+            sim_graphs=sim_graphs,
+            sim_decay=sim_decay,
+            sim_conf_threshold=sim_conf_threshold,
+            virtual_attrs=virtual_attrs,
+        )
+        return chase.run(docs, base_predictions=base_predictions)
+
+    def evaluate_on_base(
+        self,
+        docs: List[Document],
+        y_true: np.ndarray,
+        base_predictions: np.ndarray,
+        propagate_labels: bool = False,
+    ) -> Dict[str, float]:
+        """Evaluate model+rules combined predictions."""
+        combined = self.predict_on_base(docs, base_predictions, propagate_labels=propagate_labels)
+        micro_f1 = float(f1_score(y_true, combined, average="micro", zero_division=0))
+        macro_f1 = float(f1_score(y_true, combined, average="macro", zero_division=0))
+        return {"micro_f1": micro_f1, "macro_f1": macro_f1}
 
     def evaluate(
         self,
@@ -265,10 +372,10 @@ def _reconstruct_predicate(
     # FreqPredicate：微调频次阈值 η 和比较算子 op
     if isinstance(original, FreqPredicate):
         eta = trial.suggest_int(f"eta_{idx}", low=1, high=20)
-        op = trial.suggest_categorical(f"op_{idx}", [">=", "<=", "==", ">", "<"])
+        op = trial.suggest_categorical(f"op_{idx}", [">=", "<=", "=="]) # , ">", "<"
         # 如果启用了语义匹配，额外微调 threshold
         if original.sim:
-            threshold = trial.suggest_float(f"threshold_{idx}", low=0.7, high=0.99)
+            threshold = trial.suggest_float(f"threshold_{idx}", low=0.3, high=0.95)
         else:
             threshold = original.threshold
         return FreqPredicate(
@@ -279,7 +386,7 @@ def _reconstruct_predicate(
 
     # MatchPredicate：如果启用语义匹配则微调 threshold
     if isinstance(original, MatchPredicate) and original.sim:
-        threshold = trial.suggest_float(f"threshold_{idx}", low=0.7, high=0.99)
+        threshold = trial.suggest_float(f"threshold_{idx}", low=0.3, high=0.95)
         return MatchPredicate(
             attr=original.attr, r=original.r,
             sim=original.sim, threshold=threshold,
@@ -287,7 +394,7 @@ def _reconstruct_predicate(
 
     # CooccurPredicate：如果启用语义匹配则微调 threshold
     if isinstance(original, CooccurPredicate) and original.sim:
-        threshold = trial.suggest_float(f"threshold_{idx}", low=0.7, high=0.99)
+        threshold = trial.suggest_float(f"threshold_{idx}", low=0.3, high=0.95)
         return CooccurPredicate(
             attr=original.attr, r1=original.r1, r2=original.r2,
             sim=original.sim, threshold=threshold,
@@ -295,7 +402,7 @@ def _reconstruct_predicate(
 
     # BeforePredicate：如果启用语义匹配则微调 threshold
     if isinstance(original, BeforePredicate) and original.sim:
-        threshold = trial.suggest_float(f"threshold_{idx}", low=0.7, high=0.99)
+        threshold = trial.suggest_float(f"threshold_{idx}", low=0.3, high=0.95)
         return BeforePredicate(
             attr=original.attr, r1=original.r1, r2=original.r2,
             sim=original.sim, threshold=threshold,
@@ -303,6 +410,128 @@ def _reconstruct_predicate(
 
     # 其他谓词类型不需要参数微调，原样返回
     return original
+
+
+# ===========================================================================
+# Singleton scoring for predicate shortlisting
+# ===========================================================================
+
+def _score_singletons(
+    candidate_predicates: List[Predicate],
+    label_list: List[str],
+    val_docs: List[Document],
+    val_labels: np.ndarray,
+    existing_predictions: np.ndarray,
+    baseline_f1: float,
+    top_per_type: int = 5,
+    metric_mode: str = "global_macro",
+    cluster_label_indices: Optional[List[int]] = None,
+) -> Tuple[Dict[str, List[int]], np.ndarray, np.ndarray]:
+    """
+    Per-type singleton scoring: return {type_name: [top-K indices]} for each
+    predicate type.  Each predicate is scored by its best singleton F1-gain
+    across all labels, then the top-K per type are kept.
+
+    Returns
+    -------
+    type_groups : Dict[str, List[int]]
+    fire_masks : np.ndarray, shape (n_candidates, n_val), dtype bool
+        Precomputed predicate fire masks for caching.
+    pred_label_phi : np.ndarray, shape (n_candidates, n_labels), dtype float32
+        Matthews correlation between each predicate and each label.
+    """
+    n_cands = len(candidate_predicates)
+    n_val = len(val_docs)
+    n_labels = len(label_list)
+
+    # Group predicates by type
+    type_map: Dict[str, List[int]] = {}
+    for i, pred in enumerate(candidate_predicates):
+        tname = type(pred).__name__
+        type_map.setdefault(tname, []).append(i)
+
+    if n_cands == 0:
+        return type_map, np.zeros((0, n_val), dtype=bool), np.zeros((0, n_labels), dtype=np.float32)
+
+    # Pre-compute fire masks for all predicates
+    fire_masks = np.zeros((n_cands, n_val), dtype=bool)
+    for i, pred in enumerate(candidate_predicates):
+        for j, doc in enumerate(val_docs):
+            try:
+                fire_masks[i, j] = bool(pred(doc))
+            except Exception:
+                pass
+
+    # Vectorised phi computation
+    pred_label_phi = _compute_pred_label_phi(fire_masks, val_labels)
+
+    # Score each predicate: best singleton F1-gain across all labels × all ops
+    scores = np.full(n_cands, -np.inf)
+    for i in range(n_cands):
+        fires = fire_masks[i]
+        if fires.sum() == 0:
+            scores[i] = -1.0
+            continue
+        best_gain = -1.0
+        for l_idx in range(n_labels):
+            for op in ("add", "remove"):
+                new_preds = existing_predictions.copy()
+                if op == "add":
+                    new_preds[fires, l_idx] = 1.0
+                elif op == "remove":
+                    new_preds[fires, l_idx] = 0.0
+                if metric_mode == "cluster_local" and cluster_label_indices is not None:
+                    all_new = f1_score(val_labels, new_preds, average=None, zero_division=0)
+                    all_old = f1_score(val_labels, existing_predictions, average=None, zero_division=0)
+                    cluster_g = float(all_new[cluster_label_indices].mean() - all_old[cluster_label_indices].mean())
+                    global_g = float(f1_score(val_labels, new_preds, average="macro", zero_division=0)) - baseline_f1
+                    gain = 0.9 * cluster_g + 0.1 * global_g
+                else:
+                    gain = float(f1_score(val_labels, new_preds, average="macro", zero_division=0)) - baseline_f1
+                if gain > best_gain:
+                    best_gain = gain
+        scores[i] = best_gain
+
+    # Per-type top-K selection
+    result: Dict[str, List[int]] = {}
+    for tname, indices in type_map.items():
+        ranked = sorted(indices, key=lambda i: -scores[i])
+        top = [i for i in ranked[:top_per_type] if scores[i] > -1.0]
+        if top:
+            result[tname] = top
+
+    return result, fire_masks, pred_label_phi
+
+
+def _compute_pred_label_phi(
+    fire_masks: np.ndarray,
+    val_labels: np.ndarray,
+) -> np.ndarray:
+    """
+    Vectorised Matthews phi correlation between predicates and labels.
+
+    Parameters
+    ----------
+    fire_masks : (n_preds, n_docs) bool
+    val_labels : (n_docs, n_labels) float32
+
+    Returns
+    -------
+    phi : (n_preds, n_labels) float32
+    """
+    F = fire_masks.astype(np.float32)   # (n_preds, n_docs)
+    L = val_labels.astype(np.float32)   # (n_docs, n_labels)
+    n = F.shape[1]
+
+    tp = F @ L                          # (n_preds, n_labels)
+    fp = F @ (1 - L)
+    label_sum = L.sum(axis=0, keepdims=True)  # (1, n_labels)
+    fn = label_sum - tp
+    tn = n - tp - fp - fn
+
+    num = tp * tn - fp * fn
+    den = np.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+    return np.where(den > 0, num / den, 0.0).astype(np.float32)
 
 
 # ===========================================================================
@@ -319,115 +548,164 @@ def evaluate_configuration(
     baseline_f1: float,
     existing_predictions: np.ndarray,
     min_coverage: float = 0.05,
+    type_groups: Optional[Dict[str, List[int]]] = None,
+    rule_min_precision: float = 0.0,
+    metric_mode: str = "global_macro",
+    cluster_label_indices: Optional[List[int]] = None,
+    precomputed_fire_masks: Optional[np.ndarray] = None,
+    pred_label_phi: Optional[np.ndarray] = None,
+    ml_proba_cache: Optional[Dict[str, np.ndarray]] = None,
 ) -> float:
     """
-    # [CORE LOGIC] 目标函数：从 trial 采样配置 → 构建 RDL → 评估 F1 增益
-    沿用参考代码的 objective 函数模式，在函数内部完成所有参数采样。
+    OHunt-style objective: per-type binary switches + within-type categorical.
 
     Parameters
     ----------
-    trial : optuna.Trial
-        Optuna trial 对象，用于采样搜索空间参数。
-    candidate_predicates : List[Predicate]
-        候选文本谓词列表（来自 PatternStore）。
-    candidate_ml_models : List[str]
-        候选 ML 模型名称列表。
-    label_list : List[str]
-        全部标签名称列表。
-    val_docs : List[Document]
-        验证集文档。
-    val_labels : np.ndarray
-        验证集真实标签（multi-hot 矩阵）。
-    baseline_f1 : float
-        当前基线 Macro-F1（在现有预测之上）。
-    existing_predictions : np.ndarray
-        现有规则的预测结果（多轮贪心累积）。
-    min_coverage : float
-        最小覆盖率阈值。
-
-    Returns
-    -------
-    float
-        F1 增益（正值为提升，负值为惩罚）。
+    type_groups : Dict[str, List[int]]
+        {predicate_type_name: [indices into candidate_predicates]},
+        produced by _score_singletons().
+    precomputed_fire_masks : np.ndarray, optional
+        Shape (n_candidates, n_val) bool.  If provided, textual predicate fire
+        results are looked up instead of re-evaluated per trial.
+    pred_label_phi : np.ndarray, optional
+        Shape (n_candidates, n_labels).  If provided, used to guide
+        consequence label selection.
+    ml_proba_cache : Dict[str, np.ndarray], optional
+        {model_name: proba_matrix} where proba_matrix is (n_val, n_labels).
+        Pre-computed model probabilities for threshold-based ML predicates.
     """
     try:
         body: List[Predicate] = []
+        body_textual_indices: List[int] = []  # indices into candidate_predicates
 
         # ================================================================
-        # 1. 结构选择 + 参数微调：文本谓词（稀疏索引采样）
+        # 0. Body size budget — TPE learns to prefer small conjunctions
         # ================================================================
-        # [CORE LOGIC] 关键修复：不再为每个谓词单独设二值开关（会导致平均选中
-        # n/2 个谓词，AND 合取后覆盖率趋近于 0）。改用两阶段稀疏采样：
-        #   阶段 1: 采样规则体谓词数量 body_size ∈ {1, 2, 3, 4}
-        #   阶段 2: 采样 body_size 个谓词在候选列表中的绝对索引
-        # 这将 Optuna 的搜索空间从 O(2^N) 压缩至 O(N^4)，使 TPE 能有效学习。
-        n_cands = len(candidate_predicates)
-        if n_cands > 0:
-            body_size = trial.suggest_int("body_size", 1, min(4, n_cands))
-            selected_indices: set = set()
-            for k in range(body_size):
-                idx = trial.suggest_int(f"body_pred_idx_{k}", 0, n_cands - 1)
-                selected_indices.add(idx)
-            for idx in sorted(selected_indices):
-                tuned_pred = _reconstruct_predicate(trial, idx, candidate_predicates[idx])
-                body.append(tuned_pred)
+        max_body_size = trial.suggest_int("max_body_size", 1, 3)
 
         # ================================================================
-        # 2. 结构选择：ML 谓词
+        # 1. 文本谓词：每种类型一个二值开关 + 类内 categorical 选择
         # ================================================================
-        # [CORE LOGIC] ML 谓词的开关 + 目标标签 τ 联合搜索
+        if type_groups:
+            for type_name, type_indices in sorted(type_groups.items()):
+                if len(body) >= max_body_size:
+                    break
+                need = trial.suggest_int(f"need_{type_name}", low=0, high=1)
+                if need == 1:
+                    idx = trial.suggest_categorical(f"{type_name}_pred", type_indices)
+                    tuned_pred = _reconstruct_predicate(trial, idx, candidate_predicates[idx])
+                    body.append(tuned_pred)
+                    body_textual_indices.append(idx)
+
+            # Optional second MatchPredicate for conjunction rules
+            match_indices = type_groups.get("MatchPredicate", [])
+            if len(match_indices) >= 2 and len(body) < max_body_size:
+                need2 = trial.suggest_int("need_MatchPredicate_2", low=0, high=1)
+                if need2 == 1:
+                    idx2 = trial.suggest_categorical("MatchPredicate_pred_2", match_indices)
+                    tuned2 = _reconstruct_predicate(trial, idx2 + 10000, candidate_predicates[idx2])
+                    if tuned2 not in body:
+                        body.append(tuned2)
+                        body_textual_indices.append(idx2)
+
+        # ================================================================
+        # 2. ML 谓词（阈值模式）
+        # ================================================================
+        ml_body_info: List[Tuple[str, str, float]] = []  # (model_name, label, threshold)
         for j, model_name in enumerate(candidate_ml_models):
+            if len(body) >= max_body_size:
+                break
             need_ml = trial.suggest_int(f"need_ml_{j}", low=0, high=1)
             if need_ml == 1:
-                # [CORE LOGIC] 搜索 ML 谓词最匹配的标签 τ
-                ml_tau = trial.suggest_categorical(f"ml_tau_{j}", label_list)
-                body.append(MLPredicate(model_name=model_name, label=ml_tau))
+                ml_label = trial.suggest_categorical(f"ml_label_{j}", label_list)
+                ml_thresh = trial.suggest_float(
+                    f"ml_thresh_{j}", low=0.2, high=0.8, step=0.1
+                )
+                body.append(MLThresholdPredicate(
+                    model_name=model_name, label=ml_label, threshold=ml_thresh,
+                ))
+                ml_body_info.append((model_name, ml_label, ml_thresh))
 
         # ================================================================
-        # 3. 结构选择：LabelPredicate（三种标签谓词操作）
+        # 3. Label 谓词
         # ================================================================
-        # [CORE LOGIC] 标签谓词 x.lbl ⊗ y.lbl | τ ∈ x.lbl | x.lbl \ τ
+        if len(body) < max_body_size:
+            need_label_contains = trial.suggest_int("need_label_contains", low=0, high=1)
+            if need_label_contains == 1:
+                label_contains_tau = trial.suggest_categorical("label_contains_tau", label_list)
+                body.append(LabelPredicate(label=label_contains_tau, op="contains"))
 
-        # 3a. contains: τ ∈ x.lbl（检查文档是否已包含某标签）
-        need_label_contains = trial.suggest_int("need_label_contains", low=0, high=1)
-        if need_label_contains == 1:
-            label_contains_tau = trial.suggest_categorical(
-                "label_contains_tau", label_list
-            )
-            body.append(LabelPredicate(label=label_contains_tau, op="contains"))
+        if len(body) < max_body_size:
+            need_label_eq = trial.suggest_int("need_label_eq", low=0, high=1)
+            if need_label_eq == 1:
+                label_eq_tau = trial.suggest_categorical("label_eq_tau", label_list)
+                body.append(LabelPredicate(label=label_eq_tau, op="eq"))
 
-        # 3b. eq: x.lbl == {τ}（检查文档标签集是否恰好等于某标签）
-        need_label_eq = trial.suggest_int("need_label_eq", low=0, high=1)
-        if need_label_eq == 1:
-            label_eq_tau = trial.suggest_categorical("label_eq_tau", label_list)
-            body.append(LabelPredicate(label=label_eq_tau, op="eq"))
-
-        # 3c. minus: x.lbl \ τ（从文档标签集中移除某标签）
-        need_label_minus = trial.suggest_int("need_label_minus", low=0, high=1)
-        if need_label_minus == 1:
-            label_minus_tau = trial.suggest_categorical("label_minus_tau", label_list)
-            body.append(LabelPredicate(label=label_minus_tau, op="minus"))
+        if len(body) < max_body_size:
+            need_label_minus = trial.suggest_int("need_label_minus", low=0, high=1)
+            if need_label_minus == 1:
+                label_minus_tau = trial.suggest_categorical("label_minus_tau", label_list)
+                body.append(LabelPredicate(label=label_minus_tau, op="minus"))
 
         # ================================================================
-        # 4. 标签联合搜索：规则后件标签 p0
+        # 3b. 纯 LabelPredicate body 标记
         # ================================================================
-        # [CORE LOGIC] 规则结论标签作为搜索参数，让优化器自动发现最佳标签分配
+        _label_only_body = body and all(isinstance(p, LabelPredicate) for p in body)
+
+        # ================================================================
+        # 4. 规则后件标签 + 操作类型
+        # ================================================================
+        consequence_op = trial.suggest_categorical("consequence_op", ["add", "remove", "replace"])
         consequence_label = trial.suggest_categorical("consequence_label", label_list)
 
         # ================================================================
-        # 5. 应用规则到验证集，计算覆盖率
+        # 5. 覆盖率计算 (cached fire masks)
         # ================================================================
-        # [CORE LOGIC] 规则触发判定：文档满足所有体谓词时规则激活
-        # 注意：LabelPredicate(op="minus") 有副作用（会修改 doc.lbl），
-        # 因此需要在评估前保存标签集，评估后恢复，防止污染后续 trial。
         n_val = len(val_docs)
-        fires = np.zeros(n_val, dtype=bool)
-        for i, doc in enumerate(val_docs):
-            if not body:
-                fires[i] = True  # 空规则体 → 全部触发
+
+        if precomputed_fire_masks is not None and body_textual_indices:
+            # Start with textual predicates from cache
+            fires = np.ones(n_val, dtype=bool)
+            for pidx in body_textual_indices:
+                fires &= precomputed_fire_masks[pidx]
+        elif not body:
+            fires = np.ones(n_val, dtype=bool)
+        else:
+            fires = np.ones(n_val, dtype=bool)
+
+        # ML threshold predicates from proba cache
+        for model_name, ml_label, ml_thresh in ml_body_info:
+            if ml_proba_cache is not None and model_name in ml_proba_cache:
+                ml_label_idx = label_list.index(ml_label)
+                fires &= (ml_proba_cache[model_name][:, ml_label_idx] >= ml_thresh)
             else:
-                # 使用代理文档副本，避免 LabelPredicate(op="minus") 副作用
-                # 污染原始 val_docs（Document 是 frozen dataclass，不能赋值 lbl）
+                # fallback: evaluate per-doc
+                pred = MLThresholdPredicate(model_name=model_name, label=ml_label, threshold=ml_thresh)
+                for i in range(n_val):
+                    if fires[i]:
+                        fires[i] = bool(pred(val_docs[i]))
+
+        # LabelPredicates: must evaluate per-doc (depend on doc.lbl)
+        label_preds_in_body = [p for p in body if isinstance(p, LabelPredicate)]
+        if label_preds_in_body:
+            for i in range(n_val):
+                if fires[i]:
+                    proxy = Document(
+                        cnt=val_docs[i].cnt,
+                        lbl=set(val_docs[i].lbl) if val_docs[i].lbl else set(),
+                        mtd=val_docs[i].mtd,
+                        ttl=val_docs[i].ttl,
+                    )
+                    fires[i] = all(p(proxy) for p in label_preds_in_body)
+
+        # Handle case where body has textual preds but no cache
+        if not body_textual_indices and not ml_body_info and not label_preds_in_body:
+            # empty body — fires = all True (already set)
+            pass
+        elif not body_textual_indices and precomputed_fire_masks is None and body:
+            # fallback: full per-doc evaluation
+            fires = np.zeros(n_val, dtype=bool)
+            for i, doc in enumerate(val_docs):
                 proxy = Document(
                     cnt=doc.cnt,
                     lbl=set(doc.lbl) if doc.lbl else set(),
@@ -439,23 +717,78 @@ def evaluate_configuration(
         coverage = float(fires.sum()) / n_val if n_val > 0 else 0.0
 
         # ================================================================
-        # 6. 覆盖率检查
+        # 6. 自适应覆盖率检查
         # ================================================================
-        if coverage < min_coverage:
-            return -1.0  # 覆盖率不足，返回惩罚分数
-
-        # ================================================================
-        # 7. 计算增量 F1
-        # ================================================================
-        # [CORE LOGIC] 增量 F1 评估：衡量新规则对现有预测的边际贡献
         label_idx = label_list.index(consequence_label)
-        new_predictions = existing_predictions.copy()
-        new_predictions[fires, label_idx] = 1.0
+        label_prevalence = float(val_labels[:, label_idx].sum()) / n_val if n_val > 0 else 0.0
+        adaptive_min_cov = min(min_coverage, max(label_prevalence * 0.3, 0.001))
+        if coverage < adaptive_min_cov:
+            if trial.number < 5:
+                logger.info("Trial %d PRUNED@coverage: cov=%.4f < %.4f, body_size=%d, n_fire=%d",
+                            trial.number, coverage, adaptive_min_cov, len(body), int(fires.sum()))
+            # Graded penalty: closer to threshold → less negative → TPE learns
+            # coverage=0 → -1.0, coverage=threshold → -0.5
+            return -1.0 + 0.5 * (coverage / adaptive_min_cov) if adaptive_min_cov > 0 else -1.0
 
-        new_macro_f1 = float(
-            f1_score(val_labels, new_predictions, average="macro", zero_division=0)
-        )
-        f1_gain = new_macro_f1 - baseline_f1
+        # ================================================================
+        # 7. 增量 F1
+        # ================================================================
+        new_predictions = existing_predictions.copy()
+        if consequence_op == "add":
+            new_predictions[fires, label_idx] = 1.0
+        elif consequence_op == "remove":
+            new_predictions[fires, label_idx] = 0.0
+        elif consequence_op == "replace":
+            new_predictions[fires, :] = 0.0
+            new_predictions[fires, label_idx] = 1.0
+
+        # ================================================================
+        # 7b. Correction precision gate
+        # ================================================================
+        if rule_min_precision > 0.0:
+            effective_min_prec = rule_min_precision
+            if _label_only_body:
+                effective_min_prec = min(rule_min_precision * 1.2, 1.0)
+            old_hit = (existing_predictions[fires, label_idx] == val_labels[fires, label_idx])
+            new_hit = (new_predictions[fires, label_idx] == val_labels[fires, label_idx])
+            n_improved = int((new_hit & ~old_hit).sum())
+            n_worsened = int((old_hit & ~new_hit).sum())
+            n_changes = n_improved + n_worsened
+            if n_changes > 0:
+                corr_prec = n_improved / n_changes
+                # When n_changes is small, the precision estimate is unreliable.
+                # Skip gate and let f1_gain decide; still prune if all changes are wrong.
+                if n_changes < 10:
+                    if n_improved == 0:
+                        if trial.number < 5:
+                            logger.info("Trial %d PRUNED@corr_prec: 0/%d corrections wrong (small sample)",
+                                        trial.number, n_changes)
+                        # Graded: coverage gives partial credit
+                        return -0.5 + 0.3 * coverage
+                elif corr_prec < effective_min_prec:
+                    if trial.number < 5:
+                        logger.info("Trial %d PRUNED@corr_prec: %.3f < %.3f (label_only=%s), n_changes=%d",
+                                    trial.number, corr_prec, effective_min_prec, _label_only_body, n_changes)
+                    # Graded: closer precision → less negative
+                    return -0.5 + 0.3 * (corr_prec / effective_min_prec)
+
+        if metric_mode == "cluster_local" and cluster_label_indices is not None:
+            all_new_f1s = f1_score(val_labels, new_predictions, average=None, zero_division=0)
+            all_old_f1s = f1_score(val_labels, existing_predictions, average=None, zero_division=0)
+            cluster_gain = float(all_new_f1s[cluster_label_indices].mean()
+                                 - all_old_f1s[cluster_label_indices].mean())
+            global_gain = float(
+                f1_score(val_labels, new_predictions, average="macro", zero_division=0)
+            ) - baseline_f1
+            f1_gain = 0.9 * cluster_gain + 0.1 * global_gain
+        else:
+            new_macro_f1 = float(
+                f1_score(val_labels, new_predictions, average="macro", zero_division=0)
+            )
+            f1_gain = new_macro_f1 - baseline_f1
+        if trial.number < 5:
+            logger.info("Trial %d RESULT: f1_gain=%.6f, coverage=%.4f, body_size=%d, label=%s, op=%s",
+                        trial.number, f1_gain, coverage, len(body), consequence_label, consequence_op)
         return f1_gain
 
     except Exception as e:
@@ -475,71 +808,84 @@ def _trial_to_rdl(
     val_docs: List[Document],
     val_labels: np.ndarray,
     existing_predictions: np.ndarray,
+    type_groups: Optional[Dict[str, List[int]]] = None,
 ) -> RDL:
     """
-    # [CORE LOGIC] 从 trial.params 字典重构完整的 RDL 对象
-    读取已完成 trial 中保存的参数值，重建规则体和后件标签。
-
-    Parameters
-    ----------
-    trial : optuna.trial.FrozenTrial
-        已完成的 trial 对象。
-    其余参数用于重建谓词实例和计算覆盖率。
-
-    Returns
-    -------
-    RDL
-        重构的规则对象。
+    从 trial.params 字典重构完整的 RDL 对象（OHunt 风格类型开关）。
     """
     params = trial.params
     body: List[Predicate] = []
 
-    # 重建文本谓词（与 evaluate_configuration 的稀疏索引采样对称）
+    # 重建文本谓词（与 evaluate_configuration 的类型开关对称）
     n_cands = len(candidate_predicates)
-    body_size = int(params.get("body_size", 0))
-    selected_indices: set = set()
-    for k in range(body_size):
-        idx = params.get(f"body_pred_idx_{k}")
-        if idx is not None:
-            selected_indices.add(int(idx))
-    for idx in sorted(selected_indices):
-        pred = candidate_predicates[idx]
-        # 重建参数微调后的谓词
-        if isinstance(pred, FreqPredicate):
-            eta = params.get(f"eta_{idx}", pred.eta)
-            op = params.get(f"op_{idx}", pred.op)
-            threshold = params.get(f"threshold_{idx}", pred.threshold) if pred.sim else pred.threshold
-            body.append(FreqPredicate(
-                attr=pred.attr, r=pred.r,
-                op=op, eta=float(eta),
-                sim=pred.sim, threshold=threshold,
-            ))
-        elif isinstance(pred, MatchPredicate) and pred.sim:
-            threshold = params.get(f"threshold_{idx}", pred.threshold)
-            body.append(MatchPredicate(
-                attr=pred.attr, r=pred.r,
-                sim=pred.sim, threshold=threshold,
-            ))
-        elif isinstance(pred, CooccurPredicate) and pred.sim:
-            threshold = params.get(f"threshold_{idx}", pred.threshold)
-            body.append(CooccurPredicate(
-                attr=pred.attr, r1=pred.r1, r2=pred.r2,
-                sim=pred.sim, threshold=threshold,
-            ))
-        elif isinstance(pred, BeforePredicate) and pred.sim:
-            threshold = params.get(f"threshold_{idx}", pred.threshold)
-            body.append(BeforePredicate(
-                attr=pred.attr, r1=pred.r1, r2=pred.r2,
-                sim=pred.sim, threshold=threshold,
-            ))
-        else:
-            body.append(pred)
+    if type_groups:
+        for type_name, type_indices in sorted(type_groups.items()):
+            if params.get(f"need_{type_name}", 0) != 1:
+                continue
+            idx = params.get(f"{type_name}_pred")
+            if idx is None:
+                continue
+            i = int(idx)
+            if i < 0 or i >= n_cands:
+                continue
+            pred = candidate_predicates[i]
+            # 重建参数微调后的谓词
+            if isinstance(pred, FreqPredicate):
+                eta = params.get(f"eta_{i}", pred.eta)
+                op = params.get(f"op_{i}", pred.op)
+                threshold = params.get(f"threshold_{i}", pred.threshold) if pred.sim else pred.threshold
+                body.append(FreqPredicate(
+                    attr=pred.attr, r=pred.r,
+                    op=op, eta=float(eta),
+                    sim=pred.sim, threshold=threshold,
+                ))
+            elif isinstance(pred, MatchPredicate) and pred.sim:
+                threshold = params.get(f"threshold_{i}", pred.threshold)
+                body.append(MatchPredicate(
+                    attr=pred.attr, r=pred.r,
+                    sim=pred.sim, threshold=threshold,
+                ))
+            elif isinstance(pred, CooccurPredicate) and pred.sim:
+                threshold = params.get(f"threshold_{i}", pred.threshold)
+                body.append(CooccurPredicate(
+                    attr=pred.attr, r1=pred.r1, r2=pred.r2,
+                    sim=pred.sim, threshold=threshold,
+                ))
+            elif isinstance(pred, BeforePredicate) and pred.sim:
+                threshold = params.get(f"threshold_{i}", pred.threshold)
+                body.append(BeforePredicate(
+                    attr=pred.attr, r1=pred.r1, r2=pred.r2,
+                    sim=pred.sim, threshold=threshold,
+                ))
+            else:
+                body.append(pred)
 
-    # 重建 ML 谓词
+    # 重建第二个 MatchPredicate（可选的合取槽位）
+    if type_groups and params.get("need_MatchPredicate_2", 0) == 1:
+        idx2 = params.get("MatchPredicate_pred_2")
+        if idx2 is not None:
+            i2 = int(idx2)
+            if 0 <= i2 < n_cands:
+                pred2 = candidate_predicates[i2]
+                if isinstance(pred2, MatchPredicate) and pred2.sim:
+                    threshold2 = params.get(f"threshold_{i2 + 10000}", pred2.threshold)
+                    tuned2 = MatchPredicate(
+                        attr=pred2.attr, r=pred2.r,
+                        sim=pred2.sim, threshold=threshold2,
+                    )
+                else:
+                    tuned2 = pred2
+                if tuned2 not in body:
+                    body.append(tuned2)
+
+    # 重建 ML 谓词 (threshold mode)
     for j, model_name in enumerate(candidate_ml_models):
         if params.get(f"need_ml_{j}", 0) == 1:
-            ml_tau = params.get(f"ml_tau_{j}", label_list[0])
-            body.append(MLPredicate(model_name=model_name, label=ml_tau))
+            ml_label = params.get(f"ml_label_{j}", label_list[0])
+            ml_thresh = params.get(f"ml_thresh_{j}", 0.5)
+            body.append(MLThresholdPredicate(
+                model_name=model_name, label=ml_label, threshold=float(ml_thresh),
+            ))
 
     # 重建 LabelPredicate
     if params.get("need_label_contains", 0) == 1:
@@ -553,6 +899,7 @@ def _trial_to_rdl(
         body.append(LabelPredicate(label=tau, op="minus"))
 
     consequence = params.get("consequence_label", label_list[0])
+    consequence_op = params.get("consequence_op", "add")
 
     # 计算覆盖率（使用代理文档副本避免 frozen dataclass 赋值问题）
     n_val = len(val_docs)
@@ -574,6 +921,7 @@ def _trial_to_rdl(
     return RDL(
         body=tuple(body),
         consequence=consequence,
+        consequence_op=consequence_op,
         score=trial.value if trial.value is not None else 0.0,
         coverage=coverage,
         trial_number=trial.number,
@@ -657,6 +1005,16 @@ class RuleLearner:
         seed: int = 42,
         storage_path: Optional[str] = None,
         verbose: bool = True,
+        base_predictions: Optional[np.ndarray] = None,
+        base_f1: Optional[float] = None,
+        top_per_type: int = 5,
+        rule_min_precision: float = 0.0,
+        accept_docs: Optional[List[Document]] = None,
+        accept_labels: Optional[np.ndarray] = None,
+        accept_predictions: Optional[np.ndarray] = None,
+        accept_f1: Optional[float] = None,
+        metric_mode: str = "global_macro",
+        cluster_label_indices: Optional[List[int]] = None,
     ) -> None:
         self.candidate_predicates = list(candidate_predicates)
         self.candidate_ml_models = list(candidate_ml_models)
@@ -669,6 +1027,26 @@ class RuleLearner:
         self.seed = seed
         self.storage_path = storage_path
         self.verbose = verbose
+        self.base_predictions = (
+            np.asarray(base_predictions, dtype=np.float32)
+            if base_predictions is not None
+            else None
+        )
+        self.base_f1 = base_f1
+        self.top_per_type = top_per_type
+        self.rule_min_precision = rule_min_precision
+        self.accept_docs = list(accept_docs) if accept_docs is not None else None
+        self.accept_labels = (
+            np.asarray(accept_labels, dtype=np.float32)
+            if accept_labels is not None else None
+        )
+        self.accept_predictions = (
+            np.asarray(accept_predictions, dtype=np.float32)
+            if accept_predictions is not None else None
+        )
+        self.accept_f1 = accept_f1
+        self.metric_mode = metric_mode
+        self.cluster_label_indices = cluster_label_indices
 
     # [CORE LOGIC] 主发现循环：创建 Optuna 研究 → 优化 → 提取最优规则集
     def discover(self) -> RDLSet:
@@ -684,8 +1062,35 @@ class RuleLearner:
             发现的最优规则集合。
         """
         discovered_rules: List[RDL] = []
-        existing_predictions = np.zeros_like(self.val_labels, dtype=np.float32)
-        baseline_f1 = 0.0
+        # Save original doc labels for potential retry-loop resets
+        original_labels = [set(doc.lbl) for doc in self.val_docs]
+        if self.base_predictions is not None:
+            existing_predictions = self.base_predictions.copy()
+        else:
+            existing_predictions = np.zeros_like(self.val_labels, dtype=np.float32)
+        if self.base_f1 is not None:
+            baseline_f1 = self.base_f1
+        else:
+            baseline_f1 = float(
+                f1_score(self.val_labels, existing_predictions,
+                         average="macro", zero_division=0)
+            )
+
+        # Acceptance data state (for train/val split: BO on train, accept on val)
+        _has_accept = self.accept_docs is not None
+        if _has_accept:
+            accept_original_labels = [set(doc.lbl) for doc in self.accept_docs]
+            accept_preds = (
+                self.accept_predictions.copy()
+                if self.accept_predictions is not None
+                else np.zeros_like(self.accept_labels, dtype=np.float32)
+            )
+            accept_baseline = (
+                self.accept_f1
+                if self.accept_f1 is not None
+                else float(f1_score(self.accept_labels, accept_preds,
+                                    average="macro", zero_division=0))
+            )
 
         for round_idx in range(self.top_n):
             if self.verbose:
@@ -694,8 +1099,41 @@ class RuleLearner:
                 print(f"  当前基线 Macro-F1: {baseline_f1:.4f}")
                 print(f"{'='*60}")
 
+            # Per-round singleton scoring → per-type top-K
+            type_groups, fire_masks, pred_label_phi = _score_singletons(
+                self.candidate_predicates, self.label_list,
+                self.val_docs, self.val_labels,
+                existing_predictions, baseline_f1,
+                top_per_type=self.top_per_type,
+                metric_mode=self.metric_mode,
+                cluster_label_indices=self.cluster_label_indices,
+            )
+            total_shortlisted = sum(len(v) for v in type_groups.values())
+            if self.verbose:
+                parts = [f"{t}={len(idxs)}" for t, idxs in sorted(type_groups.items())]
+                print(f"  Singleton scoring: {total_shortlisted} predicates "
+                      f"({', '.join(parts)})")
+
             # [CORE LOGIC] 创建 Optuna 贝叶斯优化研究，支持日志持久化
             study = self._create_study(round_idx)
+
+            # Pre-compute ML proba cache for threshold-based evaluation
+            _ml_proba_cache: Dict[str, np.ndarray] = {}
+            for model_name in self.candidate_ml_models:
+                try:
+                    model = _get_ml_model(model_name)
+                    if hasattr(model, '_clf') and hasattr(model._clf, 'predict_proba'):
+                        _texts = [doc.cnt for doc in self.val_docs]
+                        _ml_proba_cache[model_name] = model._clf.predict_proba(_texts).astype(np.float32)
+                    elif hasattr(model, 'predict_proba_single'):
+                        # Slower fallback: one-by-one
+                        _proba = np.array(
+                            [model.predict_proba_single(doc.cnt) for doc in self.val_docs],
+                            dtype=np.float32,
+                        )
+                        _ml_proba_cache[model_name] = _proba
+                except Exception as _e:
+                    logger.warning("Could not cache proba for %s: %s", model_name, _e)
 
             # 构建 objective 闭包，捕获当前轮次的状态
             _candidate_predicates = self.candidate_predicates
@@ -706,6 +1144,11 @@ class RuleLearner:
             _baseline_f1 = baseline_f1
             _existing_predictions = existing_predictions.copy()
             _min_coverage = self.min_coverage
+            _type_groups = type_groups
+            _fire_masks = fire_masks
+            _pred_label_phi = pred_label_phi
+
+            _rule_min_precision = self.rule_min_precision
 
             def objective(trial):
                 return evaluate_configuration(
@@ -718,10 +1161,32 @@ class RuleLearner:
                     baseline_f1=_baseline_f1,
                     existing_predictions=_existing_predictions,
                     min_coverage=_min_coverage,
+                    type_groups=_type_groups,
+                    rule_min_precision=_rule_min_precision,
+                    metric_mode=self.metric_mode,
+                    cluster_label_indices=self.cluster_label_indices,
+                    precomputed_fire_masks=_fire_masks,
+                    pred_label_phi=_pred_label_phi,
+                    ml_proba_cache=_ml_proba_cache,
                 )
 
             # 执行优化（沿用参考代码的 study.optimize 模式）
             study.optimize(objective, n_trials=self.max_trials)
+
+            # Debug: summarize trial outcomes
+            all_values = [t.value for t in study.trials if t.value is not None]
+            if all_values:
+                pos_vals = [v for v in all_values if v > 0]
+                neg_vals = [v for v in all_values if v == -1.0]
+                zero_vals = [v for v in all_values if v == 0.0]
+                logger.info(
+                    "Optuna round %d summary: %d trials, %d positive (max=%.4f), "
+                    "%d zero, %d rejected (-1.0), best=%.4f",
+                    round_idx, len(all_values), len(pos_vals),
+                    max(pos_vals) if pos_vals else 0.0,
+                    len(zero_vals), len(neg_vals),
+                    max(all_values),
+                )
 
             # 提取最优 trial
             best = study.best_trial
@@ -743,6 +1208,7 @@ class RuleLearner:
                 val_docs=self.val_docs,
                 val_labels=self.val_labels,
                 existing_predictions=existing_predictions,
+                type_groups=type_groups,
             )
 
             # 去重检查
@@ -751,29 +1217,424 @@ class RuleLearner:
                     print(f"  规则冗余，跳过。")
                 continue
 
+            # Validate on acceptance data (if separate from BO data)
+            label_idx = self.label_list.index(rule.consequence)
+            if _has_accept:
+                a_fires = np.array(
+                    [rule.fires(doc) for doc in self.accept_docs], dtype=bool
+                )
+                test_a = accept_preds.copy()
+                if rule.consequence_op == "add":
+                    test_a[a_fires, label_idx] = 1.0
+                elif rule.consequence_op == "remove":
+                    test_a[a_fires, label_idx] = 0.0
+                elif rule.consequence_op == "replace":
+                    test_a[a_fires, :] = 0.0
+                    test_a[a_fires, label_idx] = 1.0
+                new_accept_f1 = float(
+                    f1_score(self.accept_labels, test_a,
+                             average="macro", zero_division=0)
+                )
+                if new_accept_f1 <= accept_baseline:
+                    if self.verbose:
+                        print(f"  规则在验证集上无提升 "
+                              f"({new_accept_f1:.4f} <= {accept_baseline:.4f})，跳过。")
+                    continue
+                # Update accept state
+                accept_preds = test_a
+                accept_baseline = new_accept_f1
+                for i, doc in enumerate(self.accept_docs):
+                    if a_fires[i]:
+                        if rule.consequence_op == "add":
+                            doc.lbl.add(rule.consequence)
+                        elif rule.consequence_op == "remove":
+                            doc.lbl.discard(rule.consequence)
+                        elif rule.consequence_op == "replace":
+                            doc.lbl.clear()
+                            doc.lbl.add(rule.consequence)
+
             discovered_rules.append(rule)
             if self.verbose:
                 print(f"  发现规则: {rule}")
 
-            # 更新现有预测和基线
-            label_idx = self.label_list.index(rule.consequence)
+            # 更新 BO 现有预测、基线和文档标签（label propagation）
             for i, doc in enumerate(self.val_docs):
                 if rule.fires(doc):
-                    existing_predictions[i, label_idx] = 1.0
+                    if rule.consequence_op == "add":
+                        existing_predictions[i, label_idx] = 1.0
+                        doc.lbl.add(rule.consequence)
+                    elif rule.consequence_op == "remove":
+                        existing_predictions[i, label_idx] = 0.0
+                        doc.lbl.discard(rule.consequence)
+                    elif rule.consequence_op == "replace":
+                        existing_predictions[i, :] = 0.0
+                        existing_predictions[i, label_idx] = 1.0
+                        doc.lbl.clear()
+                        doc.lbl.add(rule.consequence)
             baseline_f1 = float(
                 f1_score(self.val_labels, existing_predictions, average="macro", zero_division=0)
             )
 
             if self.verbose:
-                print(f"  更新后基线 Macro-F1: {baseline_f1:.4f}")
+                if _has_accept:
+                    print(f"  更新后 BO 基线: {baseline_f1:.4f}  "
+                          f"Accept 基线: {accept_baseline:.4f}")
+                else:
+                    print(f"  更新后基线 Macro-F1: {baseline_f1:.4f}")
+
+        # Restore original labels
+        if _has_accept:
+            for i, doc in enumerate(self.accept_docs):
+                doc.lbl.clear()
+                doc.lbl.update(accept_original_labels[i])
 
         if self.verbose:
             print(f"\n{'='*60}")
             print(f"  规则发现完成！共发现 {len(discovered_rules)} 条规则")
-            print(f"  最终 Macro-F1: {baseline_f1:.4f}")
+            print(f"  最终 BO Macro-F1: {baseline_f1:.4f}")
+            if _has_accept:
+                print(f"  最终 Accept Macro-F1: {accept_baseline:.4f}")
             print(f"{'='*60}")
 
         return RDLSet(rules=discovered_rules, label_names=self.label_list)
+
+    # ------------------------------------------------------------------
+    # Batch 模式：仅运行 BO 收集 trials（不做贪心选择）
+    # ------------------------------------------------------------------
+
+    def run_bo(
+        self,
+    ) -> List[Tuple["optuna.trial.FrozenTrial", Dict[str, List[int]]]]:
+        """
+        Run a single Bayesian optimisation study and return **all** completed
+        trials together with the singleton type-groups context.
+
+        This is the building-block for the per-cluster batch pipeline
+        described in the paper pseudocode.  No greedy selection or label
+        propagation is performed here — that happens in :meth:`batch_select`.
+
+        Returns
+        -------
+        list of (FrozenTrial, type_groups)
+            Only trials with ``state == COMPLETE`` and positive F1 gain.
+        """
+        # Initialise baseline (same logic as discover())
+        if self.base_predictions is not None:
+            existing_predictions = self.base_predictions.copy()
+        else:
+            existing_predictions = np.zeros_like(self.val_labels, dtype=np.float32)
+        if self.base_f1 is not None:
+            baseline_f1 = self.base_f1
+        else:
+            baseline_f1 = float(
+                f1_score(self.val_labels, existing_predictions,
+                         average="macro", zero_division=0)
+            )
+
+        # Singleton scoring (once)
+        type_groups, fire_masks, pred_label_phi = _score_singletons(
+            self.candidate_predicates, self.label_list,
+            self.val_docs, self.val_labels,
+            existing_predictions, baseline_f1,
+            top_per_type=self.top_per_type,
+            metric_mode=self.metric_mode,
+            cluster_label_indices=self.cluster_label_indices,
+        )
+        if self.verbose:
+            total = sum(len(v) for v in type_groups.values())
+            parts = [f"{t}={len(idxs)}" for t, idxs in sorted(type_groups.items())]
+            print(f"  [run_bo] Singleton scoring: {total} predicates "
+                  f"({', '.join(parts)})")
+
+        # Pre-compute ML proba cache
+        _ml_proba_cache: Dict[str, np.ndarray] = {}
+        for model_name in self.candidate_ml_models:
+            try:
+                model = _get_ml_model(model_name)
+                if hasattr(model, '_clf') and hasattr(model._clf, 'predict_proba'):
+                    _texts = [doc.cnt for doc in self.val_docs]
+                    _ml_proba_cache[model_name] = model._clf.predict_proba(_texts).astype(np.float32)
+                elif hasattr(model, 'predict_proba_single'):
+                    _proba = np.array(
+                        [model.predict_proba_single(doc.cnt) for doc in self.val_docs],
+                        dtype=np.float32,
+                    )
+                    _ml_proba_cache[model_name] = _proba
+            except Exception as _e:
+                logger.warning("Could not cache proba for %s: %s", model_name, _e)
+
+        # Build objective closure
+        _cp = self.candidate_predicates
+        _cm = self.candidate_ml_models
+        _ll = self.label_list
+        _vd = self.val_docs
+        _vl = self.val_labels
+        _bf = baseline_f1
+        _ep = existing_predictions.copy()
+        _mc = self.min_coverage
+        _tg = type_groups
+
+        _rmp = self.rule_min_precision
+
+        def objective(trial):
+            return evaluate_configuration(
+                trial=trial,
+                candidate_predicates=_cp,
+                candidate_ml_models=_cm,
+                label_list=_ll,
+                val_docs=_vd,
+                val_labels=_vl,
+                baseline_f1=_bf,
+                existing_predictions=_ep,
+                min_coverage=_mc,
+                type_groups=_tg,
+                rule_min_precision=_rmp,
+                metric_mode=self.metric_mode,
+                cluster_label_indices=self.cluster_label_indices,
+                precomputed_fire_masks=fire_masks,
+                pred_label_phi=pred_label_phi,
+                ml_proba_cache=_ml_proba_cache,
+            )
+
+        study = self._create_study(round_idx=0)
+        study.optimize(objective, n_trials=self.max_trials)
+
+        # Collect all completed trials with positive gain
+        completed = [
+            (t, type_groups)
+            for t in study.trials
+            if t.state == optuna.trial.TrialState.COMPLETE
+            and t.value is not None
+            and t.value > 0
+        ]
+
+        # Diagnostic summary: breakdown of trial outcomes
+        all_vals = [t.value for t in study.trials
+                    if t.state == optuna.trial.TrialState.COMPLETE
+                    and t.value is not None]
+        n_neg1 = sum(1 for v in all_vals if v == -1.0)
+        n_zero = sum(1 for v in all_vals if v == 0.0)
+        n_pos = sum(1 for v in all_vals if v > 0)
+        n_neg_other = len(all_vals) - n_neg1 - n_zero - n_pos
+        logger.info("  [BO summary] %d trials: %d pruned(-1), %d zero-gain, "
+                    "%d negative-gain, %d positive-gain",
+                    len(all_vals), n_neg1, n_zero, n_neg_other, n_pos)
+        if n_pos > 0:
+            best_gain = max(v for v in all_vals if v > 0)
+            logger.info("  [BO summary] best gain=%.6f", best_gain)
+        if n_neg1 == len(all_vals) and len(all_vals) > 0:
+            # All trials pruned — log body_size distribution for diagnosis
+            body_sizes = [t.params.get("max_body_size", "?") for t in study.trials
+                         if t.state == optuna.trial.TrialState.COMPLETE]
+            logger.warning("  [BO summary] ALL trials pruned! body_sizes=%s",
+                          dict(Counter(body_sizes)) if body_sizes else "N/A")
+
+        return completed
+
+    # ------------------------------------------------------------------
+    # Batch 全局选择：贪心添加规则到 Σ
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def batch_select(
+        all_trials: List[
+            Tuple[
+                "optuna.trial.FrozenTrial",
+                Dict[str, List[int]],   # type_groups
+                List[Predicate],        # cluster predicates
+                List[str],              # cluster ML model names
+            ]
+        ],
+        label_list: List[str],
+        val_docs: List[Document],
+        val_labels: np.ndarray,
+        base_predictions: Optional[np.ndarray] = None,
+        base_f1: Optional[float] = None,
+        sort_by_gain: bool = True,
+        verbose: bool = True,
+        rule_min_precision: float = 0.0,
+        accept_docs: Optional[List[Document]] = None,
+        accept_labels: Optional[np.ndarray] = None,
+        accept_predictions: Optional[np.ndarray] = None,
+        accept_f1: Optional[float] = None,
+    ) -> "RDLSet":
+        """
+        Global batch validation (paper Algorithm lines 11-13).
+
+        Iterate collected trials from per-cluster BO runs and greedily add
+        each rule to Σ **only if it improves** the overall macro-F1 on the
+        full validation set.
+
+        Parameters
+        ----------
+        all_trials
+            List of ``(trial, type_groups, cluster_predicates,
+            cluster_ml_models)`` tuples collected from per-cluster
+            :meth:`run_bo` calls.
+        sort_by_gain : bool
+            If ``True`` (default), sort trials by F1 gain descending before
+            selection.  If ``False``, iterate in original (Optuna) order.
+        accept_docs / accept_labels / accept_predictions / accept_f1
+            Optional separate dataset for rule acceptance validation
+            (BO data is used for candidate scoring, accept data for final
+            acceptance).  When None, acceptance uses the same BO data.
+        """
+        val_labels = np.asarray(val_labels, dtype=np.float32)
+        if base_predictions is not None:
+            existing_predictions = np.asarray(base_predictions, dtype=np.float32).copy()
+        else:
+            existing_predictions = np.zeros_like(val_labels, dtype=np.float32)
+        if base_f1 is not None:
+            baseline_f1 = float(base_f1)
+        else:
+            baseline_f1 = float(
+                f1_score(val_labels, existing_predictions,
+                         average="macro", zero_division=0)
+            )
+
+        # Accept data state
+        _has_accept = accept_docs is not None
+        if _has_accept:
+            accept_labels_arr = np.asarray(accept_labels, dtype=np.float32)
+            accept_preds = (
+                np.asarray(accept_predictions, dtype=np.float32).copy()
+                if accept_predictions is not None
+                else np.zeros_like(accept_labels_arr, dtype=np.float32)
+            )
+            accept_baseline = (
+                float(accept_f1)
+                if accept_f1 is not None
+                else float(f1_score(accept_labels_arr, accept_preds,
+                                    average="macro", zero_division=0))
+            )
+            accept_original_labels = [set(doc.lbl) for doc in accept_docs]
+
+        if sort_by_gain:
+            all_trials = sorted(all_trials, key=lambda x: -(x[0].value or 0.0))
+
+        # Preserve original labels for restoration at the end
+        original_labels = [set(doc.lbl) for doc in val_docs]
+        discovered_rules: List[RDL] = []
+
+        for trial, type_groups, cluster_preds, cluster_ml in all_trials:
+            rule = _trial_to_rdl(
+                trial=trial,
+                candidate_predicates=cluster_preds,
+                candidate_ml_models=cluster_ml,
+                label_list=label_list,
+                val_docs=val_docs,
+                val_labels=val_labels,
+                existing_predictions=existing_predictions,
+                type_groups=type_groups,
+            )
+
+            # Redundancy check
+            if _is_redundant(rule, discovered_rules):
+                continue
+
+            # Simulate adding rule: compute new F1
+            label_idx = label_list.index(rule.consequence)
+            test_preds = existing_predictions.copy()
+            fires = np.zeros(len(val_docs), dtype=bool)
+            for i, doc in enumerate(val_docs):
+                fires[i] = rule.fires(doc)
+
+            if rule.consequence_op == "add":
+                test_preds[fires, label_idx] = 1.0
+            elif rule.consequence_op == "remove":
+                test_preds[fires, label_idx] = 0.0
+            elif rule.consequence_op == "replace":
+                test_preds[fires, :] = 0.0
+                test_preds[fires, label_idx] = 1.0
+
+            # Correction precision gate (column-level: 只看 consequence label)
+            #   纯 LabelPredicate body 使用更高门槛 (×1.5)
+            if rule_min_precision > 0.0:
+                _lbl_only = rule.body and all(isinstance(p, LabelPredicate) for p in rule.body)
+                eff_prec = min(rule_min_precision * 1.2, 1.0) if _lbl_only else rule_min_precision
+                old_hit = (existing_predictions[fires, label_idx] == val_labels[fires, label_idx])
+                new_hit = (test_preds[fires, label_idx] == val_labels[fires, label_idx])
+                n_improved = int((new_hit & ~old_hit).sum())
+                n_worsened = int((old_hit & ~new_hit).sum())
+                n_changes = n_improved + n_worsened
+                if n_changes > 0:
+                    corr_prec = n_improved / n_changes
+                    if n_changes < 10:
+                        if n_improved == 0:
+                            continue
+                    elif corr_prec < eff_prec:
+                        continue
+
+            new_f1 = float(
+                f1_score(val_labels, test_preds, average="macro", zero_division=0)
+            )
+
+            if new_f1 > baseline_f1:
+                # Validate on accept data (if separate from BO data)
+                if _has_accept:
+                    a_fires = np.array(
+                        [rule.fires(doc) for doc in accept_docs], dtype=bool
+                    )
+                    test_a = accept_preds.copy()
+                    if rule.consequence_op == "add":
+                        test_a[a_fires, label_idx] = 1.0
+                    elif rule.consequence_op == "remove":
+                        test_a[a_fires, label_idx] = 0.0
+                    elif rule.consequence_op == "replace":
+                        test_a[a_fires, :] = 0.0
+                        test_a[a_fires, label_idx] = 1.0
+                    new_accept_f1 = float(
+                        f1_score(accept_labels_arr, test_a,
+                                 average="macro", zero_division=0)
+                    )
+                    if new_accept_f1 <= accept_baseline:
+                        continue
+                    # Update accept state
+                    accept_preds = test_a
+                    accept_baseline = new_accept_f1
+                    for i, doc in enumerate(accept_docs):
+                        if a_fires[i]:
+                            if rule.consequence_op == "add":
+                                doc.lbl.add(rule.consequence)
+                            elif rule.consequence_op == "remove":
+                                doc.lbl.discard(rule.consequence)
+                            elif rule.consequence_op == "replace":
+                                doc.lbl.clear()
+                                doc.lbl.add(rule.consequence)
+
+                discovered_rules.append(rule)
+                existing_predictions = test_preds
+                baseline_f1 = new_f1
+                # BO label propagation
+                for i, doc in enumerate(val_docs):
+                    if fires[i]:
+                        if rule.consequence_op == "add":
+                            doc.lbl.add(rule.consequence)
+                        elif rule.consequence_op == "remove":
+                            doc.lbl.discard(rule.consequence)
+                        elif rule.consequence_op == "replace":
+                            doc.lbl.clear()
+                            doc.lbl.add(rule.consequence)
+                if verbose:
+                    msg = f"  [batch_select] +rule {rule}  BO-F1={baseline_f1:.4f}"
+                    if _has_accept:
+                        msg += f"  Accept-F1={accept_baseline:.4f}"
+                    print(msg)
+
+        # Restore original labels
+        for i, doc in enumerate(val_docs):
+            doc.lbl.clear()
+            doc.lbl.update(original_labels[i])
+        if _has_accept:
+            for i, doc in enumerate(accept_docs):
+                doc.lbl.clear()
+                doc.lbl.update(accept_original_labels[i])
+
+        if verbose:
+            print(f"  [batch_select] Finished: {len(discovered_rules)} rules, "
+                  f"final BO-F1={baseline_f1:.4f}")
+
+        return RDLSet(rules=discovered_rules, label_names=label_list)
 
     def _create_study(self, round_idx: int) -> optuna.Study:
         """
@@ -810,6 +1671,14 @@ class RuleLearner:
         )
         return study
 
+
+# ===========================================================================
+# Phase 3 migration: RDL / RDLSet / _is_redundant now live in loris.rules.rdl.
+# Re-bind the module-level names to the migrated definitions so that external
+# importers of this legacy module (and the dead RuleLearner above) share the
+# single authoritative implementation. This shadows the local class defs.
+# ===========================================================================
+from loris.rules.rdl import RDL, RDLSet, _is_redundant  # noqa: E402,F811
 
 # ===========================================================================
 # __main__ 测试块
