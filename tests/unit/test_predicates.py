@@ -103,6 +103,20 @@ def test_label_predicate_is_read_only(predicates_mod, document_cls):
     assert doc.lbl == before
 
 
+def test_label_predicate_minus_removed_in_loris():
+    """In the migrated loris package the side-effecting minus op is gone."""
+    import os
+    if os.environ.get("LORIS_TEST_TARGET", "legacy").lower() != "loris":
+        pytest.skip("only meaningful against loris target")
+    import loris.predicates as mod
+    # constructing a minus LabelPredicate is rejected
+    with pytest.raises(ValueError):
+        mod.LabelPredicate(label="a", op="minus")
+    # deserializing a legacy minus rule is rejected with a clear message
+    with pytest.raises(ValueError):
+        mod.predicate_from_dict({"type": "LabelPredicate", "label": "a", "op": "minus"})
+
+
 # ---------------------------------------------------------------------------
 # Serialization round-trip for the deterministic predicate types
 # ---------------------------------------------------------------------------
