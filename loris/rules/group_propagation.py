@@ -369,6 +369,104 @@ def discover_group_rules(
     return results
 
 
+def discover_equal_rules(
+    virtual_attrs: Dict[str, sp.csr_matrix],
+    val_labels: np.ndarray,
+    existing_predictions: np.ndarray,
+    min_fires: int = 3,
+    min_corr_prec: float = 0.60,
+    min_f1_gain: float = 0.0005,
+    max_rounds: int = 5,
+) -> List[Tuple[MockTrial, RDL]]:
+    """Discover comparison-consequence rules ``x.lbl = y.lbl``, one per attribute.
+
+    An equal-rule on attribute A copies the whole positive-label set among docs
+    sharing >=1 value of A (paper §6.1 chase step, ⊗="="), realized via the
+    SpMV label-set closure ``pos |= (M @ (Mᵀ @ pos)) > 0`` iterated to fixpoint.
+
+    Admission is **accuracy-guided** (paper §5.2: statistical support/confidence
+    are inadequate; optimize labeling accuracy directly): simulate the closure on
+    the validation set and keep attributes whose closure improves macro-F1 with
+    correction precision >= min_corr_prec. The candidate space is one rule per
+    attribute (~tens), so no statistical anti-explosion pre-filter is needed.
+
+    Returns [(MockTrial, RDL), ...] with body=(GroupPredicate(attr),),
+    consequence="" and consequence_op="equal". These bypass ``batch_select``
+    (built for single-label add/remove rules) and are appended to the rule set
+    directly by the caller; the chase / orchestrator fast-path apply them via the
+    same SpMV closure (`MultiChase._eval_equal_rules`).
+    """
+    val_labels = np.asarray(val_labels, dtype=np.float32)
+    existing = np.asarray(existing_predictions, dtype=np.float32)
+    base_pos = existing > 0
+    old_f1 = _fast_macro_f1(val_labels, existing)
+
+    results: List[Tuple[MockTrial, RDL]] = []
+    trial_counter = 0
+    logger.info("=== Equal Rule Discovery: %d candidate attributes ===",
+                len(virtual_attrs))
+
+    for attr_name, membership in virtual_attrs.items():
+        n_valid = int((membership.getnnz(axis=1) > 0).sum())
+        if n_valid < min_fires:
+            continue
+
+        # Simulate the equal-rule's SpMV label-set closure to fixpoint (monotone).
+        pos = base_pos.copy()
+        for _ in range(max_rounds):
+            grown = (np.asarray(membership.dot(
+                membership.T.dot(pos.astype(np.float32)))) > 0) | pos
+            if np.array_equal(grown, pos):
+                break
+            pos = grown
+
+        newly = pos & ~base_pos  # (n_docs, n_labels) labels this rule would add
+        n_fires = int(newly.sum())
+        if n_fires < min_fires:
+            continue
+
+        # Correction precision over the newly-added (doc, label) positions.
+        added_truth = val_labels[newly]
+        n_improved = int((added_truth == 1).sum())
+        n_worsened = int((added_truth == 0).sum())
+        if n_improved == 0:
+            continue
+        corr_prec = n_improved / (n_improved + n_worsened)
+        if corr_prec < min_corr_prec:
+            continue
+
+        f1_gain = _fast_macro_f1(val_labels, pos.astype(np.float32)) - old_f1
+        if f1_gain < min_f1_gain:
+            continue
+
+        n_values = membership.shape[1]
+        metrics = {
+            "n_fires": n_fires, "n_improved": n_improved,
+            "n_worsened": n_worsened, "corr_prec": round(corr_prec, 4),
+            "f1_gain": round(float(f1_gain), 4),
+        }
+        rule = RDL(
+            body=(GroupPredicate(attr_name=attr_name, group_count=n_values),),
+            consequence="",
+            consequence_op="equal",
+            score=float(f1_gain),
+            coverage=n_fires / max(val_labels.shape[0], 1),
+            trial_number=trial_counter,
+            val_stats=metrics,
+        )
+        results.append((
+            MockTrial(number=trial_counter, values=[float(f1_gain)],
+                      params={"attr": attr_name, "op": "equal"}),
+            rule,
+        ))
+        trial_counter += 1
+        logger.info("  equal-rule attr=%s: n_fires=%d corr_prec=%.3f f1_gain=%.4f",
+                    attr_name, n_fires, corr_prec, f1_gain)
+
+    logger.info("=== Equal Rule Discovery: %d equal-rules admitted ===", len(results))
+    return results
+
+
 def simulate_cross_attr_cascade(
     rules: List[Tuple[str, int, np.ndarray]],
     virtual_attrs: Dict[str, sp.csr_matrix],

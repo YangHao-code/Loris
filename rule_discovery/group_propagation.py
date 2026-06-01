@@ -10,5 +10,6 @@ from loris.rules.group_propagation import (  # noqa: F401
     compute_group_fire_mask,
     evaluate_group_rule,
     discover_group_rules,
+    discover_equal_rules,
     simulate_cross_attr_cascade,
 )

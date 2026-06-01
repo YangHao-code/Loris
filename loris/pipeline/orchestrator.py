@@ -965,14 +965,21 @@ def main() -> None:
                     log.info("Sim rules: %d/%d rules fired at least once",
                              _n_sim_fired, len(_sim_rules))
 
-                # Pass 3: group propagation rules
+                # Pass 3: group propagation rules (add) + comparison consequence
+                # (x.lbl=y.lbl, equal). Both cascade together to fixpoint; this
+                # is the fast-path mirror of MultiChase._eval_group_rules /
+                # _eval_equal_rules (used when there are 0 sim rules).
                 if _has_group_rules and _test_virtual_attrs:
                     from loris.rules.group_propagation import compute_group_fire_mask
                     _group_rules = [r for r in final_rdl_set.rules
-                                    if any(isinstance(p, _GroupPred) for p in r.body)]
+                                    if r.consequence_op != "equal"
+                                    and any(isinstance(p, _GroupPred) for p in r.body)]
+                    _equal_rules = [r for r in final_rdl_set.rules
+                                    if r.consequence_op == "equal"]
                     _label2idx = {name: i for i, name in enumerate(label_names)}
                     _label_state = (_result > 0).astype(np.float32)
                     _n_group_fired = 0
+                    _n_equal_fired = 0
                     for _round in range(5):
                         _round_fired = 0
                         for rule in _group_rules:
@@ -999,10 +1006,26 @@ def main() -> None:
                                 _label_state[fires, cidx] = 1.0
                                 _round_fired += int(fires.sum())
                                 _n_group_fired += 1
+                        # Comparison consequence x.lbl=y.lbl: batched SpMV label-set
+                        # copy among co-members ( new = (M @ (Mᵀ @ state)) > 0 ).
+                        for rule in _equal_rules:
+                            gp = next((p for p in rule.body if isinstance(p, _GroupPred)), None)
+                            if gp is None:
+                                continue
+                            M = _test_virtual_attrs.get(gp.attr_name)
+                            if M is None:
+                                continue
+                            new = np.asarray(M.dot(M.T.dot(_label_state))) > 0
+                            add = new & (_result == 0)
+                            if add.any():
+                                _result[add] = 1.0
+                                _label_state[add] = 1.0
+                                _round_fired += int(add.sum())
+                                _n_equal_fired += 1
                         if _round_fired == 0:
                             break
-                    log.info("Group rules: %d rules fired, converged in %d rounds",
-                             _n_group_fired, _round + 1)
+                    log.info("Group rules: %d add-fires, %d equal-fires, converged in %d rounds",
+                             _n_group_fired, _n_equal_fired, _round + 1)
 
                 final_micro_f1 = float(_f1(test_y, _result, average="micro", zero_division=0))
                 final_macro_f1 = float(_f1(test_y, _result, average="macro", zero_division=0))

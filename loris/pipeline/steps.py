@@ -1144,7 +1144,9 @@ def run_rule_discovery_batch(
         from rule_discovery.virtual_attributes import (
             compute_all_virtual_attributes, filter_degenerate_groups,
         )
-        from rule_discovery.group_propagation import discover_group_rules
+        from rule_discovery.group_propagation import (
+            discover_group_rules, discover_equal_rules,
+        )
 
         log.info("=== Track 2 Group Propagation: computing virtual attributes ===")
 
@@ -1180,6 +1182,22 @@ def run_rule_discovery_batch(
             min_corr_prec=_group_min_prec,
         )
         log.info("Track 2 Group: %d rules discovered on val_bo", len(_group_trials))
+
+        # Comparison-consequence (x.lbl=y.lbl) rules — one per attribute, admitted
+        # accuracy-guided (paper §5.2/§6.1). These cannot pass through batch_select
+        # (consequence=""), so they are gated here on val_bo f1_gain and appended
+        # to the final rule set directly (see final_rules assembly below).
+        _equal_trials = discover_equal_rules(
+            virtual_attrs=bo_virtual_attrs,
+            val_labels=val_y,
+            existing_predictions=_t2_base,
+            min_fires=max(3, effective_min_fires // 2),
+            min_corr_prec=_group_min_prec,
+            min_f1_gain=hp.min_f1_gain,
+        )
+        _equal_rules = [rdl for _t, rdl in _equal_trials]
+        log.info("Track 2 Equal: %d comparison-consequence rules admitted on val_bo",
+                 len(_equal_rules))
 
         # Virtual attributes on val_select (for batch_select)
         if _is_two_val:
@@ -1314,10 +1332,12 @@ def run_rule_discovery_batch(
                 precomputed_pred_to_idx=_sel_pred_to_idx,
                 precomputed_ml_proba=_sel_ml_proba,
             )
-            final_rules = list(all_seed_rules) + list(track2_rdl.rules)
+            final_rules = (list(all_seed_rules) + list(track2_rdl.rules)
+                           + _equal_rules)
             rdl_set = RDLSet(final_rules, label_names)
-            log.info("Staged final: %d seed + %d Track 2 = %d total rules",
-                     len(all_seed_rules), len(track2_rdl.rules), len(final_rules))
+            log.info("Staged final: %d seed + %d Track 2 + %d equal = %d total rules",
+                     len(all_seed_rules), len(track2_rdl.rules), len(_equal_rules),
+                     len(final_rules))
         else:
             # Original: combined batch_select (Track 1 + Track 2)
             combined_trials = all_trials + track2_trials
@@ -1347,6 +1367,10 @@ def run_rule_discovery_batch(
                 virtual_attrs=sel_virtual_attrs,
                 inject_ml_baseline=getattr(hp, 'inject_ml_baseline', True),
             )
+            if _equal_rules:
+                rdl_set = RDLSet(list(rdl_set.rules) + _equal_rules, label_names)
+                log.info("Track 2 Equal: appended %d comparison-consequence rules "
+                         "(total %d)", len(_equal_rules), len(rdl_set.rules))
 
     # ── LabelPredicate co-occurrence rules ──
     # Generate rules from label co-occurrence patterns and add validated ones

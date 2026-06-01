@@ -28,6 +28,7 @@ from loris.predicates import (
     MatchPredicate,
 )
 from loris.predicates._core import _Pattern
+from loris.rules.group_propagation import discover_equal_rules
 from loris.rules.rdl import RDL, RDLSet
 from loris.chase.multi_chase import (
     BulkLBL,
@@ -539,6 +540,36 @@ class TestEqualConsequence:
         assert chase._equal_rule_idxs == [0]
         assert chase._group_rule_idxs == [1]
         assert chase._text_rule_idxs == [2]
+
+
+class TestEqualRuleDiscovery:
+    """B-6: discover_equal_rules admits attributes accuracy-guided (paper §5.2)."""
+
+    def test_admits_beneficial_attribute(self):
+        # docs 0,1 share value 0 (truth finance); 2,3 share value 1 (truth sports).
+        # base: only d0 has finance, d2 has sports → equal-rule copies to 1 and 3.
+        M = sp.csr_matrix(np.array([[1, 0], [1, 0], [0, 1], [0, 1]], dtype=np.int8))
+        val = np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0]], dtype=np.float32)
+        existing = np.array([[1, 0, 0], [0, 0, 0], [0, 1, 0], [0, 0, 0]], dtype=np.float32)
+        out = discover_equal_rules({"A": M}, val, existing,
+                                   min_fires=1, min_corr_prec=0.5)
+        assert len(out) == 1
+        _trial, rule = out[0]
+        assert rule.consequence_op == "equal" and rule.consequence == ""
+        assert rule.body[0].attr_name == "A"
+        assert rule.val_stats["corr_prec"] == 1.0
+        assert rule.score > 0
+
+    def test_rejects_harmful_attribute(self):
+        # Attribute B groups docs with CONFLICTING truth → copying labels hurts
+        # precision → must be rejected by the corr_prec / f1_gain gate.
+        M = sp.csr_matrix(np.array([[1], [1]], dtype=np.int8))  # d0,d1 co-members
+        val = np.array([[1, 0], [0, 1]], dtype=np.float32)       # disjoint truth
+        existing = np.array([[1, 0], [0, 1]], dtype=np.float32)  # already correct
+        out = discover_equal_rules({"B": M}, val, existing,
+                                   min_fires=1, min_corr_prec=0.6)
+        # Copying would add finance→d1 and sports→d0, both wrong → 0 improved.
+        assert out == []
 
 
 if __name__ == "__main__":
