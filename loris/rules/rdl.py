@@ -207,7 +207,7 @@ class RDLSet:
         max_rounds: int = 100,
         time_limit_sec: Optional[float] = None,
         conflict_mode: str = "halt",
-        enable_transitivity: bool = True,
+        enable_transitivity: bool = False,
         sim_graphs: Optional[Dict] = None,
         sim_decay: float = 1.0,
         sim_conf_threshold: float = 0.0,
@@ -232,7 +232,10 @@ class RDLSet:
         conflict_mode : str
             ``"halt"`` | ``"negative_wins"`` | ``"positive_wins"``.
         enable_transitivity : bool
-            Whether to propagate labels via subset relations.
+            Whether to propagate labels via subset relations. Defaults to
+            ``False`` since B-5 (the prediction-bitmap ``sub``/``sup`` source was
+            the B1 bug and is removed; a legitimate co-membership source is added
+            in C-9).
         sim_graphs : dict, optional
             {threshold: csr_matrix} for SimPredicate evaluation.
 

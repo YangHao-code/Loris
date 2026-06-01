@@ -178,14 +178,20 @@ class TestConflictNegativeWins:
 
 
 class TestTransitivity:
-    """doc1.lbl ⊆ doc0.lbl → new label on doc1 propagates to doc0."""
+    """B-5: coincidental prediction-bitmap containment is NOT a subset relation.
 
-    def test_propagation(self):
+    Previously the chase inferred ``y.lbl ⊆ x.lbl`` from ``y_pos & ~x_pos`` and
+    propagated labels up those bogus edges (the B1 bug). That source is removed;
+    ``sub``/``sup`` are now populated only by the comparison consequence
+    (legitimate co-membership source added in C-9). So bitmap containment must
+    NOT cause propagation.
+    """
+
+    def test_bitmap_containment_does_not_propagate(self):
         labels = ["A", "B", "C"]
-        # doc0 starts with {A, B}, doc1 starts with {A}
-        # → doc1.lbl ⊆ doc0.lbl
-        # Rule: match "trigger" → +C (will fire on doc1)
-        # Transitivity should propagate C from doc1 to doc0
+        # doc0 starts with {A, B}, doc1 starts with {A} → doc1.pos ⊆ doc0.pos
+        # (a coincidental bitmap containment, NOT a real subset relation).
+        # Rule: match "trigger" → +C (fires on doc1 only).
         rules = [
             RDL(
                 body=(MatchPredicate(attr="cnt", r=_pat("trigger")),),
@@ -193,17 +199,27 @@ class TestTransitivity:
             ),
         ]
         docs = [
-            _doc("No trigger here", lbl={"A", "B"}),
+            # doc0 deliberately does NOT contain "trigger" — it can only acquire
+            # C through (the now-removed) bitmap-containment transitivity.
+            _doc("Nothing relevant in this document", lbl={"A", "B"}),
             _doc("Has trigger word", lbl={"A"}),
         ]
+        # Even with transitivity explicitly ON, there is no legitimate sub/sup
+        # source, so C must stay confined to doc1.
         chase = MultiChase(rules, labels, enable_transitivity=True)
         result = chase.run(docs)
 
         assert result.status == "fixpoint"
-        # doc1 gets C from rule
+        # doc1 gets C from the rule
         assert result.predictions[1, labels.index("C")] == 1.0
-        # doc0 should also get C via transitivity (doc1 ⊆ doc0)
-        assert result.predictions[0, labels.index("C")] == 1.0
+        # doc0 must NOT inherit C from coincidental bitmap containment (B1 fixed)
+        assert result.predictions[0, labels.index("C")] == 0.0
+
+    def test_transitivity_default_off(self):
+        # B-5: enable_transitivity now defaults to False.
+        import inspect
+        assert inspect.signature(MultiChase.__init__).parameters[
+            "enable_transitivity"].default is False
 
 
 # ── Test 6: No cycles ────────────────────────────────────────────────

@@ -152,7 +152,12 @@ class MultiChase:
         ``"negative_wins"`` — remove from pos, continue.
         ``"positive_wins"`` — remove from neg, continue.
     enable_transitivity : bool
-        Whether to maintain and propagate ``[x]_⊆`` subset relations.
+        Whether to maintain and propagate ``[x]_⊆`` subset relations. Defaults
+        to ``False`` (B-5): the only former source of ``sub``/``sup`` was the
+        prediction-bitmap inference (the B1 bug), now removed. A legitimate
+        co-membership source + negative transitivity is added in C-9, which will
+        re-enable this. The ``=`` comparison consequence (B-4) propagates labels
+        via SpMV closure independently of this flag.
     track_provenance : bool
         Record which rules derived which labels.
     """
@@ -164,7 +169,7 @@ class MultiChase:
         max_rounds: int = 100,
         time_limit_sec: Optional[float] = None,
         conflict_mode: str = "halt",
-        enable_transitivity: bool = True,
+        enable_transitivity: bool = False,
         track_provenance: bool = False,
         sim_graphs: Optional[Dict[float, sp.csr_matrix]] = None,
         sim_decay: float = 1.0,
@@ -613,34 +618,25 @@ class MultiChase:
         affected_docs: Set[int],
         all_doc_indices: np.ndarray,
     ) -> None:
-        """Recompute subset relations for affected documents.
+        """No-op (B-5): subset relations are NOT derived from the prediction bitmap.
 
-        For each affected doc y, check all docs x: if y.pos ⊆ x.pos,
-        add y to sub[x] and x to sup[y].  When y.pos changes, old
-        relations may become invalid, so we clear and rebuild for y.
+        The previous implementation inferred ``y.lbl ⊆ x.lbl`` whenever doc y's
+        *predicted* labels happened to be a subset of doc x's (``y_pos & ~x_pos``),
+        then propagated labels up those edges (`_propagate_transitivity`). That is
+        the B1 bug: coincidental bitmap containment is NOT a semantic subset
+        relation — it manufactures spurious ⊆ edges (e.g. any doc with a smaller
+        predicted label set becomes a "child" of every larger one) and leaks
+        labels in both directions.
+
+        Per the paper (§6.1), ``sub``/``sup`` may be populated ONLY by the
+        comparison consequence ``x.lbl ⊗ y.lbl`` (the legitimate source). B-4
+        realizes the ``=`` consequence directly via SpMV label-set closure
+        (`_eval_equal_rules`), so no explicit ``sub``/``sup`` is needed for it;
+        deriving ``sub``/``sup`` from the real co-membership relation
+        (``virtual_attrs``) — to drive negative transitivity — is deferred to C-9.
+        Until then this stays empty and `_propagate_transitivity` is inert.
         """
-        for y_idx in affected_docs:
-            y_pos = lbl.pos[y_idx]
-            if not np.any(y_pos):
-                continue
-
-            # Clear old outgoing relations for y
-            old_parents = list(lbl.sup[y_idx])
-            for x_idx in old_parents:
-                lbl.sub[x_idx].discard(y_idx)
-            lbl.sup[y_idx].clear()
-
-            # Rebuild: y.pos ⊆ x.pos iff (y.pos & ~x.pos) == 0
-            # Vectorised: check all x at once
-            # not_covered shape: (n_docs, n_labels)
-            not_covered = y_pos & ~lbl.pos  # broadcast y_pos over all rows
-            # x is a superset iff no label in y_pos is missing from x.pos
-            is_superset = ~np.any(not_covered, axis=1)  # (n_docs,)
-            is_superset[y_idx] = False  # exclude self
-
-            for x_idx in np.where(is_superset)[0]:
-                lbl.sub[x_idx].add(y_idx)
-                lbl.sup[y_idx].add(int(x_idx))
+        return
 
     def _propagate_transitivity(
         self,
