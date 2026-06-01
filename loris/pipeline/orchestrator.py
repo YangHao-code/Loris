@@ -396,15 +396,19 @@ def main() -> None:
                  best_model_name, baseline_micro_f1)
 
     # ── 测试集评估 ──────────────────────────────────────────────────────────
+    # B2 fix (paper §3.3): baseline = the SINGLE val-selected model's test score,
+    # NOT max over all models on test. Reporting max-over-models inflates the
+    # baseline (it cherry-picks the best model *on the test set*, which the
+    # pipeline never actually selects), making rule deltas look flat/negative.
+    # The rules stack on `best_clf` (= pool[best_model_name], chosen on val), so
+    # the honest baseline is that same model's test score. Per-model table is
+    # still kept (test_metrics_per_model) for diagnostics.
     test_metrics_per_model = evaluate_models_on_test(pool, test_X, test_y)
-    baseline_test_micro_f1 = max(
-        (m["micro_f1"] for m in test_metrics_per_model.values()), default=0.0
-    )
-    baseline_test_macro_f1 = max(
-        (m["macro_f1"] for m in test_metrics_per_model.values()), default=0.0
-    )
-    log.info("Best single-model test micro-F1: %.4f  macro-F1: %.4f",
-             baseline_test_micro_f1, baseline_test_macro_f1)
+    _baseline_test_metrics = test_metrics_per_model.get(best_model_name, {})
+    baseline_test_micro_f1 = float(_baseline_test_metrics.get("micro_f1", 0.0))
+    baseline_test_macro_f1 = float(_baseline_test_metrics.get("macro_f1", 0.0))
+    log.info("Baseline (val-selected model '%s') test micro-F1: %.4f  macro-F1: %.4f",
+             best_model_name, baseline_test_micro_f1, baseline_test_macro_f1)
 
     # ── 最佳模型验证集预测 ──────────────────────────────────────────────────
     best_clf = pool[best_model_name] if best_model_name else None
