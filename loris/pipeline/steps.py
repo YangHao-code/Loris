@@ -1153,12 +1153,15 @@ def run_rule_discovery_batch(
         _train_emb_cache = str(exp_dir / "embeddings_train.npy")
         _train_emb = compute_embeddings(_train_texts, cache_path=_train_emb_cache)
 
-        # Virtual attributes on val_bo
-        _group_ml_proba = locals().get('_bo_ml_proba') or {}
-        bo_virtual_attrs, _kmeans_models = compute_all_virtual_attributes(
+        # Virtual attributes on val_bo — FIT kmeans + text-attr vocabularies on
+        # train_docs, transform val_bo (mirrors KMeans fit-on-train/predict).
+        # _text_vocabs is returned for reuse on val_select / test so attribute
+        # value-columns stay consistent across BO / select / test.
+        bo_virtual_attrs, _kmeans_models, _text_vocabs = compute_all_virtual_attributes(
             train_embeddings=_train_emb,
             target_embeddings=bo_embeddings,
-            ml_proba_cache=_group_ml_proba,
+            train_docs=train_docs,
+            target_docs=val_docs,
             label_names=label_names,
         )
         bo_virtual_attrs = filter_degenerate_groups(bo_virtual_attrs)
@@ -1180,12 +1183,15 @@ def run_rule_discovery_batch(
 
         # Virtual attributes on val_select (for batch_select)
         if _is_two_val:
-            sel_virtual_attrs, _ = compute_all_virtual_attributes(
+            # Transform val_select with the SAME fitted kmeans + text vocab.
+            sel_virtual_attrs, _, _ = compute_all_virtual_attributes(
                 train_embeddings=_train_emb,
                 target_embeddings=sel_embeddings,
-                ml_proba_cache=_sel_ml_proba if _sel_ml_proba else {},
+                train_docs=train_docs,
+                target_docs=select_docs,
                 label_names=label_names,
                 kmeans_models=_kmeans_models,
+                text_vocabs=_text_vocabs,
             )
             sel_virtual_attrs = filter_degenerate_groups(sel_virtual_attrs)
         else:

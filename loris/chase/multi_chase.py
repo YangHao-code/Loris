@@ -168,7 +168,7 @@ class MultiChase:
         sim_graphs: Optional[Dict[float, sp.csr_matrix]] = None,
         sim_decay: float = 1.0,
         sim_conf_threshold: float = 0.0,
-        virtual_attrs: Optional[Dict[str, np.ndarray]] = None,
+        virtual_attrs: Optional[Dict[str, sp.csr_matrix]] = None,
     ) -> None:
         if conflict_mode not in ("halt", "negative_wins", "positive_wins"):
             raise ValueError(f"Invalid conflict_mode: {conflict_mode!r}")
@@ -427,12 +427,14 @@ class MultiChase:
         text_fire_cache: np.ndarray,
         evaluated: Set[Tuple[int, int, int]],
     ) -> List[_QItem]:
-        """Batch-evaluate all group rules via attribute equality.
+        """Batch-evaluate all group rules via the comparison predicate x.A=y.A.
 
         For each group rule:
-          1. Get group_ids from virtual_attrs[attr_name]
+          1. Get the membership matrix (n_docs × n_values csr) from
+             virtual_attrs[attr_name]
           2. Build y_mask from LabelPredicate (check y's labels)
-          3. For each group: if any member has the label, all members fire
+          3. SpMV: a doc x fires iff it shares >=1 attribute value with some
+             y_mask qualifier — membership @ (membershipᵀ @ y_mask) > 0
           4. AND with text_fire_cache[rule_idx] (text preds on x)
           5. Collect (doc_idx, label_idx, rule_idx) fires
         """
@@ -448,8 +450,8 @@ class MultiChase:
             )
             if group_pred is None:
                 continue
-            group_ids = self.virtual_attrs.get(group_pred.attr_name)
-            if group_ids is None:
+            membership = self.virtual_attrs.get(group_pred.attr_name)
+            if membership is None:
                 continue
 
             # Step 1: y_mask — which docs y satisfy LabelPredicate?
@@ -464,14 +466,16 @@ class MultiChase:
                 if lp.op == "contains":
                     y_mask &= lbl.pos[:, lidx].astype(bool)
 
-            # Step 2: group propagation — for each group with any y_mask=True member,
-            # all members of that group fire
-            group_fire = np.zeros(n_docs, dtype=bool)
-            unique_groups = np.unique(group_ids[group_ids >= 0])
-            for gid in unique_groups:
-                members = np.where(group_ids == gid)[0]
-                if y_mask[members].any():
-                    group_fire[members] = True
+            # Step 2: comparison-predicate fire via SpMV (x.A=y.A ∧ label∈y.lbl).
+            # `membership` is a (n_docs × n_values) 0/1 csr; doc x fires iff it
+            # shares >=1 attribute value with some y_mask qualifier. Never
+            # materializes the n_docs×n_docs co-membership matrix:
+            #   col  = membershipᵀ @ y_mask    (qualifiers per value)
+            #   fire = (membership @ col) > 0  (shares a value with a qualifier)
+            # Mirrors group_propagation.compute_group_fire_mask; self-inclusion is
+            # intentional (Step 4 excludes docs already holding the consequence).
+            _col = membership.T.dot(y_mask.astype(np.float32))
+            group_fire = np.asarray(membership.dot(_col)).ravel() > 0
 
             # Step 3: AND with text predicates on x
             combined = text_fire_cache[rule_idx] & group_fire

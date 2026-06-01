@@ -816,14 +816,15 @@ def main() -> None:
             _test_texts = [d.cnt for d in test_docs]
             _test_emb = compute_embeddings(
                 _test_texts, cache_path=str(exp_dir / "test_embeddings.npy"))
-            _test_ml_proba = {}
-            if hasattr(hp, '_test_ml_proba'):
-                _test_ml_proba = hp._test_ml_proba
-            _test_virtual_attrs, _ = compute_all_virtual_attributes(
+            # Test path is a separate scope from BO/select: re-FIT kmeans + text
+            # vocab on train_docs (deterministic → same columns as BO) and
+            # transform test_docs. text_vocabs/kmeans discarded (re-derived).
+            _test_virtual_attrs, _, _ = compute_all_virtual_attributes(
                 train_embeddings=compute_embeddings(
                     train_X, cache_path=str(exp_dir / "embeddings_train.npy")),
                 target_embeddings=_test_emb,
-                ml_proba_cache=_test_ml_proba,
+                train_docs=train_docs,
+                target_docs=test_docs,
                 label_names=label_names,
             )
             _test_virtual_attrs = filter_degenerate_groups(_test_virtual_attrs)

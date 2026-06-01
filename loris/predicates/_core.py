@@ -807,15 +807,20 @@ class GroupPredicate(Predicate):
     Paper formalism: ``doc(x) ∧ doc(y) ∧ x.attr == y.attr ∧ label(A∈y.lbl) → add A to x``
 
     When a rule body contains a GroupPredicate, the rule is *pairwise*:
-    for document *x*, find all documents *y* sharing the same group
-    (same value of ``attr_name``).  If any *y* has the required label
+    for document *x*, find all documents *y* that **share at least one value**
+    of attribute ``attr_name`` with *x*.  If any such *y* has the required label
     (checked via LabelPredicate in the same body), the rule fires on *x*.
 
-    Virtual attributes (cluster IDs, prediction patterns from intermediate
-    models) are stored externally as numpy arrays indexed by document position.
+    Attribute A is **multi-valued**: each document holds a *set* of values for a
+    given attribute type (e.g. several NER ORG entities, several regex hits), so
+    ``x.A=y.A`` means *value-set intersection is non-empty*, not scalar equality.
+    Membership is stored externally as a ``scipy.sparse`` (n_docs × n_values)
+    0/1 csr per attribute type (see :mod:`loris.rules.virtual_attributes`);
+    cluster IDs degenerate to a one-hot row. ``group_count`` records the number
+    of value columns (formerly the number of discrete group ids).
 
-    ``__call__`` is a stub — actual evaluation uses precomputed group
-    membership arrays.
+    ``__call__`` is a stub — actual evaluation uses the precomputed membership
+    matrix via SpMV (``membership @ (membershipᵀ @ y_mask) > 0``).
     """
 
     attr_name: str

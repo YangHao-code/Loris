@@ -2697,8 +2697,8 @@ class ChaseRuleLearner:
         # ── Chase: sim graph support ──
         sim_graphs: Optional[Dict] = None,
         label_state: Optional[np.ndarray] = None,
-        # ── Chase: group propagation support ──
-        virtual_attrs: Optional[Dict[str, np.ndarray]] = None,
+        # ── Chase: group propagation support (multi-value csr membership) ──
+        virtual_attrs: Optional[Dict[str, sp.csr_matrix]] = None,
         # ── ML baseline injection ──
         inject_ml_baseline: bool = False,
         # ── 预计算 fire masks（避免重复计算） ──

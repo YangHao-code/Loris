@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
+import scipy.sparse as sp
 
 from loris.document import Document
 from loris.predicates import (
@@ -61,31 +62,33 @@ def _fast_macro_f1(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 
 
 def compute_group_fire_mask(
-    group_ids: np.ndarray,
+    membership: sp.csr_matrix,
     label_idx: int,
     label_state: np.ndarray,
 ) -> np.ndarray:
-    """Compute propagation fire mask for a (group_attr, label) pair.
+    """Compute the comparison-predicate fire mask for an (attr, label) pair.
 
-    mask[i] = True iff:
-      - group_ids[i] >= 0 (not degenerate)
-      - there exists j != i with group_ids[j] == group_ids[i] and label_state[j, label_idx] == 1
+    mask[i] = True iff doc i shares >=1 value of this attribute type with some
+    doc j that has the label (`x.A=y.A ∧ label∈y.lbl`). Computed via sparse
+    matrix-vector products, never materializing the n_docs×n_docs co-membership
+    matrix::
 
-    This is the core "x.attr == y.attr ∧ label(A∈y.lbl)" evaluation.
+        col  = membershipᵀ @ y           # (n_values,) qualifying docs per value
+        fire = (membership @ col) > 0     # (n_docs,) shares a value with a qualifier
+
+    SELF-INCLUSION: this is intentionally self-inclusive — a doc that itself has
+    the label contributes to its own value column, so a lone qualifier still
+    fires. This matches the legacy single-value behaviour (one-hot membership
+    reproduces the old per-group loop bit-for-bit). The "∃j≠i" intent is
+    enforced downstream by every consumer AND-ing with ~already-has-consequence
+    (multi_chase, discovery.batch_select, orchestrator, evaluate_group_rule), so
+    no explicit self-subtraction is applied here. Empty rows (a doc with no
+    surviving value for this attr) never fire.
     """
-    n = len(group_ids)
-    mask = np.zeros(n, dtype=bool)
-
-    unique_groups = np.unique(group_ids[group_ids >= 0])
-    for gid in unique_groups:
-        members = np.where(group_ids == gid)[0]
-        has_label = label_state[members, label_idx].astype(bool)
-        if has_label.any():
-            mask[members] = True
-            # docs that already have the label via label_state still get mask=True
-            # (batch_select handles the "only fire if prediction differs" logic)
-
-    return mask
+    y = np.asarray(label_state[:, label_idx], dtype=np.float32).ravel()
+    col = membership.T.dot(y)
+    fire = np.asarray(membership.dot(col)).ravel() > 0
+    return fire
 
 
 def evaluate_group_rule(
@@ -237,13 +240,14 @@ def discover_group_rules(
                 len(virtual_attrs) * len(label_names))
 
     # Phase 1: Pure group+label rules
-    for attr_name, group_ids in virtual_attrs.items():
-        n_valid = int((group_ids >= 0).sum())
+    for attr_name, membership in virtual_attrs.items():
+        # number of docs that still have >=1 surviving value for this attribute
+        n_valid = int((membership.getnnz(axis=1) > 0).sum())
         if n_valid < min_fires:
             continue
 
         for label_idx, label_name in enumerate(label_names):
-            fire_mask = compute_group_fire_mask(group_ids, label_idx, label_state)
+            fire_mask = compute_group_fire_mask(membership, label_idx, label_state)
             metrics = evaluate_group_rule(
                 fire_mask, label_idx, val_labels, existing_predictions,
                 min_fires=min_fires, min_corr_prec=0.0,
@@ -255,9 +259,9 @@ def discover_group_rules(
             f1_gain = metrics["f1_gain"]
 
             if corr_prec >= min_corr_prec and f1_gain >= min_f1_gain:
-                n_groups = len(np.unique(group_ids[group_ids >= 0]))
+                n_values = membership.shape[1]
                 body = (
-                    GroupPredicate(attr_name=attr_name, group_count=n_groups),
+                    GroupPredicate(attr_name=attr_name, group_count=n_values),
                     LabelPredicate(label=label_name, op="contains"),
                 )
                 rule = RDL(
@@ -324,9 +328,9 @@ def discover_group_rules(
 
         if best_pred_info is not None and best_metrics is not None:
             pred, is_negated = best_pred_info
-            n_groups = len(np.unique(virtual_attrs[attr_name][virtual_attrs[attr_name] >= 0]))
+            n_values = virtual_attrs[attr_name].shape[1]
             body_preds: List[Predicate] = [
-                GroupPredicate(attr_name=attr_name, group_count=n_groups),
+                GroupPredicate(attr_name=attr_name, group_count=n_values),
                 LabelPredicate(label=label_name, op="contains"),
             ]
             if is_negated:
@@ -367,7 +371,7 @@ def discover_group_rules(
 
 def simulate_cross_attr_cascade(
     rules: List[Tuple[str, int, np.ndarray]],
-    virtual_attrs: Dict[str, np.ndarray],
+    virtual_attrs: Dict[str, sp.csr_matrix],
     label_state: np.ndarray,
     existing_predictions: np.ndarray,
     val_labels: np.ndarray,

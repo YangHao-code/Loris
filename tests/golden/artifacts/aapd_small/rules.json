@@ -2241,7 +2241,7 @@
         {
           "type": "GroupPredicate",
           "attr_name": "cluster_100",
-          "group_count": 58
+          "group_count": 100
         },
         {
           "type": "LabelPredicate",
