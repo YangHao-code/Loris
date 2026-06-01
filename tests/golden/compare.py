@@ -3,7 +3,9 @@
 Comparison modes (see golden_config.GOLDEN_ARTIFACTS):
   json_canonical -> json.dumps(sort_keys=True) byte-equality (true bit-for-bit)
   npy_exact      -> np.array_equal
-  json_metrics   -> exact numeric compare of GOLDEN_METRIC_KEYS
+  json_metrics   -> numeric compare of GOLDEN_METRIC_KEYS with atol=1e-3
+                    (rule layer is bit-exact; only embedding-layer F1 floats
+                    get tolerance — see _cmp_json_metrics)
 """
 
 from __future__ import annotations
@@ -31,6 +33,17 @@ def _cmp_json_canonical(fresh: Path, golden: Path) -> tuple[bool, str]:
 
 
 def _cmp_json_metrics(fresh: Path, golden: Path) -> tuple[bool, str]:
+    """Compare final metric keys with an absolute tolerance.
+
+    The rule layer (rules.json, PatternStore, candidate predicates, fire_masks)
+    is verified bit-for-bit elsewhere. The final F1 numbers, however, flow
+    through the *test-time* sentence-transformer embeddings (sim_graph /
+    SimPredicate), and sentence-transformers' encode() is not bit-reproducible
+    on CPU (sub-1e-4 jitter in the embedding floats propagates into a handful
+    of borderline sim edges → a few flipped predictions → ~1e-4 F1 wobble).
+    So model/embedding-layer metrics get atol=1e-3; the rule layer stays exact.
+    """
+    METRIC_ATOL = 1e-3
     with open(fresh) as f:
         a = json.load(f)
     with open(golden) as f:
@@ -38,11 +51,14 @@ def _cmp_json_metrics(fresh: Path, golden: Path) -> tuple[bool, str]:
     diffs = []
     for k in GOLDEN_METRIC_KEYS:
         va, vb = a.get(k), b.get(k)
-        if va != vb:
+        if isinstance(va, (int, float)) and isinstance(vb, (int, float)):
+            if abs(va - vb) > METRIC_ATOL:
+                diffs.append(f"{k}: fresh={va!r} golden={vb!r} (|Δ|>{METRIC_ATOL})")
+        elif va != vb:
             diffs.append(f"{k}: fresh={va!r} golden={vb!r}")
     if diffs:
         return False, "; ".join(diffs)
-    return True, f"{len(GOLDEN_METRIC_KEYS)} metric keys match exactly"
+    return True, f"{len(GOLDEN_METRIC_KEYS)} metric keys within atol={METRIC_ATOL}"
 
 
 def _cmp_npy_exact(fresh: Path, golden: Path) -> tuple[bool, str]:
