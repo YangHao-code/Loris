@@ -222,6 +222,12 @@ class TestTransitivity:
         assert inspect.signature(MultiChase.__init__).parameters[
             "enable_transitivity"].default is False
 
+    def test_conflict_mode_default_negative_wins(self):
+        # C-8: chase converges (not halt) on conflict, preserving remove rules.
+        import inspect
+        assert inspect.signature(MultiChase.__init__).parameters[
+            "conflict_mode"].default == "negative_wins"
+
 
 # ── Test 6: No cycles ────────────────────────────────────────────────
 

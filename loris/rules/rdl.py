@@ -206,7 +206,7 @@ class RDLSet:
         base_predictions: Optional[np.ndarray] = None,
         max_rounds: int = 100,
         time_limit_sec: Optional[float] = None,
-        conflict_mode: str = "halt",
+        conflict_mode: str = "negative_wins",
         enable_transitivity: bool = False,
         sim_graphs: Optional[Dict] = None,
         sim_decay: float = 1.0,

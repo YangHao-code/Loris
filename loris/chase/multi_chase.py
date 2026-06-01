@@ -148,9 +148,15 @@ class MultiChase:
     time_limit_sec : float or None
         Wall-clock time limit (None = unlimited).
     conflict_mode : str
-        ``"halt"`` — return ⊥ on first conflict (paper semantics).
-        ``"negative_wins"`` — remove from pos, continue.
-        ``"positive_wins"`` — remove from neg, continue.
+        ``"halt"`` — return ⊥ on first conflict (Church-Rosser ⊥ output).
+        ``"negative_wins"`` (DEFAULT, C-8) — continue past conflicts; final
+            labels = ``pos & ~neg`` (a removed label suppresses a conflicting
+            add). The paper requires the chase to CONVERGE rather than halt on
+            conflict, and this dual-set resolution preserves corrective remove
+            rules and matches the fast-path test evaluator's semantics.
+        ``"positive_wins"`` — continue, but final labels = ``pos`` only, i.e.
+            negations are dropped entirely (a removed label is re-asserted if
+            anything added it). NOT the default: it nullifies every remove rule.
     enable_transitivity : bool
         Whether to maintain and propagate ``[x]_⊆`` subset relations. Defaults
         to ``False`` (B-5): the only former source of ``sub``/``sup`` was the
@@ -168,7 +174,7 @@ class MultiChase:
         label_names: List[str],
         max_rounds: int = 100,
         time_limit_sec: Optional[float] = None,
-        conflict_mode: str = "halt",
+        conflict_mode: str = "negative_wins",
         enable_transitivity: bool = False,
         track_provenance: bool = False,
         sim_graphs: Optional[Dict[float, sp.csr_matrix]] = None,
