@@ -49,6 +49,7 @@ logger = logging.getLogger(__name__)
 # Queue item sentinel rule indices
 _SEED_RULE = -1          # seeded from base_predictions / doc.lbl
 _TRANSITIVITY_RULE = -2  # propagated via subset transitivity
+_EQUAL_RULE = -3         # copied via comparison consequence x.lbl=y.lbl
 
 
 # =========================================================================
@@ -194,6 +195,7 @@ class MultiChase:
         self._label_rule_idxs: List[int] = []
         self._sim_rule_idxs: List[int] = []
         self._group_rule_idxs: List[int] = []
+        self._equal_rule_idxs: List[int] = []
         self._classify_rules()
 
     @classmethod
@@ -210,19 +212,25 @@ class MultiChase:
     # -----------------------------------------------------------------
 
     def _classify_rules(self) -> None:
-        """Split rules into text-only, label-dependent, sim-dependent, and group-dependent.
+        """Split rules into equal-, group-, sim-, label-, and text-dependent.
 
-        Sim rules (containing SimPredicate) are evaluated via SpMV each round.
-        Group rules (containing GroupPredicate) are evaluated via group membership.
-        They may also contain LabelPredicate (checked on neighbour y, not x).
-        Pure label rules (LabelPredicate without SimPredicate) use the
+        Equal rules (consequence_op="equal", comparison consequence x.lbl=y.lbl)
+        are checked FIRST: although their body holds a GroupPredicate, they are
+        NOT add-rules — they copy y's whole label set via _eval_equal_rules, and
+        must not fall into _group_rule_idxs (whose consequence is a single label;
+        an equal-rule's consequence is "" → would be silently dropped there).
+        Sim rules (SimPredicate) are evaluated via SpMV each round. Group rules
+        (GroupPredicate) are evaluated via group membership; they may also contain
+        LabelPredicate (checked on neighbour y, not x). Pure label rules use the
         existing per-doc check.
         """
         for idx, rule in enumerate(self.rules):
             has_sim = any(isinstance(p, SimPredicate) for p in rule.body)
             has_group = any(isinstance(p, GroupPredicate) for p in rule.body)
             has_label = any(isinstance(p, LabelPredicate) for p in rule.body)
-            if has_group:
+            if rule.consequence_op == "equal":
+                self._equal_rule_idxs.append(idx)
+            elif has_group:
                 self._group_rule_idxs.append(idx)
             elif has_sim:
                 self._sim_rule_idxs.append(idx)
@@ -489,6 +497,67 @@ class MultiChase:
                     fires.append(key)
 
         return fires
+
+    # -----------------------------------------------------------------
+    # Comparison consequence: x.lbl = y.lbl  (consequence_op="equal")
+    # -----------------------------------------------------------------
+
+    def _eval_equal_rules(
+        self,
+        lbl: BulkLBL,
+        queue: Deque[_QItem],
+    ) -> Set[int]:
+        """Apply all comparison-consequence (``x.lbl = y.lbl``) rules in batch.
+
+        Paper §6.1 (chase step, condition 2, ⊗ = "="): for every pair of docs
+        (x, y) sharing >=1 value of the rule's attribute A (``x.A = y.A``), copy
+        y's positive labels into x (and, symmetrically, x's into y). Iterated to
+        fixpoint over the chase rounds, every doc in a co-membership connected
+        component ends with the union of that component's positive labels.
+
+        Implemented as one batched SpMV per equal-rule — generalizing
+        :func:`group_propagation.compute_group_fire_mask` from a single label
+        column to the full label matrix, never materializing the n_docs×n_docs
+        co-membership matrix::
+
+            new_pos = (membership @ (membershipᵀ @ pos)) > 0   # per (doc, label)
+
+        ``new_pos[i, l]`` is True iff some co-member of doc i (including i itself
+        — self-inclusion is intentional and idempotent) currently has label l.
+        We OR this into ``lbl.pos`` (monotone — bits are only set, never cleared,
+        which guarantees termination and Church-Rosser) and enqueue every newly
+        set (doc, label) so the surrounding round loop re-runs to fixpoint and
+        the existing conflict / transitivity machinery sees the new labels.
+
+        Returns the set of docs whose ``pos`` row gained at least one label.
+        """
+        affected: Set[int] = set()
+        for rule_idx in self._equal_rule_idxs:
+            rule = self.rules[rule_idx]
+            group_pred = next(
+                (p for p in rule.body if isinstance(p, GroupPredicate)), None
+            )
+            if group_pred is None:
+                continue
+            membership = self.virtual_attrs.get(group_pred.attr_name)
+            if membership is None:
+                continue
+
+            pos = lbl.pos.astype(np.float32)
+            # x.A=y.A label-set copy: a doc gets every label held by any doc it
+            # shares an attribute value with.
+            new_pos = np.asarray(membership.dot(membership.T.dot(pos))) > 0
+            newly = new_pos & ~lbl.pos
+            if not newly.any():
+                continue
+
+            lbl.pos |= new_pos  # monotone OR
+            doc_idxs, label_idxs = np.where(newly)
+            for d, l in zip(doc_idxs.tolist(), label_idxs.tolist()):
+                queue.append((d, l, _EQUAL_RULE))
+                affected.add(d)
+
+        return affected
 
     # -----------------------------------------------------------------
     # Consequence application
@@ -761,6 +830,10 @@ class MultiChase:
                     _record_provenance(doc_idx, lidx, rule_idx)
                 evaluated.add((doc_idx, label_idx, rule_idx))
 
+        # 5) Comparison-consequence rules (x.lbl=y.lbl) — batched label-set copy
+        if self._equal_rule_idxs and self.virtual_attrs:
+            self._eval_equal_rules(lbl, queue)
+
         # First-round conflict check
         all_doc_set = set(range(n_docs))
         conflicts = self._handle_conflicts(lbl, all_doc_set)
@@ -879,6 +952,10 @@ class MultiChase:
                     if new_lidxs and self.enable_transitivity:
                         self._propagate_transitivity(doc_idx, new_lidxs, lbl, queue)
                     evaluated.add((doc_idx, label_idx, rule_idx))
+
+            # Re-evaluate comparison-consequence rules (x.lbl=y.lbl)
+            if self._equal_rule_idxs and self.virtual_attrs:
+                self._eval_equal_rules(lbl, queue)
 
             # Conflict detection
             conflicts = self._handle_conflicts(lbl, affected_docs)
@@ -1056,6 +1133,10 @@ class MultiChase:
                     _record_provenance(doc_idx, lidx, rule_idx)
                 evaluated.add((doc_idx, label_idx, rule_idx))
 
+        # Comparison-consequence rules (x.lbl=y.lbl) — persistent first round
+        if self._equal_rule_idxs and self.virtual_attrs:
+            self._eval_equal_rules(lbl, queue)
+
         all_doc_set = set(range(n_docs))
         conflicts = self._handle_conflicts(lbl, all_doc_set)
         if conflicts:
@@ -1147,6 +1228,10 @@ class MultiChase:
                     if new_lidxs and self.enable_transitivity:
                         self._propagate_transitivity(doc_idx, new_lidxs, lbl, queue)
                     evaluated.add((doc_idx, label_idx, rule_idx))
+
+            # Comparison-consequence rules (x.lbl=y.lbl) — persistent incremental
+            if self._equal_rule_idxs and self.virtual_attrs:
+                self._eval_equal_rules(lbl, queue)
 
             conflicts = self._handle_conflicts(lbl, affected_docs)
             if conflicts:
@@ -1315,6 +1400,10 @@ class MultiChase:
                         self._propagate_transitivity(d_idx, new_lidxs, lbl, queue)
                     evaluated.add((d_idx, l_idx, r_idx))
 
+            # Comparison-consequence rules (x.lbl=y.lbl) — inject_and_resume
+            if self._equal_rule_idxs and self.virtual_attrs:
+                self._eval_equal_rules(lbl, queue)
+
             conflicts = self._handle_conflicts(lbl, affected_docs)
             if conflicts:
                 all_conflicts.extend(conflicts)
@@ -1454,6 +1543,10 @@ class MultiChase:
                     if new_lidxs and self.enable_transitivity:
                         self._propagate_transitivity(d_idx, new_lidxs, lbl, queue)
                     evaluated.add((d_idx, l_idx, r_idx))
+
+            # Comparison-consequence rules (x.lbl=y.lbl) — inject_labels_and_resume
+            if self._equal_rule_idxs and self.virtual_attrs:
+                self._eval_equal_rules(lbl, queue)
 
             conflicts = self._handle_conflicts(lbl, affected_docs)
             if conflicts:

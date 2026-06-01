@@ -85,7 +85,7 @@ class RDL:
 
     def __repr__(self) -> str:
         body_str = " ∧ ".join(repr(p) for p in self.body) if self.body else "⊤"
-        op_sym = {"add": "+", "remove": "-", "replace": "="}.get(self.consequence_op, "+")
+        op_sym = {"add": "+", "remove": "-", "replace": "=", "equal": "=="}.get(self.consequence_op, "+")
         return (
             f"RDL({body_str} → {op_sym}{self.consequence!r}, "
             f"score={self.score:.4f}, coverage={self.coverage:.4f})"

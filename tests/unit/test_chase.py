@@ -19,8 +19,11 @@ _project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
+import scipy.sparse as sp
+
 from loris.document import Document
 from loris.predicates import (
+    GroupPredicate,
     LabelPredicate,
     MatchPredicate,
 )
@@ -378,6 +381,148 @@ class TestEmptyDocs:
         assert result.status == "fixpoint"
         assert result.predictions.shape == (0, 4)
         assert result.n_rounds == 0
+
+
+# ── Comparison consequence: x.lbl = y.lbl (consequence_op="equal") ───
+
+def _membership_csr(rows_values, n_values):
+    """Build a (n_docs × n_values) 0/1 csr from per-doc value sets."""
+    rows, cols = [], []
+    for i, vals in enumerate(rows_values):
+        for v in vals:
+            rows.append(i)
+            cols.append(v)
+    data = np.ones(len(rows), dtype=np.int8)
+    return sp.csr_matrix(
+        (data, (rows, cols)), shape=(len(rows_values), n_values), dtype=np.int8
+    )
+
+
+def _equal_rule(attr="A", n_values=2):
+    """An x.lbl=y.lbl comparison-consequence rule over attribute `attr`."""
+    return RDL(
+        body=(GroupPredicate(attr_name=attr, group_count=n_values),),
+        consequence="",
+        consequence_op="equal",
+    )
+
+
+FIN = LABELS.index("finance")
+SPORT = LABELS.index("sports")
+ECON = LABELS.index("economy")
+
+
+class TestEqualConsequence:
+    """x.A=y.A → x.lbl=y.lbl: batched label-set copy across co-members."""
+
+    def test_copies_labels_across_comembers(self):
+        # docs 0,1 share value 0; doc 2 has value 1 alone. Seed finance on d0.
+        docs = [_doc("a", {"finance"}), _doc("b"), _doc("c")]
+        M = _membership_csr([{0}, {0}, {1}], 2)
+        chase = MultiChase([_equal_rule()], LABELS, enable_transitivity=False,
+                           virtual_attrs={"A": M})
+        result = chase.run(docs)
+        assert result.status == "fixpoint"
+        assert result.predictions[0, FIN] == 1.0   # keeps its own
+        assert result.predictions[1, FIN] == 1.0   # copied from co-member d0
+        assert result.predictions[2, FIN] == 0.0   # shares no value
+
+    def test_symmetry(self):
+        # d0=finance, d1=sports, share value 0 → both end {finance, sports}.
+        docs = [_doc("a", {"finance"}), _doc("b", {"sports"})]
+        M = _membership_csr([{0}, {0}], 1)
+        chase = MultiChase([_equal_rule(n_values=1)], LABELS,
+                           enable_transitivity=False, virtual_attrs={"A": M})
+        result = chase.run(docs)
+        for d in (0, 1):
+            assert result.predictions[d, FIN] == 1.0
+            assert result.predictions[d, SPORT] == 1.0
+
+    def test_transitive_closure_shared_value_chain(self):
+        # d0:{v0}, d1:{v0,v1}, d2:{v1}; seed finance on d0. Multi-hop: d0→d1→d2.
+        docs = [_doc("a", {"finance"}), _doc("b"), _doc("c")]
+        M = _membership_csr([{0}, {0, 1}, {1}], 2)
+        chase = MultiChase([_equal_rule()], LABELS, enable_transitivity=False,
+                           virtual_attrs={"A": M})
+        result = chase.run(docs)
+        assert result.status == "fixpoint"
+        assert result.predictions[2, FIN] == 1.0   # reached across the chain
+        assert result.n_rounds >= 2                # genuinely multi-hop
+
+    def test_no_op_when_no_equal_rules(self):
+        # An add/text rule + non-empty virtual_attrs must be byte-identical to
+        # running with virtual_attrs=None (backs the golden-neutrality claim).
+        rules = [RDL(body=(MatchPredicate(attr="cnt", r=_pat("bank")),),
+                     consequence="finance")]
+        docs = [_doc("the bank"), _doc("nothing")]
+        M = _membership_csr([{0}, {0}], 1)
+        r_with = MultiChase(rules, LABELS, enable_transitivity=False,
+                            virtual_attrs={"A": M}).run(docs)
+        r_without = MultiChase(rules, LABELS, enable_transitivity=False,
+                               virtual_attrs=None).run(docs)
+        assert np.array_equal(r_with.predictions, r_without.predictions)
+
+    def test_self_inclusion_harmless(self):
+        # Lone doc with its own value: ends with exactly its seeded label.
+        docs = [_doc("a", {"finance"})]
+        M = _membership_csr([{0}], 1)
+        chase = MultiChase([_equal_rule(n_values=1)], LABELS,
+                           enable_transitivity=False, virtual_attrs={"A": M})
+        result = chase.run(docs)
+        assert result.predictions[0, FIN] == 1.0
+        assert result.predictions[0].sum() == 1.0   # nothing spurious added
+
+    def test_fixpoint_terminates_dense(self):
+        # All docs share one value (dense clique); two seeds → all get both.
+        docs = [_doc("a", {"finance"}), _doc("b", {"sports"}), _doc("c")]
+        M = _membership_csr([{0}, {0}, {0}], 1)
+        chase = MultiChase([_equal_rule(n_values=1)], LABELS,
+                           enable_transitivity=False, virtual_attrs={"A": M})
+        result = chase.run(docs)
+        assert result.status == "fixpoint"
+        for d in (0, 1, 2):
+            assert result.predictions[d, FIN] == 1.0
+            assert result.predictions[d, SPORT] == 1.0
+
+    def test_conflict_interaction_resolution(self):
+        # d0 seeded finance; a remove-rule fires -finance on d1 (text "bank");
+        # d0,d1 share a value so equal copies finance into d1.pos → conflict.
+        docs = [_doc("a", {"finance"}), _doc("bank")]
+        M = _membership_csr([{0}, {0}], 1)
+        rules = [
+            RDL(body=(MatchPredicate(attr="cnt", r=_pat("bank")),),
+                consequence="finance", consequence_op="remove"),
+            _equal_rule(n_values=1),
+        ]
+        # negative_wins: d1 finance excluded (pos & ~neg)
+        neg = MultiChase(rules, LABELS, conflict_mode="negative_wins",
+                         enable_transitivity=False, virtual_attrs={"A": M}).run(docs)
+        assert neg.predictions[1, FIN] == 0.0
+        # positive_wins: d1 finance kept (pos)
+        pos = MultiChase(rules, LABELS, conflict_mode="positive_wins",
+                         enable_transitivity=False, virtual_attrs={"A": M}).run(docs)
+        assert pos.predictions[1, FIN] == 1.0
+
+    def test_serialization_and_classification(self):
+        rule = _equal_rule()
+        d = rule.to_dict()
+        assert d["consequence"] == "" and d["consequence_op"] == "equal"
+        rt = RDL.from_dict(d)
+        assert rt.consequence == "" and rt.consequence_op == "equal"
+        # _classify_rules routes equal-rule to _equal_rule_idxs, a plain group
+        # add-rule to _group_rule_idxs, a text rule to _text_rule_idxs.
+        group_add = RDL(
+            body=(GroupPredicate(attr_name="A", group_count=2),
+                  LabelPredicate(label="finance", op="contains")),
+            consequence="finance", consequence_op="add",
+        )
+        text = RDL(body=(MatchPredicate(attr="cnt", r=_pat("bank")),),
+                   consequence="finance")
+        chase = MultiChase([rule, group_add, text], LABELS,
+                           enable_transitivity=False)
+        assert chase._equal_rule_idxs == [0]
+        assert chase._group_rule_idxs == [1]
+        assert chase._text_rule_idxs == [2]
 
 
 if __name__ == "__main__":
