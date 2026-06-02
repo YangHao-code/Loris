@@ -799,8 +799,21 @@ def main() -> None:
                         if not any(isinstance(p, _SimPred) for p in r.body)]
         _sim_rules = [r for r in final_rdl_set.rules
                       if any(isinstance(p, _SimPred) for p in r.body)]
-        log.info("Rules: %d total (%d non-sim, %d sim)",
-                 len(final_rdl_set.rules), len(_nosim_rules), len(_sim_rules))
+        # C-8 Part 2: rules whose body has a LabelPredicate but NO Sim/Group
+        # predicate are PURE label-dependent (multi-round) rules, e.g.
+        # `label(x,τ1) ∧ match(x,phrase) → τ2`. The fast evaluator
+        # (_vectorized_staged_predict) SKIPS any LabelPredicate rule, so these
+        # would silently never fire at test. They must go through the full chase
+        # (which iterates label state to fixpoint). Sim rules go through the full
+        # chase too; group/equal rules are handled by the fast-path Pass-3.
+        _label_dep_rules = [
+            r for r in final_rdl_set.rules
+            if any(isinstance(p, _LP) for p in r.body)
+            and not any(isinstance(p, (_SimPred, _GroupPred)) for p in r.body)
+        ]
+        log.info("Rules: %d total (%d non-sim, %d sim, %d pure-label-dependent)",
+                 len(final_rdl_set.rules), len(_nosim_rules), len(_sim_rules),
+                 len(_label_dep_rules))
 
         _skip_chase = getattr(hp, 'skip_chase_test', False)
 
@@ -831,8 +844,11 @@ def main() -> None:
             log.info("Built test virtual_attrs: %d attributes", len(_test_virtual_attrs))
 
         try:
-            if _skip_chase or not _sim_rules:
+            if _skip_chase or (not _sim_rules and not _label_dep_rules):
                 # ── Fast two-pass evaluation (no full chase) ──
+                # Used only when nothing needs the iterative chase: no sim rules
+                # and no pure label-dependent rules. (--skip_chase_test forces
+                # this even if label-dependent rules exist — caller's choice.)
                 _result = base_test_preds.copy() if base_test_preds is not None else np.zeros(
                     (len(test_docs), n_labels), dtype=np.float32)
 
@@ -1037,16 +1053,25 @@ def main() -> None:
                     p.threshold for r in final_rdl_set.rules
                     for p in r.body if isinstance(p, _SimPred)
                 ))
-                _test_texts = [d.cnt for d in test_docs]
-                _test_emb = compute_embeddings(
-                    _test_texts,
-                    cache_path=str(exp_dir / "test_embeddings.npy"),
-                )
-                _test_sim_graphs = build_sim_graph(
-                    _test_emb, threshold_bins=_rule_thresholds,
-                    max_avg_degree=999999)  # test: apply all thresholds, no skip
-                log.info("Built test sim_graphs for %d docs, %d thresholds",
-                         len(test_docs), len(_test_sim_graphs))
+                # Only build similarity graphs if sim rules exist; for a
+                # label-dependent-only rule set (C-8 Part 2) there are no sim
+                # thresholds, so skip the (expensive) embedding pass and run the
+                # chase with empty sim_graphs — label rules fire via label state.
+                if _rule_thresholds:
+                    _test_texts = [d.cnt for d in test_docs]
+                    _test_emb = compute_embeddings(
+                        _test_texts,
+                        cache_path=str(exp_dir / "test_embeddings.npy"),
+                    )
+                    _test_sim_graphs = build_sim_graph(
+                        _test_emb, threshold_bins=_rule_thresholds,
+                        max_avg_degree=999999)  # test: apply all thresholds, no skip
+                    log.info("Built test sim_graphs for %d docs, %d thresholds",
+                             len(test_docs), len(_test_sim_graphs))
+                else:
+                    _test_sim_graphs = {}
+                    log.info("Full chase with 0 sim rules (label-dependent path) "
+                             "— no sim_graphs built")
 
                 chase_result = final_rdl_set.chase_predict(
                     test_docs,
