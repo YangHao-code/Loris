@@ -216,11 +216,21 @@ _EMBEDDING_CACHE: Dict[str, np.ndarray] = {}
 
 
 def _get_embedding_model():
-    """Lazily load the SentenceTransformer model for semantic similarity."""
+    """Lazily load the SentenceTransformer for per-predicate semantic similarity.
+
+    Pinned to CPU on purpose: this model is invoked inside a predicate's
+    ``__call__`` (per-document), which the rule discoverer fans out across
+    ``Parallel(n_jobs=-1)`` worker *processes* (one per core). On a CUDA host
+    each worker would otherwise load its own copy onto the GPU, creating N CUDA
+    contexts + N model copies and exhausting GPU memory (CUDA OOM). The per-doc
+    embedding is tiny, so CPU is both correct and faster here. Heavy batched
+    embeddings (clustering, sim-graphs) and the ML model pool use their own
+    GPU-capable paths and are unaffected.
+    """
     global _EMBEDDING_MODEL
     if _EMBEDDING_MODEL is None:
         from sentence_transformers import SentenceTransformer
-        _EMBEDDING_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
+        _EMBEDDING_MODEL = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
     return _EMBEDDING_MODEL
 
 
