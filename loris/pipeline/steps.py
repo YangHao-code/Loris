@@ -1171,6 +1171,15 @@ def run_rule_discovery_batch(
 
         # Discover group rules (exhaustive enumeration)
         _group_min_prec = group_min_corr_prec
+        # Asymmetric per-label gate (strategy 3): tighten precise head labels,
+        # let weak tail labels through. Opt-in (default off ⇒ golden-neutral:
+        # base_label_prec=None reproduces the flat-gate behaviour bit-for-bit).
+        _base_lbl_prec = None
+        if getattr(hp, "asym_group_gate", False):
+            _bp = (_t2_base > 0)
+            _tp = (_bp & (val_y == 1)).sum(0).astype(np.float64)
+            _fp = (_bp & (val_y == 0)).sum(0).astype(np.float64)
+            _base_lbl_prec = np.where(_tp + _fp > 0, _tp / np.maximum(_tp + _fp, 1.0), 0.0)
         _group_trials = discover_group_rules(
             virtual_attrs=bo_virtual_attrs,
             label_state=bo_label_state.astype(np.float32),
@@ -1180,6 +1189,8 @@ def run_rule_discovery_batch(
             val_docs=val_docs,
             min_fires=max(3, effective_min_fires // 2),
             min_corr_prec=_group_min_prec,
+            base_label_prec=_base_lbl_prec,
+            narrow_prec_floor=(0.30 if getattr(hp, "asym_group_gate", False) else None),
         )
         log.info("Track 2 Group: %d rules discovered on val_bo", len(_group_trials))
 

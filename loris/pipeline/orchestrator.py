@@ -87,6 +87,10 @@ def parse_args() -> argparse.Namespace:
                    help="Minimum correction precision in evaluate and batch_select")
     p.add_argument("--group_min_corr_prec", type=float, default=0.50,
                    help="Minimum corr_prec for Track 2 group propagation rules (lower than general min_corr_prec because rescue predicates refine precision)")
+    p.add_argument("--asym_group_gate", action="store_true", default=False,
+                   help="Strategy 3: asymmetric per-label gate for Track 2 group rules "
+                        "(max(group_min_corr_prec, base_prec_L+0.05)) + wider text-narrowing band. "
+                        "Default off ⇒ golden-neutral.")
     p.add_argument("--top_per_type", type=int, default=30)
     p.add_argument("--rule_strategy", default="batch",
                    choices=["greedy", "batch"])

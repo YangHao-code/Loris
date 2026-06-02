@@ -220,16 +220,35 @@ def discover_group_rules(
     min_f1_gain: float = 0.0005,
     rescue_prec_range: Tuple[float, float] = (0.45, 0.60),
     max_rescue_preds: int = 10,
+    base_label_prec: Optional[np.ndarray] = None,
+    asym_margin: float = 0.05,
+    narrow_prec_floor: Optional[float] = None,
 ) -> List[Tuple[MockTrial, RDL]]:
     """Exhaustively enumerate (attr, label) group propagation rules.
 
-    Phase 1: Pure group+label rules with corr_prec >= min_corr_prec pass directly.
-    Phase 2: Rules with corr_prec in rescue_prec_range get text predicate rescue.
+    Phase 1: Pure group+label rules with corr_prec >= eff_gate pass directly.
+    Phase 2: Rules with corr_prec in [narrow_floor, eff_gate) get text-predicate
+             narrowing (comparison ∧ text → add τ) — strengthened to fire on ALL
+             below-gate-but-has-signal candidates, not only a thin band.
+
+    Asymmetric per-label gate (strategy 3): when ``base_label_prec`` is given,
+    a rule for label L is admitted at ``max(min_corr_prec, base_prec_L+asym_margin)``
+    — tighter for already-precise head labels (protect them), at the floor for weak
+    tail labels (let recall rules through). ``base_label_prec=None`` ⇒ flat
+    ``min_corr_prec`` (bit-for-bit the old behaviour; golden-neutral).
 
     Returns list compatible with batch_select: [(MockTrial, RDL), ...]
     """
     val_labels = np.asarray(val_labels, dtype=np.float32)
     existing_predictions = np.asarray(existing_predictions, dtype=np.float32)
+
+    def _eff_gate(label_idx: int) -> float:
+        if base_label_prec is None:
+            return min_corr_prec
+        return max(min_corr_prec, float(base_label_prec[label_idx]) + asym_margin)
+
+    # lower bound for attempting text-narrowing of a below-gate candidate
+    _narrow_floor = rescue_prec_range[0] if narrow_prec_floor is None else narrow_prec_floor
 
     results: List[Tuple[MockTrial, RDL]] = []
     borderline: List[Tuple[str, int, np.ndarray, Dict]] = []
@@ -258,7 +277,8 @@ def discover_group_rules(
             corr_prec = metrics["corr_prec"]
             f1_gain = metrics["f1_gain"]
 
-            if corr_prec >= min_corr_prec and f1_gain >= min_f1_gain:
+            _gate = _eff_gate(label_idx)
+            if corr_prec >= _gate and f1_gain >= min_f1_gain:
                 n_values = membership.shape[1]
                 body = (
                     GroupPredicate(attr_name=attr_name, group_count=n_values),
@@ -284,7 +304,7 @@ def discover_group_rules(
                            attr_name, label_name, corr_prec, metrics["n_fires"], f1_gain)
                 trial_counter += 1
 
-            elif rescue_prec_range[0] <= corr_prec < rescue_prec_range[1]:
+            elif _narrow_floor <= corr_prec < _gate:
                 borderline.append((attr_name, label_idx, fire_mask, metrics))
 
     logger.info("Phase 1: %d rules passed, %d borderline for rescue", len(results), len(borderline))
@@ -326,7 +346,14 @@ def discover_group_rules(
                 best_metrics = new_metrics
                 best_pred_info = (pred, is_negated)
 
-        if best_pred_info is not None and best_metrics is not None:
+        _accept = best_pred_info is not None and best_metrics is not None
+        # New strengthened mode (base_label_prec given): the wider narrowing band
+        # admits more candidates, so gate the narrowed rule on the asymmetric
+        # precision. When base_label_prec is None we keep the exact old acceptance
+        # (no extra gate) → bit-for-bit golden-neutral.
+        if _accept and base_label_prec is not None:
+            _accept = best_prec >= _eff_gate(label_idx)
+        if _accept:
             pred, is_negated = best_pred_info
             n_values = virtual_attrs[attr_name].shape[1]
             body_preds: List[Predicate] = [
