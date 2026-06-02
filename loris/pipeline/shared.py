@@ -366,13 +366,33 @@ def run_dynamic_router(
     loss_fn = HybridLoss(lambda_task=0.1, lambda_ent=0.1)
     optimiser = torch.optim.Adam(net.parameters(), lr=hp.router_lr)
 
+    # D-10: precompute each candidate model's per-label TRAIN probabilities once
+    # (constants w.r.t. the router). This lets us train on the paper's full hybrid
+    # objective L = L_imit + λ_task·L_task − λ_ent·L_ent, not imitation alone. The
+    # task loss back-propagates through the DifferentiableTopK mask into the
+    # SelectionNetwork, so the router learns to pick the models that maximise
+    # downstream multi-label accuracy (previously it only mimicked an oracle and
+    # could drop the strongest model — e.g. the encoder).
+    log.info("Precomputing per-model train probabilities for router task loss …")
+    _model_probs = []
+    for name in model_names:
+        try:
+            p = np.asarray(pool[name].predict_proba(train_X), dtype=np.float32)
+        except Exception as exc:
+            log.debug("router task-loss proba: model %s failed — %s", name, exc)
+            p = np.zeros((len(train_X), train_y.shape[1]), dtype=np.float32)
+        _model_probs.append(torch.from_numpy(p))
+    model_probs_t = torch.stack(_model_probs).to(device)                  # (n, B, L)
+    labels_t = torch.from_numpy(np.asarray(train_y, dtype=np.float32)).to(device)  # (B, L)
+
     log.info("Training SelectionNetwork for %d epochs …", hp.router_epochs)
     net.train()
     for epoch in range(1, hp.router_epochs + 1):
-        _, scores = net(X_t, return_scores=True)
+        mask, scores = net(X_t, return_scores=True)
         l_imit = loss_fn.imitation_loss(scores, oracle_t)
+        l_task = loss_fn.task_loss_multilabel(mask, model_probs_t, labels_t)
         l_ent = loss_fn.entropy_loss(scores)
-        loss = l_imit - 0.1 * l_ent
+        loss = l_imit + loss_fn.lambda_task * l_task - loss_fn.lambda_ent * l_ent
 
         optimiser.zero_grad()
         loss.backward()
@@ -380,8 +400,9 @@ def run_dynamic_router(
 
         if epoch % 5 == 0 or epoch == hp.router_epochs:
             log.info(
-                "  [Router epoch %3d/%d]  L_imit=%.4f  L_ent=%.4f  L_total=%.4f",
-                epoch, hp.router_epochs, l_imit.item(), l_ent.item(), loss.item(),
+                "  [Router epoch %3d/%d]  L_imit=%.4f  L_task=%.4f  L_ent=%.4f  L_total=%.4f",
+                epoch, hp.router_epochs, l_imit.item(), l_task.item(),
+                l_ent.item(), loss.item(),
             )
 
     selected_indices, frequency = FinalSelector.select(net, Xval_t, k)

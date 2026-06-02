@@ -351,6 +351,36 @@ class HybridLoss(nn.Module):
         log_probs = torch.log(ensemble_probs + 1e-8)
         return F.nll_loss(log_probs, labels)
 
+    def task_loss_multilabel(
+        self,
+        mask: torch.Tensor,
+        model_probs: torch.Tensor,
+        labels: torch.Tensor,
+    ) -> torch.Tensor:
+        """L_task for MULTI-LABEL classification (LORIS's actual setting).
+
+        The single-label ``task_loss`` above uses softmax+NLL over mutually
+        exclusive classes, which is wrong for multi-label documents (a doc may
+        carry several labels). Here each model already emits per-label
+        probabilities (sigmoid), so we mask-weight-average them into an ensemble
+        probability per label and take Binary Cross-Entropy against the multi-hot
+        targets. Gradient flows only through ``mask`` (the selection) — the model
+        probabilities are precomputed constants — so this directly trains the
+        SelectionNetwork to pick the models that maximise downstream labeling
+        accuracy (gradient passes through the DifferentiableTopK surrogate).
+
+        Args:
+            mask:        (B, n)      selection mask (DifferentiableTopK output)
+            model_probs: (n, B, L)   each candidate model's per-label probabilities
+            labels:      (B, L)      multi-hot ground truth
+        """
+        probs = model_probs.permute(1, 0, 2)            # (B, n, L)
+        mask_e = mask.unsqueeze(-1)                      # (B, n, 1)
+        denom = mask.sum(dim=-1, keepdim=True).clamp(min=1.0).unsqueeze(-1)  # (B,1,1)
+        ensemble = (probs * mask_e).sum(dim=1) / denom.squeeze(1)            # (B, L)
+        ensemble = ensemble.clamp(1e-6, 1.0 - 1e-6)
+        return F.binary_cross_entropy(ensemble, labels)
+
     def entropy_loss(self, scores: torch.Tensor) -> torch.Tensor:
         """
         L_ent: 对分数 softmax 后计算熵正则化。
