@@ -80,7 +80,8 @@ def run_rule_discovery(
         per_type_top_k=getattr(hp, "per_type_top_k", None),
     )
     # ── 自适应 max_trials：按标签数扩展搜索预算 ──
-    effective_max_trials = max(hp.max_trials, 15 * len(label_names))
+    effective_max_trials = (hp.max_trials if getattr(hp, 'no_adaptive_trials', False)
+                            else max(hp.max_trials, 15 * len(label_names)))
     log.info(
         "Candidate predicates=%d→%d (top-k by hybrid scoring)  "
         "ML models=%d  labels=%d  max_trials=%d (adaptive from %d)  top_n=%d",
@@ -488,6 +489,23 @@ def run_rule_discovery_batch(
             log.warning("  Cluster %d: 0 filtered predicates, skipping.", cid)
             continue
 
+        # ── per-predicate-family ablation filter ──
+        # Keep ML/Label/Group predicates (base/structural signal) always; restrict
+        # only the TEXTUAL families to the allowed set. Empty ⇒ all (golden-neutral).
+        # Short keys: match/freq/before/cooccur.
+        _fam = (getattr(hp, "predicate_families", "") or "").strip()
+        if _fam:
+            _MAP = {"match": "MatchPredicate", "freq": "FreqPredicate",
+                    "before": "BeforePredicate", "cooccur": "CooccurPredicate"}
+            _allowed = {_MAP.get(s.strip(), s.strip()) for s in _fam.split(",") if s.strip()}
+            _TEXTUAL = {"MatchPredicate", "CooccurPredicate", "BeforePredicate", "FreqPredicate"}
+            _before_n = len(filtered_preds)
+            filtered_preds = [p for p in filtered_preds
+                              if type(p).__name__ not in _TEXTUAL
+                              or type(p).__name__ in _allowed]
+            log.info("  Cluster %d predicate-family filter [%s]: %d → %d",
+                     cid, _fam, _before_n, len(filtered_preds))
+
         # ── 谓词类型分布诊断 ──
         _type_counts: dict[str, int] = {}
         for _p in filtered_preds:
@@ -536,7 +554,8 @@ def run_rule_discovery_batch(
         )
 
         # ── 自适应 max_trials ──
-        effective_max_trials = max(hp.max_trials, 15 * len(label_names))
+        effective_max_trials = (hp.max_trials if getattr(hp, 'no_adaptive_trials', False)
+                                else max(hp.max_trials, 15 * len(label_names)))
         log.info("  Cluster %d: %d→%d predicates, %d ML models, "
                  "running Chase BO with %d trials (adaptive from %d)",
                  cid, len(store), len(filtered_preds),

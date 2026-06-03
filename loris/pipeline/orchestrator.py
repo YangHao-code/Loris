@@ -75,6 +75,16 @@ def parse_args() -> argparse.Namespace:
                    help="Pattern extraction mode")
     p.add_argument("--sim_threshold", type=float, default=None,
                    help="Similarity threshold for sim mode (default: 0.45)")
+    p.add_argument("--predicate_families", default="",
+                   help="Per-family ablation: comma-sep textual families to KEEP "
+                        "(match,freq,before,cooccur). Empty = all. ML/label/group preds "
+                        "always kept. Lets you isolate each family's delta over a fixed base.")
+    p.add_argument("--no_adaptive_trials", action="store_true", default=False,
+                   help="Respect --max_trials exactly (skip the 15×n_labels floor) — for fast ablation runs.")
+    p.add_argument("--model_pool", choices=["all", "embedding"], default="all",
+                   help="'all' = full pool (tfidf + neural + encoder). 'embedding' = "
+                        "drop tfidf bag-of-words models (textcnn/bilstm/encoder only) so "
+                        "lexical RULES add orthogonal signal vs a semantic base.")
     p.add_argument("--lora_model", default=None,
                    help="HF model name for LoRASLMClassifier (requires 20 GB VRAM)")
     p.add_argument("--debug", action="store_true",
@@ -316,6 +326,8 @@ def main() -> None:
         glove_path=args.glove_path,
     )
     # Chase-specific attrs (not in HParams dataclass)
+    hp.predicate_families = args.predicate_families
+    hp.no_adaptive_trials = args.no_adaptive_trials
     hp.track1_baseline = args.track1_baseline
     hp.track2_label_source = args.track2_label_source
     hp.skip_chase_test = args.skip_chase_test
@@ -369,7 +381,8 @@ def main() -> None:
         log.info("Restored %d models, best val micro-F1=%.4f",
                  len(pool), max(val_f1_per_model.values()) if val_f1_per_model else 0)
     else:
-        pool = init_models(len(label_names), lora_model_name=args.lora_model)
+        pool = init_models(len(label_names), lora_model_name=args.lora_model,
+                           drop_tfidf=(args.model_pool == "embedding"))
         if args.no_encoder and "encoder_mlp" in pool:
             del pool["encoder_mlp"]
             log.info("Excluded encoder_mlp from model pool (--no_encoder)")

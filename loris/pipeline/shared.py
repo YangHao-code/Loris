@@ -91,21 +91,30 @@ class _PredictWrapper:
 def init_models(
     n_labels: int,
     lora_model_name: Optional[str] = None,
+    drop_tfidf: bool = False,
 ) -> Dict[str, object]:
-    """Return OrderedDict name → unfitted classifier."""
+    """Return OrderedDict name → unfitted classifier.
+
+    ``drop_tfidf=True`` builds an EMBEDDING/neural-only pool (textcnn / bilstm /
+    pretrained-encoder), excluding the bag-of-words tfidf models. Used to make
+    the baseline lexically blind so lexical/text RULES contribute orthogonal,
+    non-redundant signal (the rule-delta is measured against this base). Default
+    False ⇒ full pool (unchanged / golden-neutral).
+    """
     pool: Dict[str, object] = {}
 
     # ── TF-IDF variants ───────────────────────────────────────────────────────
-    pool["tfidf_svm_unigram"] = TFIDFClassifier(
-        num_labels=n_labels, classifier_type="svm", C=1.0, ngram_range=(1, 1),
-    )
-    pool["tfidf_svm_bigram"] = TFIDFClassifier(
-        num_labels=n_labels, classifier_type="svm", C=1.0, ngram_range=(1, 2),
-    )
-    pool["tfidf_lr_bigram"] = TFIDFClassifier(
-        num_labels=n_labels, classifier_type="logistic_regression",
-        C=1.0, ngram_range=(1, 2),
-    )
+    if not drop_tfidf:
+        pool["tfidf_svm_unigram"] = TFIDFClassifier(
+            num_labels=n_labels, classifier_type="svm", C=1.0, ngram_range=(1, 1),
+        )
+        pool["tfidf_svm_bigram"] = TFIDFClassifier(
+            num_labels=n_labels, classifier_type="svm", C=1.0, ngram_range=(1, 2),
+        )
+        pool["tfidf_lr_bigram"] = TFIDFClassifier(
+            num_labels=n_labels, classifier_type="logistic_regression",
+            C=1.0, ngram_range=(1, 2),
+        )
 
     # ── Neural variants ───────────────────────────────────────────────────────
     pool["textcnn"] = NeuralClassifier(
