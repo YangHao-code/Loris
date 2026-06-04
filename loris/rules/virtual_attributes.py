@@ -19,8 +19,8 @@ all-zero row and shares nothing (the multi-value replacement for the old -1
 NOTE (B-3 paper alignment): the old single-value group-id arrays + Cantor
 prediction-pattern signatures were fabricated attributes; replaced here by real
 NER/syntactic/regex attributes. Cluster_k is kept (as one-hot csr). The legacy
-single-value helpers (compute_prediction_pattern_attributes, _cantor_pair) are
-retained for backward-compatible imports but no longer wired into the pipeline.
+single-value helpers (compute_prediction_pattern_attributes, _cantor_pair) have
+been REMOVED (dead + non-paper; the latter also held a latent NameError).
 """
 from __future__ import annotations
 
@@ -118,62 +118,14 @@ def _cluster_attrs_to_csr(
         )
         out[name] = _labels_to_onehot_csr(cluster_attrs[name], n_clusters)
     return out
-    """Cantor pairing function for two non-negative integers."""
-    return (a + b) * (a + b + 1) // 2 + b
 
-
-def compute_prediction_pattern_attributes(
-    ml_proba_cache: Dict[str, np.ndarray],
-    label_names: List[str],
-    top_k_list: List[int] = [1, 2],
-) -> Dict[str, np.ndarray]:
-    """Intermediate model predictions → group IDs.
-
-    For each model:
-      - top1: group_id = argmax label index (0..n_labels-1)
-      - top2: group_id = cantor_pair(sorted top-2 indices)
-
-    Parameters
-    ----------
-    ml_proba_cache : {model_name: (n_docs, n_labels) float proba array}
-    label_names : label name list (for logging)
-    top_k_list : which top-k patterns to compute
-
-    Returns
-    -------
-    {attr_name: (n_docs,) int32}
-    """
-    attrs: Dict[str, np.ndarray] = {}
-    n_labels = len(label_names)
-
-    for model_name, proba in ml_proba_cache.items():
-        if proba.ndim != 2 or proba.shape[1] != n_labels:
-            logger.warning("  Skipping %s: shape %s doesn't match %d labels",
-                          model_name, proba.shape, n_labels)
-            continue
-
-        short_name = model_name.replace("loris_", "")
-
-        if 1 in top_k_list:
-            top1 = np.argmax(proba, axis=1).astype(np.int32)
-            attr_name = f"{short_name}_top1"
-            attrs[attr_name] = top1
-            n_groups = len(np.unique(top1))
-            logger.info("  %s: %d unique groups", attr_name, n_groups)
-
-        if 2 in top_k_list:
-            top2_idx = np.argsort(proba, axis=1)[:, -2:]
-            n_docs = len(proba)
-            top2_ids = np.empty(n_docs, dtype=np.int32)
-            for i in range(n_docs):
-                a, b = sorted([int(top2_idx[i, 0]), int(top2_idx[i, 1])])
-                top2_ids[i] = _cantor_pair(a, b)
-            attr_name = f"{short_name}_top2"
-            attrs[attr_name] = top2_ids
-            n_groups = len(np.unique(top2_ids))
-            logger.info("  %s: %d unique groups", attr_name, n_groups)
-
-    return attrs
+# NOTE (paper-vs-code audit, 2026-06-04): the fabricated "prediction-pattern"
+# join attributes (compute_prediction_pattern_attributes + the Cantor-pairing
+# helper) were REMOVED here — they have no basis in the paper (the comparison
+# predicate joins on real attributes x.A, A∈{mtd,ttl,cnt}, not Cantor-paired
+# top-2 prediction signatures) and were dead in the active pipeline. Their
+# orphaned _cantor_pair body (signature already deleted) also held a latent
+# NameError. Removing both fixes the bug and drops the non-paper dead code.
 
 
 # ── Real text attributes via a single spaCy pass ────────────────────────────

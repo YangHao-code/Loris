@@ -499,46 +499,8 @@ def discover_equal_rules(
     logger.info("=== Equal Rule Discovery: %d equal-rules admitted ===", len(results))
     return results
 
-
-def simulate_cross_attr_cascade(
-    rules: List[Tuple[str, int, np.ndarray]],
-    virtual_attrs: Dict[str, sp.csr_matrix],
-    label_state: np.ndarray,
-    existing_predictions: np.ndarray,
-    val_labels: np.ndarray,
-    label_names: List[str],
-    max_rounds: int = 3,
-) -> Tuple[np.ndarray, int]:
-    """Simulate cross-attribute cascade propagation.
-
-    Within a single attribute, propagation completes in one round (group is a clique).
-    But across attributes, cascade is real:
-      Round 1: cluster_200 rule gives doc_x label_A
-      Round 2: emb_top1 rule sees doc_x has label_A, propagates to emb_top1 group
-
-    Returns (final_predictions, total_new_labels_added).
-    """
-    preds = existing_predictions.copy()
-    state = label_state.copy()
-    total_added = 0
-
-    for round_idx in range(max_rounds):
-        round_added = 0
-        for attr_name, label_idx, _ in rules:
-            group_ids = virtual_attrs[attr_name]
-            fire_mask = compute_group_fire_mask(group_ids, label_idx, state)
-            actionable = fire_mask & (preds[:, label_idx] == 0)
-            new_labels = actionable.sum()
-            if new_labels > 0:
-                preds[actionable, label_idx] = 1.0
-                state[actionable, label_idx] = 1
-                round_added += int(new_labels)
-
-        total_added += round_added
-        if round_added == 0:
-            logger.info("  Cascade converged at round %d (total added: %d)",
-                       round_idx + 1, total_added)
-            break
-        logger.info("  Cascade round %d: +%d labels", round_idx + 1, round_added)
-
-    return preds, total_added
+# NOTE (paper-vs-code audit, 2026-06-04): simulate_cross_attr_cascade was REMOVED
+# — it was dead in the active pipeline (only re-exported by the legacy shim) and
+# its docstring example joins on fabricated attrs (cluster_200 / emb_top1). The
+# real cross-attribute cascade-to-fixpoint is the chase (multi_chase), not this
+# standalone simulator.
