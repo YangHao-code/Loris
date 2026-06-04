@@ -1104,6 +1104,35 @@ def main() -> None:
                     virtual_attrs=_test_virtual_attrs,
                 )
                 combined = chase_result.predictions
+                # RILL (paper §6) — ALSO applied on the FULL-CHASE path (mirrors the
+                # fast-path block at ~915), so rule sets with sim / label-dependent
+                # rules (which route here, not the fast path) can use --use_rill.
+                # Active loop: query GroundTruthOracle for the most influential UNLABELED
+                # docs up to --rill_max_iterations (= human-label budget), then propagate.
+                # Default use_rill=False ⇒ skipped (golden-neutral).
+                if getattr(args, 'use_rill', False) and len(final_rdl_set.rules) > 0:
+                    try:
+                        from chase_inference.rill import RILLController
+                        from chase_inference.oracle import GroundTruthOracle
+                        _rill_oracle = GroundTruthOracle(ground_truth=test_y, label_names=label_names)
+                        _rill = RILLController(
+                            rules=final_rdl_set.rules, label_names=label_names,
+                            oracle=_rill_oracle,
+                            max_iterations=getattr(args, 'rill_max_iterations', 3),
+                            trust_check=False, conflict_mode="negative_wins",
+                            sim_graphs=(_test_sim_graphs or None), verbose=False,
+                        )
+                        _nb = int((combined > 0).sum())
+                        _rr = _rill.run(test_docs, base_predictions=combined)
+                        combined = _rr.predictions
+                        log.info("RILL(full-chase): status=%s, %d iter, %d queries (human labels), "
+                                 "labels %d→%d, micro=%.4f macro=%.4f",
+                                 _rr.status, _rr.n_iterations, _rr.n_queries, _nb,
+                                 int((combined > 0).sum()),
+                                 float(_f1(test_y, combined, average="micro", zero_division=0)),
+                                 float(_f1(test_y, combined, average="macro", zero_division=0)))
+                    except Exception as _rill_exc:
+                        log.warning("RILL (full-chase) skipped: %s", _rill_exc, exc_info=True)
                 final_micro_f1 = float(_f1(test_y, combined, average="micro", zero_division=0))
                 final_macro_f1 = float(_f1(test_y, combined, average="macro", zero_division=0))
                 log.info("Test set (chase) — micro-F1=%.4f  macro-F1=%.4f",
