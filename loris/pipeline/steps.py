@@ -500,9 +500,12 @@ def run_rule_discovery_batch(
             _allowed = {_MAP.get(s.strip(), s.strip()) for s in _fam.split(",") if s.strip()}
             _TEXTUAL = {"MatchPredicate", "CooccurPredicate", "BeforePredicate", "FreqPredicate"}
             _before_n = len(filtered_preds)
-            filtered_preds = [p for p in filtered_preds
-                              if type(p).__name__ not in _TEXTUAL
-                              or type(p).__name__ in _allowed]
+            _keep = [type(p).__name__ not in _TEXTUAL or type(p).__name__ in _allowed
+                     for p in filtered_preds]
+            filtered_preds = [p for p, k in zip(filtered_preds, _keep) if k]
+            # keep the fire-mask list aligned so the coverage diagnostic (below)
+            # pairs each surviving predicate with ITS mask, not a stale one.
+            _val_fm = [m for m, k in zip(_val_fm, _keep) if k]
             log.info("  Cluster %d predicate-family filter [%s]: %d → %d",
                      cid, _fam, _before_n, len(filtered_preds))
 

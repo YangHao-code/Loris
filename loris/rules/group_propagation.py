@@ -304,8 +304,14 @@ def discover_group_rules(
                            attr_name, label_name, corr_prec, metrics["n_fires"], f1_gain)
                 trial_counter += 1
 
-            elif _narrow_floor <= corr_prec < _gate:
-                borderline.append((attr_name, label_idx, fire_mask, metrics))
+            else:
+                # Upper bound of the text-narrowing band. When base_label_prec is
+                # None (default) this is the ORIGINAL rescue_prec_range[1] so the
+                # band is bit-for-bit the old [rescue_lo, rescue_hi); only the
+                # asymmetric mode widens it up to the (possibly higher) gate.
+                _narrow_upper = rescue_prec_range[1] if base_label_prec is None else _gate
+                if _narrow_floor <= corr_prec < _narrow_upper:
+                    borderline.append((attr_name, label_idx, fire_mask, metrics))
 
     logger.info("Phase 1: %d rules passed, %d borderline for rescue", len(results), len(borderline))
 

@@ -75,6 +75,9 @@ def parse_args() -> argparse.Namespace:
                    help="Pattern extraction mode")
     p.add_argument("--sim_threshold", type=float, default=None,
                    help="Similarity threshold for sim mode (default: 0.45)")
+    p.add_argument("--max_test_docs", type=int, default=0,
+                   help="Cap the test set to N docs (stratified) so the test-time chase "
+                        "is tractable on big runs. 0 = full test (default).")
     p.add_argument("--predicate_families", default="",
                    help="Per-family ablation: comma-sep textual families to KEEP "
                         "(match,freq,before,cooccur). Empty = all. ML/label/group preds "
@@ -328,6 +331,8 @@ def main() -> None:
     # Chase-specific attrs (not in HParams dataclass)
     hp.predicate_families = args.predicate_families
     hp.no_adaptive_trials = args.no_adaptive_trials
+    hp.max_test_docs = args.max_test_docs
+    hp.asym_group_gate = args.asym_group_gate
     hp.track1_baseline = args.track1_baseline
     hp.track2_label_source = args.track2_label_source
     hp.skip_chase_test = args.skip_chase_test

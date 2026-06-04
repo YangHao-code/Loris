@@ -81,6 +81,18 @@ def load_data(
     train_df = train_df[train_df[top_label_cols].sum(axis=1) > 0].reset_index(drop=True)
     test_df = test_df[test_df[top_label_cols].sum(axis=1) > 0].reset_index(drop=True)
 
+    # ── optional test subsample (cap eval size for a tractable test-time chase) ──
+    _max_test = getattr(hp, "max_test_docs", 0)
+    if _max_test and len(test_df) > _max_test:
+        _dom_te = test_df[top_label_cols].values.argmax(axis=1)
+        try:
+            test_df, _ = train_test_split(
+                test_df, train_size=_max_test, stratify=_dom_te, random_state=42)
+        except ValueError:
+            test_df = test_df.sample(_max_test, random_state=42)
+        test_df = test_df.reset_index(drop=True)
+        log.info("Capped test set to %d docs (--max_test_docs).", len(test_df))
+
     # ── optional stratified subsample ────────────────────────────────────────
     if hp.subset_size and len(train_df) > hp.subset_size:
         dominant = train_df[top_label_cols].values.argmax(axis=1)
