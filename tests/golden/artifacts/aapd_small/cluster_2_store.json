@@ -13,7 +13,8 @@
         "sim_text": "interference"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -24,7 +25,8 @@
         "sim_text": "channels"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -35,7 +37,8 @@
         "sim_text": "coding"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -46,7 +49,8 @@
         "sim_text": "estimation"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -57,7 +61,8 @@
         "sim_text": "decoding"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -68,7 +73,8 @@
         "sim_text": "relay"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -79,7 +85,8 @@
         "sim_text": "mimo"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -90,7 +97,8 @@
         "sim_text": "sparse"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -101,7 +109,8 @@
         "sim_text": "quantum"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -112,7 +121,8 @@
         "sim_text": "network coding"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -123,7 +133,8 @@
         "sim_text": "channel estimation"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -134,7 +145,8 @@
         "sim_text": "multiplexing"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -145,7 +157,8 @@
         "sim_text": "secrecy"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -156,7 +169,8 @@
         "sim_text": "mutual information"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -167,7 +181,8 @@
         "sim_text": "binary erasure channel"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -178,7 +193,8 @@
         "sim_text": "decode complexity"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -189,7 +205,8 @@
         "sim_text": "power allocation"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -200,7 +217,8 @@
         "sim_text": "sparse signal"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -211,7 +229,8 @@
         "sim_text": "decoder"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -222,7 +241,8 @@
         "sim_text": "eavesdropper"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -233,7 +253,8 @@
         "sim_text": "channel information"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -244,7 +265,8 @@
         "sim_text": "channel state information"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -255,7 +277,8 @@
         "sim_text": "relay channel"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -266,7 +289,8 @@
         "sim_text": "transmit power"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -277,7 +301,8 @@
         "sim_text": "quantization"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -288,7 +313,8 @@
         "sim_text": "cellular network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -299,7 +325,8 @@
         "sim_text": "broadcast channel"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -310,7 +337,8 @@
         "sim_text": "orthogonal matching pursuit"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -321,7 +349,8 @@
         "sim_text": "estimation performance"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -332,7 +361,8 @@
         "sim_text": "encode"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -343,7 +373,8 @@
         "sim_text": "gaussian noise"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -354,7 +385,8 @@
         "sim_text": "k sparse"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -365,7 +397,8 @@
         "sim_text": "imperfect channel estimation"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -376,7 +409,8 @@
         "sim_text": "bit error rate"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -387,7 +421,8 @@
         "sim_text": "interference management"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -398,7 +433,8 @@
         "sim_text": "multiple antenna"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -409,7 +445,8 @@
         "sim_text": "vector quantization"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -420,7 +457,8 @@
         "sim_text": "channel model"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -431,7 +469,8 @@
         "sim_text": "channel condition"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -442,7 +481,8 @@
         "sim_text": "encoder"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -453,7 +493,8 @@
         "sim_text": "secrecy capacity"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -464,7 +505,8 @@
         "sim_text": "cloud radio access network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -475,7 +517,8 @@
         "sim_text": "random code"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -486,7 +529,8 @@
         "sim_text": "interference channel"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -497,7 +541,8 @@
         "sim_text": "cognitive radio"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -508,7 +553,8 @@
         "sim_text": "noisy channel"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -519,7 +565,8 @@
         "sim_text": "network capacity"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -530,7 +577,8 @@
         "sim_text": "wireless communication"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -541,7 +589,8 @@
         "sim_text": "multiple access channel"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -552,7 +601,8 @@
         "sim_text": "spatial multiplexing"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -563,7 +613,8 @@
         "sim_text": "compressive sensing"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "CooccurPredicate",

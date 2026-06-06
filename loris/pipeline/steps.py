@@ -1084,7 +1084,7 @@ def run_rule_discovery_batch(
                     verbose=log.isEnabledFor(logging.DEBUG),
                     min_rule_fires=effective_min_fires,
                     min_n_changes=hp.min_n_changes,
-                    min_corr_prec=max(hp.min_corr_prec, 0.72),
+                    min_corr_prec=max(hp.min_corr_prec, getattr(hp, 'fn_add_min_val_prec', 0.70)),
                     inject_ml_baseline=False,
                     accept_docs=val_docs if _is_two_val_staged else None,
                     accept_labels=val_y if _is_two_val_staged else None,
@@ -1417,9 +1417,20 @@ def run_rule_discovery_batch(
         _sim_bins = _sim_threshold_bins_raw
         log.info("Using user-specified sim_threshold_bins: %s", _sim_bins)
     else:
+        # Enrich-similarity lever: finer/denser avg-degree bins give the
+        # propagation BO a richer similarity-comparison predicate. Empty (default)
+        # ⇒ legacy (5,10,20,40), so golden-neutral; opt-in via --sim_target_degrees.
+        _tgt_kw = {}
+        _tgt_raw = (getattr(hp, 'sim_target_degrees', '') or '').strip()
+        if _tgt_raw:
+            _tgt_degs = tuple(float(x) for x in _tgt_raw.split(',') if x.strip())
+            if _tgt_degs:
+                _tgt_kw['target_avg_degrees'] = _tgt_degs
+                log.info("Enriched sim bins: target_avg_degrees=%s", _tgt_degs)
         _sim_bins = auto_threshold_bins(
             bo_embeddings,
-            min_avg_degree=getattr(hp, 'sim_min_avg_degree', 0.0))
+            min_avg_degree=getattr(hp, 'sim_min_avg_degree', 0.0),
+            **_tgt_kw)
         log.info("Auto-detected sim_threshold_bins: %s", _sim_bins)
 
     # Keep the dense connectivity-floor bin: allow build_sim_graph to retain a

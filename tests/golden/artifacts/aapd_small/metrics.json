@@ -83,6 +83,7 @@
     "stage3_max_rules_per_label": 0,
     "prop_trial_frac": 0.5,
     "sim_min_avg_degree": 20.0,
+    "sim_target_degrees": "",
     "baseline_mode": "best",
     "min_rules": 1,
     "min_avg_coverage": 0.01,
@@ -104,8 +105,8 @@
       "macro_f1": 0.04547803617571059
     },
     "textcnn": {
-      "micro_f1": 0.15458515283842797,
-      "macro_f1": 0.02767941349837901
+      "micro_f1": 0.1739130434782609,
+      "macro_f1": 0.030467571644042235
     },
     "bilstm": {
       "micro_f1": 0.0,

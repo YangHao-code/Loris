@@ -13,7 +13,8 @@
         "sim_text": "logic"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -24,7 +25,8 @@
         "sim_text": "semantics"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -35,7 +37,8 @@
         "sim_text": "programming"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -46,7 +49,8 @@
         "sim_text": "semantic"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -57,7 +61,8 @@
         "sim_text": "programs"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -68,7 +73,8 @@
         "sim_text": "program"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -79,7 +85,8 @@
         "sim_text": "linguistic"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -90,7 +97,8 @@
         "sim_text": "agent"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -101,7 +109,8 @@
         "sim_text": "constraint"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -112,7 +121,8 @@
         "sim_text": "processes"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -123,7 +133,8 @@
         "sim_text": "specification"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -134,7 +145,8 @@
         "sim_text": "agents"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -145,7 +157,8 @@
         "sim_text": "discourse"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -156,7 +169,8 @@
         "sim_text": "robust"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -167,7 +181,8 @@
         "sim_text": "natural language"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -178,7 +193,8 @@
         "sim_text": "components"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -189,7 +205,8 @@
         "sim_text": "parsing"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -200,7 +217,8 @@
         "sim_text": "logics"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -211,7 +229,8 @@
         "sim_text": "ambiguity"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -222,7 +241,8 @@
         "sim_text": "ontology"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -233,7 +253,8 @@
         "sim_text": "programming language"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -244,7 +265,8 @@
         "sim_text": "acl2"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -255,7 +277,8 @@
         "sim_text": "logic programming"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -266,7 +289,8 @@
         "sim_text": "lexical"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -277,7 +301,8 @@
         "sim_text": "grammar"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -288,7 +313,8 @@
         "sim_text": "literature"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -299,7 +325,8 @@
         "sim_text": "grammars"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -310,7 +337,8 @@
         "sim_text": "infinite word"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -321,7 +349,8 @@
         "sim_text": "formalize"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -332,7 +361,8 @@
         "sim_text": "expressiveness"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -343,7 +373,8 @@
         "sim_text": "formal verification"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -354,7 +385,8 @@
         "sim_text": "description logic"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -365,7 +397,8 @@
         "sim_text": "expressive power"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -376,7 +409,8 @@
         "sim_text": "morphology"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -387,7 +421,8 @@
         "sim_text": "robustness"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -398,7 +433,8 @@
         "sim_text": "parse"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -409,7 +445,8 @@
         "sim_text": "parser"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -420,7 +457,8 @@
         "sim_text": "component"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -431,7 +469,8 @@
         "sim_text": "annotate"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "CooccurPredicate",

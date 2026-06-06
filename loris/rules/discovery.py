@@ -685,7 +685,6 @@ def greedy_instantiate(
     label_types = [
         ("LabelPredicate_contains", "contains"),
         ("LabelPredicate_eq", "eq"),
-        ("LabelPredicate_minus", "minus"),
     ]
     for struct_key, lbl_op in label_types:
         n_slots = structure.get(struct_key, 0)
@@ -798,7 +797,6 @@ def beam_instantiate(
     label_types = [
         ("LabelPredicate_contains", "contains"),
         ("LabelPredicate_eq", "eq"),
-        ("LabelPredicate_minus", "minus"),
     ]
     for struct_key, lbl_op in label_types:
         n_slots = structure.get(struct_key, 0)
@@ -1795,10 +1793,11 @@ class ChaseRuleLearner:
 
         # 5. 预计算 LabelPredicate 掩码 (避免每个 trial 重复 eval)
         self._label_pred_masks: Dict[Tuple[str, str], np.ndarray] = {}
-        _lp_ops = ["contains"]  # eq/minus 已在 Mod 5 中禁用，仍预计算以备兼容
-        if any(self._candidate_pools.get(f"LabelPredicate_{op}", [])
-               for op in ["eq", "minus"]):
-            _lp_ops.extend(["eq", "minus"])
+        # eq 仍预计算以备兼容；minus 已彻底移除——LabelPredicate(op="minus")
+        # 在 _core.py 中不可构造（raise），保留它只会在 eq 启用时崩溃 (Phase-5).
+        _lp_ops = ["contains"]
+        if self._candidate_pools.get("LabelPredicate_eq", []):
+            _lp_ops.append("eq")
         for label_name in self.label_list:
             for op in _lp_ops:
                 lp = LabelPredicate(label=label_name, op=op)

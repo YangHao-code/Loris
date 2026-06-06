@@ -13,7 +13,8 @@
         "sim_text": "network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -24,7 +25,8 @@
         "sim_text": "networks"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -35,7 +37,8 @@
         "sim_text": "nodes"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -46,7 +49,8 @@
         "sim_text": "social network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -57,7 +61,8 @@
         "sim_text": "clustering"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -68,7 +73,8 @@
         "sim_text": "social networks"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -79,7 +85,8 @@
         "sim_text": "clusters"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -90,7 +97,8 @@
         "sim_text": "allocation"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -101,7 +109,8 @@
         "sim_text": "optimization"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -112,7 +121,8 @@
         "sim_text": "communities"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -123,7 +133,8 @@
         "sim_text": "privacy"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -134,7 +145,8 @@
         "sim_text": "citation"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -145,7 +157,8 @@
         "sim_text": "cluster"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -156,7 +169,8 @@
         "sim_text": "graphs"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -167,7 +181,8 @@
         "sim_text": "queue"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -178,7 +193,8 @@
         "sim_text": "optimal strategy"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -189,7 +205,8 @@
         "sim_text": "network structure"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -200,7 +217,8 @@
         "sim_text": "incomplete network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -211,7 +229,8 @@
         "sim_text": "community structure"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -222,7 +241,8 @@
         "sim_text": "social medium"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -233,7 +253,8 @@
         "sim_text": "complex network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -244,7 +265,8 @@
         "sim_text": "collaborate"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -255,7 +277,8 @@
         "sim_text": "epidemic"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -266,7 +289,8 @@
         "sim_text": "large network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -277,7 +301,8 @@
         "sim_text": "cloud"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -288,7 +313,8 @@
         "sim_text": "communication network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -299,7 +325,8 @@
         "sim_text": "online social network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -310,7 +337,8 @@
         "sim_text": "bipartite network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -321,7 +349,8 @@
         "sim_text": "nash equilibrium"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -332,7 +361,8 @@
         "sim_text": "twitter"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -343,7 +373,8 @@
         "sim_text": "influence maximization"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -354,7 +385,8 @@
         "sim_text": "network node"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -365,7 +397,8 @@
         "sim_text": "network topology"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -376,7 +409,8 @@
         "sim_text": "real world network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "CooccurPredicate",

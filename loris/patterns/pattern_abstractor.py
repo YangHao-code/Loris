@@ -807,7 +807,10 @@ class PatternAbstractor:
                     span = match.group(0).lower().strip()
                     if span:
                         anchors.add(span)
-        return list(anchors)
+        # sorted (not list(set)) — set iteration order is PYTHONHASHSEED-
+        # dependent, which propagates into candidate-predicate ordering and
+        # tie-broken top-k rule selection (Phase-5 determinism fix).
+        return sorted(anchors)
 
     # ------------------------------------------------------------------
     # Morphological variant expansion

@@ -275,6 +275,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--sim_min_avg_degree", type=float, default=20.0,
                    help="Sim-graph connectivity floor (avg neighbors/node) so RILL has "
                         "real propagation paths for human seeds")
+    p.add_argument("--sim_target_degrees", type=str, default="",
+                   help="CSV of target avg-degrees for sim-graph threshold bins "
+                        "(enrich similarity discovery). Empty = default 5,10,20,40. "
+                        "e.g. '3,5,8,12,20,30,40,60' for finer/denser propagation bins.")
+    p.add_argument("--rill_sweep_max_docs", type=int, default=3000,
+                   help="Cap on test docs used in the RILL budget sweep (sim graph "
+                        "is O(n^2); the full test set, e.g. BGC=33k, is intractable).")
     return p.parse_args()
 
 
@@ -407,6 +414,8 @@ def main() -> None:
     hp.stage3_max_rules_per_label = args.stage3_max_rules_per_label
     hp.prop_trial_frac = args.prop_trial_frac
     hp.sim_min_avg_degree = args.sim_min_avg_degree
+    hp.sim_target_degrees = args.sim_target_degrees
+    hp.rill_sweep_max_docs = args.rill_sweep_max_docs
     if args.sim_threshold_bins == "auto":
         hp.sim_threshold_bins = None  # will be auto-detected from embeddings
     else:
@@ -1257,12 +1266,25 @@ def main() -> None:
             budgets = [int(b) for b in _rill_sweep.split(',') if b.strip() != ""]
             _thr = sorted(set(p.threshold for r in final_rdl_set.rules
                               for p in r.body if isinstance(p, _SP)))
-            _sweep_docs = [Document(cnt=test_X[i],
-                                    ttl=(test_titles[i] if test_titles and i < len(test_titles) else ""),
-                                    lbl=set()) for i in range(len(test_X))]
+            # Bound the sweep: the sim graph is O(n^2) and per-query influence
+            # estimation is O(|U|); the full test set (e.g. BGC=33k) is
+            # intractable. Deterministic seeded subsample capped at rill_sweep_max_docs.
+            _sweep_cap = int(getattr(hp, 'rill_sweep_max_docs', 0) or 3000)
+            if len(test_X) > _sweep_cap:
+                _sw_idx = np.sort(np.random.RandomState(42).choice(
+                    len(test_X), _sweep_cap, replace=False))
+                log.info("RILL sweep: subsampling test %d -> %d docs (sim graph O(n^2))",
+                         len(test_X), _sweep_cap)
+            else:
+                _sw_idx = np.arange(len(test_X))
+            _sweep_X = [test_X[i] for i in _sw_idx]
+            _sweep_y = np.asarray(test_y)[_sw_idx]
+            _sweep_docs = [Document(cnt=_sweep_X[k],
+                                    ttl=(test_titles[int(_sw_idx[k])] if test_titles and int(_sw_idx[k]) < len(test_titles) else ""),
+                                    lbl=set()) for k in range(len(_sweep_X))]
             _sweep_graphs, _degs = None, {}
             if _thr:
-                _emb = _ce(list(test_X), cache_path=str(exp_dir / "test_embeddings.npy"))
+                _emb = _ce(list(_sweep_X), cache_path=str(exp_dir / "test_embeddings_sweep.npy"))
                 _smax = max(50, int(getattr(hp, 'sim_min_avg_degree', 0.0) * 3))
                 _sweep_graphs = _bsg(_emb, threshold_bins=_thr, max_avg_degree=_smax)
                 _degs = {round(float(t), 3): round(float(g.nnz) / max(1, g.shape[0]), 1)
@@ -1275,14 +1297,14 @@ def main() -> None:
             _base0 = np.zeros((len(_sweep_docs), len(label_names)), dtype=np.float32)
             sweep_rows = []
             for b in budgets:
-                _oracle = GroundTruthOracle(ground_truth=test_y, label_names=label_names)
+                _oracle = GroundTruthOracle(ground_truth=_sweep_y, label_names=label_names)
                 _ctrl = RILLController(rules=final_rdl_set.rules, label_names=label_names,
                                        oracle=_oracle, max_iterations=b, trust_check=False,
                                        conflict_mode="negative_wins",
                                        sim_graphs=_sweep_graphs, verbose=False)
                 _res = _ctrl.run(_sweep_docs, base_predictions=_base0.copy())
-                _mi = float(f1_score(test_y, _res.predictions, average="micro", zero_division=0))
-                _ma = float(f1_score(test_y, _res.predictions, average="macro", zero_division=0))
+                _mi = float(f1_score(_sweep_y, _res.predictions, average="micro", zero_division=0))
+                _ma = float(f1_score(_sweep_y, _res.predictions, average="macro", zero_division=0))
                 _nq = int(getattr(_res, 'n_queries', 0))
                 sweep_rows.append({"budget": b, "n_queries": _nq,
                                    "micro_f1": _mi, "macro_f1": _ma})

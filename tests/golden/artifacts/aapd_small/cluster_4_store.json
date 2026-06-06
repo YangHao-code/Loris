@@ -13,7 +13,8 @@
         "sim_text": "classification"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -24,7 +25,8 @@
         "sim_text": "neural"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -35,7 +37,8 @@
         "sim_text": "machine learning"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -46,7 +49,8 @@
         "sim_text": "sparse"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -57,7 +61,8 @@
         "sim_text": "neural networks"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -68,7 +73,8 @@
         "sim_text": "neural network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -79,7 +85,8 @@
         "sim_text": "classifier"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -90,7 +97,8 @@
         "sim_text": "classifiers"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -101,7 +109,8 @@
         "sim_text": "learning algorithms"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -112,7 +121,8 @@
         "sim_text": "clustering"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -123,7 +133,8 @@
         "sim_text": "corpus"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -134,7 +145,8 @@
         "sim_text": "supervised"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -145,7 +157,8 @@
         "sim_text": "deep learning"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -156,7 +169,8 @@
         "sim_text": "facial expression"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -167,7 +181,8 @@
         "sim_text": "long short term memory"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -178,7 +193,8 @@
         "sim_text": "recurrent neural network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -189,7 +205,8 @@
         "sim_text": "deep neural network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -200,7 +217,8 @@
         "sim_text": "stochastic gradient descent"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -211,7 +229,8 @@
         "sim_text": "classify"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -222,7 +241,8 @@
         "sim_text": "dimensionality reduction"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -233,7 +253,8 @@
         "sim_text": "convolutional neural network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -244,7 +265,8 @@
         "sim_text": "cnn"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -255,7 +277,8 @@
         "sim_text": "deep convolutional neural network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -266,7 +289,8 @@
         "sim_text": "computer vision"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -277,7 +301,8 @@
         "sim_text": "anomaly detection"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -288,7 +313,8 @@
         "sim_text": "artificial neural network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -299,7 +325,8 @@
         "sim_text": "bayesian network"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -310,7 +337,8 @@
         "sim_text": "cluster"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -321,7 +349,8 @@
         "sim_text": "backpropagation"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -332,7 +361,8 @@
         "sim_text": "collaborative filtering"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -343,7 +373,8 @@
         "sim_text": "structured prediction"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -354,7 +385,8 @@
         "sim_text": "machine learn algorithm"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -365,7 +397,8 @@
         "sim_text": "classification performance"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -376,7 +409,8 @@
         "sim_text": "lstm"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -387,7 +421,8 @@
         "sim_text": "reinforcement learning"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     }
   ]
 }

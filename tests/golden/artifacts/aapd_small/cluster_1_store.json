@@ -13,7 +13,8 @@
         "sim_text": "graphs"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -24,7 +25,8 @@
         "sim_text": "algorithms"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -35,7 +37,8 @@
         "sim_text": "complexity"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -46,7 +49,8 @@
         "sim_text": "quantum"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -57,7 +61,8 @@
         "sim_text": "vertices"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -68,7 +73,8 @@
         "sim_text": "combinatorial"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -79,7 +85,8 @@
         "sim_text": "vertex"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -90,7 +97,8 @@
         "sim_text": "constraints"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -101,7 +109,8 @@
         "sim_text": "polynomial time"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -112,7 +121,8 @@
         "sim_text": "lower bound"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -123,7 +133,8 @@
         "sim_text": "sparse"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -134,7 +145,8 @@
         "sim_text": "storage"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -145,7 +157,8 @@
         "sim_text": "coloring"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -156,7 +169,8 @@
         "sim_text": "planar graph"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -167,7 +181,8 @@
         "sim_text": "direct graph"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -178,7 +193,8 @@
         "sim_text": "chromatic number"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -189,7 +205,8 @@
         "sim_text": "subgraph"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -200,7 +217,8 @@
         "sim_text": "linear code"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -211,7 +229,8 @@
         "sim_text": "query complexity"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -222,7 +241,8 @@
         "sim_text": "permutation"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -233,7 +253,8 @@
         "sim_text": "cluster"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -244,7 +265,8 @@
         "sim_text": "efficient algorithm"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -255,7 +277,8 @@
         "sim_text": "graph g"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -266,7 +289,8 @@
         "sim_text": "computational complexity"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -277,7 +301,8 @@
         "sim_text": "exact algorithm"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -288,7 +313,8 @@
         "sim_text": "approximation algorithm"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -299,7 +325,8 @@
         "sim_text": "graph theory"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -310,7 +337,8 @@
         "sim_text": "constraint"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -321,7 +349,8 @@
         "sim_text": "real world graph"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -332,7 +361,8 @@
         "sim_text": "submodular function"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -343,7 +373,8 @@
         "sim_text": "permute"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -354,7 +385,8 @@
         "sim_text": "treewidth"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -365,7 +397,8 @@
         "sim_text": "random graph"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -376,7 +409,8 @@
         "sim_text": "quantum computer"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     },
     {
       "type": "MatchPredicate",
@@ -387,7 +421,8 @@
         "sim_text": "parity game"
       },
       "sim": true,
-      "threshold": 0.45
+      "threshold": 0.45,
+      "negate": false
     }
   ]
 }

@@ -80,6 +80,8 @@ class HParams:
     stage3_max_rules_per_label: int = 0
     prop_trial_frac: float = 0.5        # fraction of max_trials given to propagation BO
     sim_min_avg_degree: float = 20.0    # sim-graph connectivity floor for RILL propagation
+    sim_target_degrees: str = ""        # "" = default (5,10,20,40); else CSV finer/denser avg-degree bins (enrich similarity discovery)
+    rill_sweep_max_docs: int = 3000     # cap test docs for the RILL budget sweep (sim graph is O(n^2); 0 ⇒ 3000)
 
     # ── Baseline mode ──────────────────────────────────────────────────────────
     baseline_mode: str = "best"

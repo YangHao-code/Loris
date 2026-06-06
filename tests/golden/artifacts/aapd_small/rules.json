@@ -2194,7 +2194,8 @@
             "sim_text": "logic programming"
           },
           "sim": true,
-          "threshold": 0.45
+          "threshold": 0.45,
+          "negate": false
         },
         {
           "type": "MLThresholdPredicate",
@@ -2230,7 +2231,8 @@
             "sim_text": "description logic"
           },
           "sim": true,
-          "threshold": 0.45
+          "threshold": 0.45,
+          "negate": false
         },
         {
           "type": "MLThresholdPredicate",
@@ -2266,7 +2268,8 @@
             "sim_text": "logic programming"
           },
           "sim": true,
-          "threshold": 0.45
+          "threshold": 0.45,
+          "negate": false
         },
         {
           "type": "MLThresholdPredicate",
@@ -2302,7 +2305,8 @@
             "sim_text": "graphs"
           },
           "sim": true,
-          "threshold": 0.45
+          "threshold": 0.45,
+          "negate": false
         },
         {
           "type": "MLThresholdPredicate",
