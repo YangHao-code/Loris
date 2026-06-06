@@ -75,6 +75,7 @@ def auto_threshold_bins(
     target_avg_degrees: Tuple[float, ...] = (5.0, 10.0, 20.0, 40.0),
     max_avg_degree: int = MAX_AVG_DEGREE,
     seed: int = 42,
+    min_avg_degree: float = 0.0,
 ) -> List[float]:
     """Compute similarity thresholds that yield specific average degrees.
 
@@ -82,6 +83,12 @@ def auto_threshold_bins(
     then finds thresholds corresponding to each target avg_degree via
     percentile lookup.  Thresholds producing avg_degree > *max_avg_degree*
     are dropped.
+
+    *min_avg_degree* (>0) enforces a CONNECTIVITY FLOOR: if no surviving
+    threshold reaches it, a denser threshold targeting that degree is added even
+    if it exceeds *max_avg_degree*. This guarantees RILL has real propagation
+    paths for human-seeded labels (snowball is bounded because RILL clamps the
+    seeds). 0 (default) = no floor (legacy behaviour).
 
     Returns sorted thresholds (ascending — strictest first in value).
     """
@@ -131,6 +138,22 @@ def auto_threshold_bins(
             t = float(np.percentile(flat, p))
             thresholds.append(round(t, 4))
         thresholds = sorted(set(thresholds))
+
+    # ── Connectivity floor: guarantee ≥1 threshold with avg_degree ≥ min_avg_degree ──
+    if min_avg_degree and min_avg_degree > 0:
+        best_deg = max((float((flat >= t).mean()) * n for t in thresholds), default=0.0)
+        if best_deg < min_avg_degree:
+            frac = min_avg_degree / n
+            if frac < 1.0:
+                t_floor = round(float(np.percentile(flat, 100.0 * (1.0 - frac))), 4)
+                est = float((flat >= t_floor).mean()) * n
+                thresholds = sorted(set(thresholds + [t_floor]))
+                logger.warning("auto_threshold_bins: connectivity floor — best avg_deg "
+                               "%.1f < %.1f; added thresh=%.4f (est_avg_deg=%.1f) for "
+                               "RILL propagation", best_deg, min_avg_degree, t_floor, est)
+            else:
+                logger.warning("auto_threshold_bins: min_avg_degree %.1f >= n=%d; "
+                               "cannot enforce floor", min_avg_degree, n)
 
     logger.info("auto_threshold_bins: %d thresholds selected: %s", len(thresholds), thresholds)
     return thresholds

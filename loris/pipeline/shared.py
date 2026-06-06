@@ -830,6 +830,7 @@ def analyze_rule_corrections(
     )
 
     analysis = []
+    _loo_rows = []  # (fire_mask, label_idx, op, stage) for leave-one-out marginal
     lines = [
         "=" * 72,
         "  PER-RULE CORRECTION ANALYSIS  (test set)",
@@ -922,8 +923,13 @@ def analyze_rule_corrections(
             "correction_precision": corr_prec,
             "test_macro_f1": test_macro_f1,
             "test_f1_gain": test_f1_gain,
+            "stage": (rule.val_stats or {}).get("stage", "unknown")
+                     if getattr(rule, "val_stats", None) else "unknown",
         }
         analysis.append(rule_info)
+        _loo_rows.append((fires.copy(), label_idx,
+                          getattr(rule, "consequence_op", "add"),
+                          rule_info["stage"]))
 
         body_str = " ^ ".join(str(p) for p in rule.body) if rule.body else "(empty)"
         lines.append(f"Rule #{rule_idx:02d}  [{rule.consequence}] op={getattr(rule, 'consequence_op', 'add')}  "
@@ -938,6 +944,55 @@ def analyze_rule_corrections(
                       f"(gain={test_f1_gain:+.4f})")
         lines.append("")
 
+    # ── Leave-one-out MARGINAL contribution (combined prediction, not isolated) ──
+    # Build the full cumulative prediction from fixed per-rule fire masks
+    # (add→pos, remove→neg, final pos & ~neg), then drop each rule and measure
+    # the macro-F1 delta. This shows a REMOVE that fixes an ADD's FP as positive,
+    # which the per-rule isolation simulation above cannot.
+    stage_rollup: Dict[str, Dict[str, float]] = {}
+    if _loo_rows:
+        add_count = np.zeros((n_docs, n_labels), dtype=np.int32)
+        rem_count = np.zeros((n_docs, n_labels), dtype=np.int32)
+        for fmask, lidx, op, _stage in _loo_rows:
+            if op == "remove":
+                rem_count[fmask, lidx] += 1
+            else:
+                add_count[fmask, lidx] += 1
+        base_pos = (np.asarray(base_predictions) > 0)
+        full_pos = base_pos | (add_count > 0)
+        full_neg = (rem_count > 0)
+        full_pred = (full_pos & ~full_neg).astype(np.float32)
+        full_macro = float(f1_score(y_true, full_pred, average="macro", zero_division=0))
+
+        for i, (fmask, lidx, op, stage) in enumerate(_loo_rows):
+            col = full_pred[:, lidx].copy()
+            if op == "remove":
+                neg_wo = (rem_count[:, lidx] - fmask.astype(np.int32)) > 0
+                pos_l = base_pos[:, lidx] | (add_count[:, lidx] > 0)
+                new_col = (pos_l & ~neg_wo)
+            else:
+                pos_wo = base_pos[:, lidx] | ((add_count[:, lidx] - fmask.astype(np.int32)) > 0)
+                neg_l = rem_count[:, lidx] > 0
+                new_col = (pos_wo & ~neg_l)
+            if np.array_equal(col > 0, new_col):
+                marginal = 0.0
+            else:
+                pred_wo = full_pred.copy()
+                pred_wo[:, lidx] = new_col.astype(np.float32)
+                wo_macro = float(f1_score(y_true, pred_wo, average="macro", zero_division=0))
+                marginal = full_macro - wo_macro
+            analysis[i]["loo_marginal_f1"] = marginal
+            r = stage_rollup.setdefault(stage, {"n_rules": 0, "loo_marginal_f1_sum": 0.0})
+            r["n_rules"] += 1
+            r["loo_marginal_f1_sum"] += marginal
+
+        lines.append("")
+        lines.append("  PER-STAGE leave-one-out marginal macro-F1 (combined):")
+        lines.append(f"  full model+rules macro-F1 = {full_macro:.4f}")
+        for stage, r in sorted(stage_rollup.items(), key=lambda kv: -kv[1]["loo_marginal_f1_sum"]):
+            lines.append(f"    {stage:18s}  n={r['n_rules']:3d}  "
+                         f"Σ marginal-F1 = {r['loo_marginal_f1_sum']:+.4f}")
+
     lines.append("=" * 72)
     report = "\n".join(lines)
     print("\n" + report)
@@ -946,6 +1001,8 @@ def analyze_rule_corrections(
         f.write(report + "\n")
     with open(exp_dir / "rule_analysis.json", "w", encoding="utf-8") as f:
         json.dump(analysis, f, indent=2, ensure_ascii=False)
+    with open(exp_dir / "rule_analysis_stage_rollup.json", "w", encoding="utf-8") as f:
+        json.dump(stage_rollup, f, indent=2, ensure_ascii=False)
 
     log.info("Rule correction analysis saved to %s", exp_dir / "rule_analysis.txt")
 

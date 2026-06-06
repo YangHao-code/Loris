@@ -1122,6 +1122,21 @@ def run_rule_discovery_batch(
                     _sel_text_masks, _sel_pred_to_idx, _fn_text_preds, _select_val_docs)
                 _bo_text_masks = _extend_pred_masks(
                     _bo_text_masks, _bo_pred_to_idx, _fn_text_preds, val_docs)
+                # Mask-cache desync guard (plan: verify a mined predicate is
+                # resolvable in the fire-mask cache before it is scored — an
+                # unresolved id() makes the rule silently never fire). The
+                # caches are built 1:1 (lines ~968/984) and extended in lockstep,
+                # so these are inert on a correct run and fail fast on corruption.
+                for _p in _fn_text_preds:
+                    assert id(_p) in _sel_pred_to_idx and id(_p) in _bo_pred_to_idx, (
+                        "stage-1 mask-cache desync: mined predicate missing from "
+                        "fire-mask cache (rule would silently never fire)")
+                assert len(_sel_pred_to_idx) == _sel_text_masks.shape[0], (
+                    "stage-1 mask-cache desync (select): %d preds vs %d mask rows"
+                    % (len(_sel_pred_to_idx), _sel_text_masks.shape[0]))
+                assert len(_bo_pred_to_idx) == _bo_text_masks.shape[0], (
+                    "stage-1 mask-cache desync (bo): %d preds vs %d mask rows"
+                    % (len(_bo_pred_to_idx), _bo_text_masks.shape[0]))
         log.info("Stage 1 (FN→ADD): %d rules (ADD-BO + direct synthesis)", len(fnadd_rules))
 
         # Cumulative after Stage 0 + Stage 1 = P1
