@@ -1135,47 +1135,40 @@ def evaluate_chase_configuration(
             return -1.0
 
     # ── Consequence — Action 4: parameterized op (add/remove/both) ──
-    if consequence_op_mode == "remove":
-        consequence_op = "remove"
-    elif consequence_op_mode == "both":
-        _rng_op = np.random.RandomState(trial.number + 200003)
-        consequence_op = "add" if _rng_op.random() < 0.5 else "remove"
+    # B10 fix: make the consequence op + label real Optuna params so the TPE
+    # sampler optimises WHICH label/op to fix — previously they were RNG'd on
+    # trial.number (pure random search over the single most impactful decision,
+    # wasting trials on un-improvable labels). Static categorical choices (from
+    # fixed inputs) keep the search space constant so multivariate TPE can model
+    # them. Also makes params['consequence_label'/'consequence_op'] exist, fixing
+    # the latent _trial_to_rdl KeyError on a _body_cache miss.
+    if consequence_op_mode == "both":
+        consequence_op = trial.suggest_categorical("consequence_op", ["add", "remove"])
+    elif consequence_op_mode == "remove":
+        consequence_op = trial.suggest_categorical("consequence_op", ["remove"])
     else:
-        consequence_op = "add"
+        consequence_op = trial.suggest_categorical("consequence_op", ["add"])
 
-    _rng = np.random.RandomState(trial.number + 100003)
+    _cand_labels: List[str] = []
+    if add_label_names:
+        _cand_labels += list(add_label_names)
+    if remove_label_names:
+        _cand_labels += list(remove_label_names)
+    if cluster_label_indices is not None and len(cluster_label_indices) > 0:
+        _cand_labels += [label_list[i] for i in cluster_label_indices]
+    if not _cand_labels:
+        _cand_labels = list(label_list)
+    _cand_labels = sorted(dict.fromkeys(_cand_labels))      # dedup, deterministic
+    consequence_label = trial.suggest_categorical("consequence_label", _cand_labels)
+    label_idx = label_list.index(consequence_label)
 
-    def _weighted_choice(names: List[str], rng: np.random.RandomState) -> str:
-        if label_weights and len(names) > 1:
-            _w = np.array([label_weights.get(l, 1.0) for l in names])
-            _w_min = _w.min()
-            if _w_min > 0:
-                _w = np.clip(_w, _w_min, _w_min * 5.0)
-            _w /= _w.sum()
-            return names[rng.choice(len(names), p=_w)]
-        return names[rng.randint(len(names))]
+    _rng = np.random.RandomState(trial.number + 100003)     # kept for feature dropout
 
-    if consequence_op == "remove":
-        if remove_label_names and len(remove_label_names) > 0:
-            consequence_label = _weighted_choice(remove_label_names, _rng)
-            label_idx = label_list.index(consequence_label)
-        elif cluster_label_indices is not None and len(cluster_label_indices) > 0:
-            available_labels = [label_list[i] for i in cluster_label_indices]
-            consequence_label = _weighted_choice(available_labels, _rng)
-            label_idx = label_list.index(consequence_label)
-        else:
-            consequence_label = _weighted_choice(label_list, _rng)
-            label_idx = label_list.index(consequence_label)
-    elif add_label_names is not None and len(add_label_names) > 0:
-        consequence_label = _weighted_choice(add_label_names, _rng)
-        label_idx = label_list.index(consequence_label)
-    elif cluster_label_indices is not None and len(cluster_label_indices) > 0:
-        available_labels = [label_list[i] for i in cluster_label_indices]
-        consequence_label = _weighted_choice(available_labels, _rng)
-        label_idx = label_list.index(consequence_label)
-    else:
-        consequence_label = _weighted_choice(label_list, _rng)
-        label_idx = label_list.index(consequence_label)
+    # Landmine disarm (audit L1): the optional structure-cache writes below read
+    # `_cache_key`, which was never assigned → a latent NameError the moment a
+    # caller passes a non-None `_structure_cache`. Define it here. Keyed by the
+    # structure + consequence so the cache is also CORRECT if ever enabled.
+    _cache_key = (tuple(sorted(structure.items())), label_idx, consequence_op)
 
     # ── Feature Dropout: 每 trial 随机子采样 80% 谓词候选，打破 greedy 确定性 ──
     _dropout_pools = {}
