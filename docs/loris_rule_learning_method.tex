@@ -1,0 +1,179 @@
+\documentclass[11pt]{ctexart}
+\usepackage[a4paper,margin=2.3cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage[colorlinks=true,linkcolor=blue,urlcolor=blue]{hyperref}
+\usepackage{titlesec}
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\titleformat{\section}{\large\bfseries}{\thesection}{0.6em}{}
+\title{\bfseries LORIS 规则学习方法说明\\[2pt]\large 错误驱动的分阶段规则发现（ML $\to$ FN-Add $\to$ FP-Remove $\to$ 传播）}
+\author{LORIS Pipeline}
+\date{2026-06}
+
+\begin{document}
+\maketitle
+
+\section{概述}
+LORIS 在一个已训练的多标签分类器集成之上，自动\textbf{学习符号规则}来修正其错误并支持人机协同传播。规则发现被组织为四个\textbf{累计阶段}：每个阶段在前序所有阶段的累计预测 $P_{i-1}$ 之上学习，并产出与其职责相符的结论算子（$+$ 加标签 / $-$ 删标签 / 传播）。最终预测由 Chase 推理给出，语义为
+\[
+\text{pred} \;=\; \text{pos} \;\wedge\; \neg\,\text{neg},\qquad
+\text{add 规则写入 pos,\ remove 规则写入 neg.}
+\]
+该顺序与应用语义保证：先用 ML 集成从空白重建标签，再用文本谓词召回漏判（FN），再删除误判（FP），最后做（人机协同的）相似/标签传播。
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}c l l c c@{}}
+\toprule
+阶段 & 学习内容 & 规则形式（体 $\to$ 算子） & 学习基准 & 开关 \\
+\midrule
+0 & ML 集成 ADD & \code{ml_thresh}(L) $\to +L$（单/多模型 AND） & $\varnothing \to P_0$ & \code{stage0_ml} \\
+1 & \textbf{FN$\to$ADD（新）} & \code{match/freq}(P)\,[$\wedge$ \code{ml}(L)] $\to +L$ & $P_0 \to P_1$ & \code{stage1_fn_add} \\
+2 & FP$\to$REMOVE & \code{match/freq}(P) $\wedge$ \code{ml} $\to -L$ & $P_1 \to P_2$ & \code{stage2_fp_remove} \\
+3 & 复合传播 & \code{label}(A)$\wedge$\code{text}(P)$\to+B$；\code{sim}$\wedge$\code{label}$\wedge$\code{text} & $P_2 \to$ final & \code{stage3_propagation} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{设计动机.} 旧流程在 \code{track1_baseline=blank} 下只学到 ML 规则：文本谓词被硬编码成只能做 REMOVE（结论算子按阶段固定），没有 \code{pattern}$\to+L$ 的 ADD 通道；FN 判别 n-gram 只被塞进传播轨；传播以模型自身标签为种子（循环无源）。本设计修复了这些结构缺陷。
+
+\section{谓词目录}
+规则体是谓词的合取式。涉及的谓词类型：
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+\item \code{MatchPredicate}(attr, P)：文档字段 attr 含正则/词 P。
+\item \code{FreqPredicate}(attr, P, op, $\eta$)：P 在 attr 中出现次数 $\;op\;\eta$（$\ge/\le$）。
+\item \code{CooccurPredicate}(P,Q) / \code{BeforePredicate}(P,Q)：两词共现 / 前后序。
+\item \code{MLThresholdPredicate}(model, L, t)：模型对标签 L 的概率 $\ge t$。
+\item \code{LabelPredicate}(A, op)：文档当前标签集满足条件（如 $A \in x.\mathrm{lbl}$）。
+\item \code{SimPredicate}(threshold)：存在相似度 $\ge$ threshold 的邻居 $y$。
+\item \code{GroupPredicate} / 比较结论 \code{x.lbl=y.lbl}：共属/标签集传播。
+\end{itemize}
+
+\section{各阶段详解}
+
+\subsection*{Stage 0 —— ML 集成 ADD（基线 $P_0$）}
+用 \code{inject_ml_baseline_rules} 生成 \code{ml_thresh}(model, L, t)$\to +L$，包括\textbf{单模型}阈值与\textbf{多模型 AND}组合 $(\,p_a\!\ge\!t_a) \wedge (p_b\!\ge\!t_b)$。多模型交集要求两个\textbf{强而互补}的模型（如 encoder $+$ tfidf）才有效；这是宏 F1 增益的主要来源。\textbf{保留多样化模型池（含 tfidf），不要用 \code{--model_pool embedding} 丢弃 tfidf}——否则集成退化为 encoder 单模型，差距在 Stage 0 即已产生。
+
+\subsection*{Stage 1 —— FN$\to$ADD 文本召回（新增；$P_0 \to P_1$）}
+对每个标签 $L$，取\textbf{假阴区}（模型说"非 $L$"但真值为 $L$），用 TF--IDF 挖掘\textbf{判别性 n-gram}（区分 FN 文档与真负文档），直接合成
+\[
+\code{match}(P)\;[\wedge\;\code{ml_thresh}(\mathrm{model},L,t_{\text{low}})]\;\to\;+L .
+\]
+这是\textbf{直接合成（非随机 BO）}：候选只来自错误本身（每标签数个），不产生候选爆炸。低阈值 ML 守卫 $t_{\text{low}}$ 用于在"模型对 $L$ 完全否定"时抑制误加。保留条件：验证集 $\text{precision}\ge$ \code{fn_add_min_val_prec}（默认 0.70）且改进数 $\ge$ 下限；每标签至多 \code{stage1_max_rules_per_label} 条。实现 \code{_synthesize_fn_add_rules}（\code{loris/pipeline/steps.py}）。\emph{实例（BGC）}：\code{match(secrets)} $\wedge$ \code{ml(encoder,Literary Fiction,0.2)} $\to +$Literary Fiction；\code{match(god)} $\wedge$ \code{ml(encoder,Fantasy,0.05)} $\to +$Fantasy。
+
+\subsection*{Stage 2 —— FP$\to$REMOVE 精度修剪（$P_1 \to P_2$）}
+在\textbf{累计 $P_1$}之上，取假阳区，用 \code{_extract_error_driven_predicates(mode="fp")} 得到 FP-判别谓词，经 Optuna BO + \code{batch_select} 选出
+\(\code{match/freq}(P)\wedge\code{ml}\to -L\)。打分基准为 $P_1$：$n_{\text{improved}}$ = 删除的真 FP，$n_{\text{worsened}}$ = 误删的 TP；硬门槛 raw precision $\ge 0.85$（弱标签 0.65）、$n_{\text{improved}}\ge 2$。每标签至多 \code{stage2_max_rules_per_label} 条。\emph{实例（BGC）}：\code{freq($\cdots$)}$\le 2 \wedge$ \code{ml(encoder,History,0.25)} $\to -$Historical Fiction。
+
+\subsection*{Stage 3 —— 复合传播（人机协同；$P_2 \to$ final）}
+学习\textbf{复合}传播规则（\textbf{不允许}裸标签共现）：
+\[
+\code{label}(A)\wedge\code{text}(P)\to+B,\quad
+\code{sim}(x,y)\wedge\code{label}(\tau\!\in\!y.\mathrm{lbl})\wedge\code{text}(P)\to+\tau,\quad
+x.\mathrm{lbl}=y.\mathrm{lbl}.
+\]
+关键：\textbf{以 GT/oracle 标签为种子}学习（\code{prop_label_source=gt}），而非模型自身标签——因为传播的价值在\textbf{人给一个正确种子即可向邻居正确扩散}的主动场景。\code{prop_require_text} 默认开启，过滤掉无文本谓词的裸 \code{sim}$\wedge$\code{label} 与裸共现规则（保留 \code{x.lbl=y.lbl} 比较规则）。\emph{实例（BGC）}：\code{label(Self-Improvement)} $\wedge$ \code{match(form)} $\to +$Personal Growth。
+
+\textbf{预期.} 由于 $P_2$ 已是高精度，零预算下 Stage 3 规则很少甚至为 0——这是强分类器下的固有现象，\textbf{并非 bug}；传播只有在人提供种子后（RILL 预算扫描）才显著见效，这恰是"传播需要人机协同"的正面证据。
+
+\section{谓词与规则数目分配（防"富谓词更差"）}
+"更多谓词反而更差"的根因是\textbf{候选爆炸稀释固定搜索预算}（旧 B 运行 3645 候选/簇、30 trials $\Rightarrow$ 仅探 0.8\%）。三层分配：
+\begin{enumerate}[leftmargin=1.6em,itemsep=1pt]
+\item \textbf{候选（谓词）按类型封顶}：\code{_select_top_predicates} 用 \code{per_type_top_k}（默认 60）/\code{predicate_top_k}（默认 240）按 phi$\times$coverage 排序，对每类 \{Match/Freq/Cooccur/Before/Sim\} 限额，富化无法挤占其它类型。Stage 1/2 的错误驱动候选本就是\textbf{小而精准}的每标签集合。
+\item \textbf{规则（输出）按阶段$\times$标签配额}：\code{stageN_max_rules_per_label}（默认 3/3/2），配合 \code{top_n_rules}/\code{top_per_type}，得到"ML 基线 + 少量 FN-add + 少量 FP-remove + 少量传播"的均衡分布。
+\item \textbf{搜索预算分配}：传播 BO 仅用 \code{prop_trial_frac} 比例的 trials；Stage 1/2 为直接合成不耗 BO 预算。
+\end{enumerate}
+每阶段的"按类型候选数 / 按类型与标签规则数 / $\Delta$F1"写入 \code{staged_pipeline_logs.json}，便于单次运行即可调参与诊断。
+
+\section{传播 \& RILL 人机协同主动学习}
+\code{RILLController}（\code{loris/rill/rill.py}）在测试时执行主动回路：以规则依赖图估计\textbf{影响力}，向 \code{GroundTruthOracle}（模拟人）查询最有信息量的未标注文档，注入其标签后增量 Chase，经规则 + 相似图传播。我们在测试集上做\textbf{人工标注预算扫描}（\code{--rill_budget_sweep 0,10,25,50,100,200}），输出 \code{rill_budget_sweep.json}（每预算的 micro/macro 与查询数）。
+
+\textbf{连通性保证.} \code{auto_threshold_bins} 新增 \code{min_avg_degree} 下限（\code{sim_min_avg_degree}，默认 20）：若所有阈值过稀疏，则补一个达到该平均度的较密阈值（即便超过常规上限——RILL 钳制种子，雪崩有界），使种子有实际传播路径；\code{build_sim_graph} 对该图放宽 \code{max_avg_degree}。运行时记录每阈值平均度并在扫描前断言至少一个阈值达标。\textbf{富化相似谓词}：\code{--sim_target_degrees} 可注入更细/更密的目标平均度分箱（默认空=$5,10,20,40$，黄金中性），供传播 BO 选择更细粒度的相似阈值；可在端到端 A/B 中度量其增益。\textbf{扫描可行性}：相似图为 $O(n^2)$、逐查询影响力为 $O(|U|)$，故扫描按 \code{--rill_sweep_max_docs}（默认 3000）定种子子采样测试集（BGC 全集 33k 不可行）。
+
+\textbf{可复现性（确定性）.} 规则发现的确定性由以下保证：（i）嵌入子采样与 BO 的固定随机种子；（ii）黄金测试中固定 \code{PYTHONHASHSEED}；（iii）确定的候选排序——正则锚点抽取改为返回 \code{sorted(anchors)}（原 \code{list(set(...))} 的集合迭代序依赖哈希种子，会渗入并列 top-$k$ 谓词与规则的选择）。此外移除了不可构造的遗留 \code{minus} 标签算子（标签删除是结论 \code{consequence_op="remove"}，非体谓词）。
+
+\section{诚实报告：逐条边际贡献}
+旧 \code{analyze_rule_corrections} 把每条规则\textbf{孤立}地贴到原始基准上评估，导致 remove 在空白基准上恒显示 0（方法假象）。新版改为\textbf{留一边际}（leave-one-out）：先算全规则集的累计预测，再逐条移除该规则重算，
+\[
+\text{marginal\_F1}(r) = \text{F1}(\text{全部规则}) - \text{F1}(\text{全部} \setminus \{r\}).
+\]
+这样"修正某 ADD 引入的 FP"的 REMOVE 会显示为正贡献。输出按\textbf{阶段}汇总到 \code{rule_analysis.txt} 与 \code{rule_analysis_stage_rollup.json}。
+
+\section{超参表}
+\renewcommand{\arraystretch}{1.18}
+\begin{longtable}{@{}l l p{8.6cm}@{}}
+\toprule
+参数 & 默认 & 含义 \\
+\midrule\endhead
+\code{stage0_ml} / \code{stage1_fn_add} & True & 启用 Stage 0 ML 基线 / Stage 1 FN$\to$ADD \\
+\code{stage2_fp_remove} / \code{stage3_propagation} & True & 启用 Stage 2 REMOVE / Stage 3 传播 \\
+\code{fn_add_min_val_prec} & 0.70 & FN$\to$ADD 规则的验证集精度下限 \\
+\code{fn_add_top_k_per_label} & 8 & Stage 1 每标签挖掘的 FN 判别谓词数 \\
+\code{fn_add_ml_guard} & True & 是否给 FN$\to$ADD 文本体加低阈值 ML 守卫 \\
+\code{stage1/2/3_max_rules_per_label} & 3/3/2 & 各阶段每标签规则配额 \\
+\code{prop_require_text} & True & 传播规则必须含文本谓词（禁裸共现） \\
+\code{prop_label_source} & track1 & 传播 BO 的种子标签来源（gt/track1/model；CLI 默认 track1，传播实验推荐 gt） \\
+\code{prop_trial_frac} & 0.5 & 传播 BO 占 \code{max_trials} 的比例 \\
+\code{per_type_top_k} & 60 & 每谓词类型候选封顶 \\
+\code{predicate_top_k} & 240 & 每簇候选谓词总封顶 \\
+\code{sim_min_avg_degree} & 20 & 相似图连通性下限（平均邻居数） \\
+\code{sim_target_degrees} & "" & 相似图阈值分箱的目标平均度（富化相似谓词）；空=默认 5,10,20,40，例 \code{3,5,8,12,20,30,40,60} \\
+\code{rill_budget_sweep} & "" & 测试时 RILL 人工预算扫描，如 \code{0,10,25,50,100,200} \\
+\code{rill_sweep_max_docs} & 3000 & RILL 扫描的测试文档上限（相似图为 $O(n^2)$，全集如 BGC 33k 不可行，故定种子子采样） \\
+\code{max_trials} & 30/200 & 每簇 Optuna 试验数 \\
+\code{min_corr_prec} & 0.65 & batch\_select 修正精度下限 \\
+\code{min_n_changes} / \code{min_rule_fires} & 1/1 & 规则最小改动/触发数（自适应放宽） \\
+\code{sim_cascade_rounds} & 3 & 传播 BO 中相似级联模拟轮数 \\
+\bottomrule
+\end{longtable}
+
+\section{实验结果}
+端到端运行：BGC（12k 训练、30 标签、8k 测试）与 AAPD（15k、30 标签）；blank 基线、\code{pattern_mode=sim}、模型池含 encoder 与 tfidf、四阶段全开、\code{max_trials=30}。
+
+\subsection*{总体指标（测试集）}
+\renewcommand{\arraystretch}{1.2}
+\begin{center}
+\begin{tabular}{@{}l c c c c@{}}
+\toprule
+数据集 & 基线 micro / macro & 模型+规则 micro / macro & $\Delta$micro / $\Delta$macro & 规则数 \\
+\midrule
+BGC（本方法） & 0.766 / 0.571 & \textbf{0.780 / 0.694} & $+0.014$ / $+0.123$ & 77 \\
+BGC（旧 A，胜者） & 0.767 / 0.560 & 0.781 / 0.689 & $+0.014$ / $+0.129$ & 70 \\
+AAPD（本方法） & 0.682 / 0.546 & 0.644 / 0.632 & $-0.038$ / $+0.086$ & 94 \\
+\bottomrule
+\end{tabular}
+\end{center}
+BGC 上宏 F1 由旧最佳 $0.689$ 提升到 $\mathbf{0.694}$，micro 持平（$\approx 0.78$）。
+
+\subsection*{规则分布（已修复"只有 ML 规则"）}
+\begin{center}
+\begin{tabular}{@{}l c c c c c@{}}
+\toprule
+数据集 & Stage0 ML & Stage1 FN-add & Stage2 remove & Stage3 prop & 文本谓词数 \\
+\midrule
+BGC  & 60 & 2 & 14 & 1 & 13（6 Match $+$ 7 Freq） \\
+AAPD & 76 & 1 & 16 & 1 & 7 Match \\
+\bottomrule
+\end{tabular}
+\end{center}
+现已学到\textbf{ml+text 的 ADD、text+ml 的 REMOVE、label+text 的复合传播}三类规则（见各阶段实例），不再是清一色 ML 规则。
+
+\subsection*{逐阶段留一边际（测试宏 F1）与诚实评估}
+BGC：Stage0 $+0.490$、Stage1 $-0.000$、Stage2 $+0.000$、Stage3 $0$；AAPD：Stage0 $+0.339$、Stage1 $+0.000$、Stage2 $+0.002$、Stage3 $0$。即：\textbf{增益仍由 ML 集成主导；文本/删除/传播规则虽被成功学到且语义合理，但在强分类器上的测试边际接近 0}——这与"强基线下传播/纠错头部空间很小"的预期一致。
+
+\subsection*{RILL 人工预算扫描}
+AAPD 各预算（0--200）micro$\approx$0.591、macro$\approx$0.631 且\textbf{查询数为 0}、曲线持平——因为 Stage 3 仅产出约 1 条传播规则、无 \code{sim} 规则，故无传播路径可供主动回路利用（连通性下限保证了图够密，但缺少使用该图的 \code{sim} 规则）。BGC 预算 0（仅规则）micro $0.778$、macro $0.693$。
+
+\subsection*{结论与后续}
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+\item \textbf{已达成}：四阶段流程跑通，学到均衡且可解释的规则混合；BGC 宏 F1 提升、micro 持平；逐阶段贡献可量化、可消融。
+\item \textbf{诚实局限}：在强 ML 基线上，文本/删除/传播规则的测试边际仍$\approx 0$；要让传播真正见效，需 Stage 3 产出足量 \code{sim} 复合规则（可降低 \code{sim} 阈值或放宽 \code{prop} 门槛），并在有种子的 RILL 场景评估。AAPD 的 micro 下降源于 blank$+$global\_macro 目标偏向宏 F1，可按需切换 \code{batch_metric_mode}。
+\end{itemize}
+
+\end{document}
