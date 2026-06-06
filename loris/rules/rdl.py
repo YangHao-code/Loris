@@ -159,17 +159,22 @@ class RDLSet:
             label_idx = self._label2idx.get(rule.consequence)
             if label_idx is None:
                 continue
+            # B7 fix: only add/remove are valid per-doc fast-path ops. equal /
+            # replace / subset are cross-document consequences that must be applied
+            # by the chase; skip them here rather than mis-applying them as "add".
+            if rule.consequence_op not in ("add", "remove"):
+                continue
+            is_remove = rule.consequence_op == "remove"
             for i, doc in enumerate(docs):
                 if rule.fires(doc):
-                    if rule.consequence_op == "remove":
+                    if is_remove:
                         neg[i, label_idx] = True
-                    else:  # "add"
-                        pos[i, label_idx] = True
-                    if propagate_labels:
-                        if rule.consequence_op == "add":
-                            doc.lbl.add(rule.consequence)
-                        elif rule.consequence_op == "remove":
+                        if propagate_labels:
                             doc.lbl.discard(rule.consequence)
+                    else:
+                        pos[i, label_idx] = True
+                        if propagate_labels:
+                            doc.lbl.add(rule.consequence)
 
         return (pos & ~neg).astype(np.float32)
 
@@ -187,17 +192,20 @@ class RDLSet:
             label_idx = self._label2idx.get(rule.consequence)
             if label_idx is None:
                 continue
+            # B7 fix: only add/remove on the per-doc fast path (see predict()).
+            if rule.consequence_op not in ("add", "remove"):
+                continue
+            is_remove = rule.consequence_op == "remove"
             for i, doc in enumerate(docs):
                 if rule.fires(doc):
-                    if rule.consequence_op == "remove":
+                    if is_remove:
                         neg[i, label_idx] = True
-                    else:  # "add"
-                        pos[i, label_idx] = True
-                    if propagate_labels:
-                        if rule.consequence_op == "add":
-                            doc.lbl.add(rule.consequence)
-                        elif rule.consequence_op == "remove":
+                        if propagate_labels:
                             doc.lbl.discard(rule.consequence)
+                    else:
+                        pos[i, label_idx] = True
+                        if propagate_labels:
+                            doc.lbl.add(rule.consequence)
         return (pos & ~neg).astype(np.float32)
 
     def chase_predict(

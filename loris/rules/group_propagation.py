@@ -61,6 +61,25 @@ def _fast_macro_f1(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(f1.mean())
 
 
+def _per_label_f1(y_true: np.ndarray, y_pred: np.ndarray, j: int) -> float:
+    """F1 of a single target label column ``j``.
+
+    B12 fix: comparison/group rules touch ONE label, but the admission gate used
+    the global macro mean over all labels — a single-label gain of e.g. +0.3 on a
+    tail label becomes +0.3/30 ≈ +0.01 in the mean and is rejected by min_f1_gain.
+    Scoring the rule on its own label's F1 is what the paper's per-label,
+    accuracy-driven selection (§5.2) intends.
+    """
+    yt = y_true[:, j]
+    yp = y_pred[:, j]
+    tp = float(((yt == 1) & (yp == 1)).sum())
+    fp = float(((yt == 0) & (yp == 1)).sum())
+    fn = float(((yt == 1) & (yp == 0)).sum())
+    prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    return 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+
+
 def compute_group_fire_mask(
     membership: sp.csr_matrix,
     label_idx: int,
@@ -117,11 +136,14 @@ def evaluate_group_rule(
         return None
     corr_prec = n_improved / (n_improved + n_worsened) if (n_improved + n_worsened) > 0 else 0.0
 
-    # F1 gain
+    # F1 gain — B12 fix: per-TARGET-label F1 delta, not the global macro mean.
+    # test_preds differs from existing_predictions only in column label_idx, so the
+    # per-label F1 of every other label is unchanged; the global-macro delta just
+    # divided this rule's real gain by n_labels and the gate rejected it.
     test_preds = existing_predictions.copy()
     test_preds[actionable, label_idx] = 1.0
-    old_f1 = _fast_macro_f1(val_labels, existing_predictions)
-    new_f1 = _fast_macro_f1(val_labels, test_preds)
+    old_f1 = _per_label_f1(val_labels, existing_predictions, label_idx)
+    new_f1 = _per_label_f1(val_labels, test_preds, label_idx)
     f1_gain = new_f1 - old_f1
 
     return {
@@ -332,12 +354,18 @@ def discover_group_rules(
         best_pred_info = None
 
         for pred, is_negated in rescue_preds:
+            # B5 fix: a negated rescue predicate is validated below with ~text_mask
+            # but was emitted (lines further down) as a PLAIN POSITIVE MatchPredicate,
+            # so the applied rule fired on exactly the opposite documents from what
+            # was validated. MatchPredicate has no negation flag yet (added in B18 /
+            # the x.lbl\τ predicate), so skip negated candidates rather than emit an
+            # inverted, wrong-direction rule.
+            if is_negated:
+                continue
             # Compute text predicate mask
             text_mask = np.array(
                 [bool(pred(Document(cnt=d.cnt))) for d in val_docs], dtype=bool
             )
-            if is_negated:
-                text_mask = ~text_mask
 
             # Combined fire mask
             combined = fire_mask & text_mask

@@ -58,6 +58,29 @@ class HParams:
     per_type_top_k: Optional[int] = 300  # top-k per predicate type; None = global top_k
     batch_metric_mode: str = "cluster_local"
 
+    # ── Staged error-driven rule learning (ML → FN-add → FP-remove → propagation) ─
+    stage0_ml: bool = True            # Stage 0: ML-ensemble ADD baseline rules
+    stage1_fn_add: bool = True        # Stage 1: FN-driven text ADD rules (NEW)
+    stage2_fp_remove: bool = True     # Stage 2: FP-driven REMOVE rules
+    stage3_propagation: bool = True   # Stage 3: composite label/sim propagation
+    fn_add_min_val_prec: float = 0.70   # precision floor for FN→ADD rules
+    fn_add_top_k_per_label: int = 8     # # FN-discriminative predicates mined per label
+    fn_add_ml_guard: bool = True        # AND an ml_thresh(L) guard onto the text body
+    fn_add_min_fires: int = 0           # 0 ⇒ use effective_min_fires
+    prop_require_text: bool = True      # propagation rules must carry a text predicate
+    prop_label_source: str = "track1"   # "gt" | "track1" | "model" seed for propagation BO
+    # ^ B2 fix: mine comparison/group rules against the SAME label state seen at
+    #   inference (track1 predictions), NOT ground truth. "gt" leaks val labels into
+    #   the fire-mask so rules that look good on GT neighbours don't fire at test.
+    #   Scoring (F1 gain) still uses val_y; only the neighbour fire-mask changes.
+    rill_budget_sweep: str = ""         # e.g. "0,10,25,50,100,200"; empty ⇒ no sweep
+    # ── Count allocation (per stage / per type / per label) ──────────────────────
+    stage1_max_rules_per_label: int = 0   # 0 = uncapped (redundancy elimination only)
+    stage2_max_rules_per_label: int = 0
+    stage3_max_rules_per_label: int = 0
+    prop_trial_frac: float = 0.5        # fraction of max_trials given to propagation BO
+    sim_min_avg_degree: float = 20.0    # sim-graph connectivity floor for RILL propagation
+
     # ── Baseline mode ──────────────────────────────────────────────────────────
     baseline_mode: str = "best"
 

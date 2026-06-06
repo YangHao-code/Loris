@@ -122,14 +122,17 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--big", action="store_true", default=False,
                    help="Large-corpus preset: anchor_min_df=10, tfidf_top_k=100, "
                         "min_coverage=0.01, max_entropy_threshold=1.5")
-    p.add_argument("--predicate_top_k", type=int, default=0,
-                   help="Max candidate predicates per cluster (0=no limit)")
+    p.add_argument("--predicate_top_k", type=int, default=240,
+                   help="Max candidate predicates per cluster (0=no limit). "
+                        "Default 240 caps the pool so a rich abstraction can't "
+                        "dilute the fixed BO trial budget.")
     p.add_argument("--glove_path", type=str, default=None,
                    help="Path to GloVe text file for synonym expansion "
                         "(default: /root/autodl-tmp/glove.6B.100d.txt if exists)")
-    p.add_argument("--per_type_top_k", type=int, default=0,
+    p.add_argument("--per_type_top_k", type=int, default=60,
                    help="Top-k predicates per type (0=no limit). "
-                        "Set >0 to cap per type.")
+                        "Default 60 balances {Match/Freq/Cooccur/Before/Sim} so "
+                        "an enriched type can't crowd out the others.")
     p.add_argument("--batch_metric_mode", default="global_macro",
                    choices=["global_macro", "cluster_local"],
                    help="Metric mode for batch BO (hybrid default: global_macro)")
@@ -165,10 +168,11 @@ def parse_args() -> argparse.Namespace:
                    help="Split val into val_bo (BO discovery) + val_select "
                         "(batch_select filtering) to prevent overfitting")
     # ── Chase-specific arguments ──
-    p.add_argument("--track2_label_source", type=str, default="gt",
+    p.add_argument("--track2_label_source", type=str, default="track1",
                    choices=["track1", "gt", "model"],
                    help="Label state for Track 2 neighbor masks: "
-                        "track1=T1-updated, gt=ground truth, model=base predictions")
+                        "track1=T1-updated, gt=ground truth, model=base predictions. "
+                        "Default track1 (B2 fix): gt leaks val labels into the fire-mask.")
     p.add_argument("--sim_threshold_bins", type=str,
                    default="auto",
                    help="Comma-separated similarity thresholds, or 'auto' for data-adaptive")
@@ -234,6 +238,43 @@ def parse_args() -> argparse.Namespace:
                    help="Disable weak-label adaptive BO sampling/thresholds")
     p.add_argument("--intermediate_models", action="store_true",
                    help="Enable intermediate feature models (EmbeddingRegion, FeatureDensity, EnsembleVote, Structural)")
+    # ── Staged error-driven rule learning (ML → FN-add → FP-remove → propagation) ─
+    p.add_argument("--no_stage0_ml", action="store_true",
+                   help="Disable Stage 0 (ML-ensemble ADD baseline rules)")
+    p.add_argument("--no_stage1_fn_add", action="store_true",
+                   help="Disable Stage 1 (FN-driven text ADD rules)")
+    p.add_argument("--no_stage2_fp_remove", action="store_true",
+                   help="Disable Stage 2 (FP-driven REMOVE rules)")
+    p.add_argument("--no_stage3_propagation", action="store_true",
+                   help="Disable Stage 3 (composite label/sim propagation rules)")
+    p.add_argument("--fn_add_min_val_prec", type=float, default=0.70,
+                   help="Precision floor for FN→ADD rules on val")
+    p.add_argument("--fn_add_top_k_per_label", type=int, default=8,
+                   help="# FN-discriminative predicates mined per label in Stage 1")
+    p.add_argument("--no_fn_add_ml_guard", action="store_true",
+                   help="Do NOT AND an ml_thresh(L) guard onto FN→ADD text bodies")
+    p.add_argument("--fn_add_min_fires", type=int, default=0,
+                   help="Min fires for an FN→ADD rule (0 ⇒ use effective_min_fires)")
+    p.add_argument("--no_prop_require_text", action="store_true",
+                   help="Allow bare label/sim propagation (default requires a text predicate)")
+    p.add_argument("--prop_label_source", default="track1",
+                   choices=["gt", "track1", "model"],
+                   help="Seed label-state for propagation BO (track1=inference-faithful default, "
+                        "B2 fix; gt=oracle seed leaks val labels into the fire-mask)")
+    p.add_argument("--rill_budget_sweep", type=str, default="",
+                   help="Comma-separated human-label budgets for the test-time RILL sweep, "
+                        "e.g. '0,10,25,50,100,200'. Empty ⇒ no sweep.")
+    p.add_argument("--stage1_max_rules_per_label", type=int, default=0,
+                   help="Max Stage-1 ADD rules per label (0 = uncapped)")
+    p.add_argument("--stage2_max_rules_per_label", type=int, default=0,
+                   help="Max Stage-2 REMOVE rules per label (0 = uncapped)")
+    p.add_argument("--stage3_max_rules_per_label", type=int, default=0,
+                   help="Max Stage-3 propagation rules per label (0 = uncapped)")
+    p.add_argument("--prop_trial_frac", type=float, default=0.5,
+                   help="Fraction of max_trials given to the propagation (Stage 3) BO")
+    p.add_argument("--sim_min_avg_degree", type=float, default=20.0,
+                   help="Sim-graph connectivity floor (avg neighbors/node) so RILL has "
+                        "real propagation paths for human seeds")
     return p.parse_args()
 
 
@@ -349,6 +390,23 @@ def main() -> None:
     hp.no_weak_label_rescue = args.no_weak_label_rescue
     hp.weak_label_f1_threshold = args.weak_label_f1_threshold
     hp.weak_label_max_rules = args.weak_label_max_rules
+    # ── Staged error-driven rule learning ──
+    hp.stage0_ml = not args.no_stage0_ml
+    hp.stage1_fn_add = not args.no_stage1_fn_add
+    hp.stage2_fp_remove = not args.no_stage2_fp_remove
+    hp.stage3_propagation = not args.no_stage3_propagation
+    hp.fn_add_min_val_prec = args.fn_add_min_val_prec
+    hp.fn_add_top_k_per_label = args.fn_add_top_k_per_label
+    hp.fn_add_ml_guard = not args.no_fn_add_ml_guard
+    hp.fn_add_min_fires = args.fn_add_min_fires
+    hp.prop_require_text = not args.no_prop_require_text
+    hp.prop_label_source = args.prop_label_source
+    hp.rill_budget_sweep = args.rill_budget_sweep
+    hp.stage1_max_rules_per_label = args.stage1_max_rules_per_label
+    hp.stage2_max_rules_per_label = args.stage2_max_rules_per_label
+    hp.stage3_max_rules_per_label = args.stage3_max_rules_per_label
+    hp.prop_trial_frac = args.prop_trial_frac
+    hp.sim_min_avg_degree = args.sim_min_avg_degree
     if args.sim_threshold_bins == "auto":
         hp.sim_threshold_bins = None  # will be auto-detected from embeddings
     else:
@@ -847,6 +905,7 @@ def main() -> None:
         if _has_group_rules:
             from loris.rules.virtual_attributes import (
                 compute_all_virtual_attributes, filter_degenerate_groups,
+                compute_phrase_attributes,
             )
             _test_texts = [d.cnt for d in test_docs]
             _test_emb = compute_embeddings(
@@ -862,6 +921,17 @@ def main() -> None:
                 target_docs=test_docs,
                 label_names=label_names,
             )
+            # OPT-5: same discriminative-phrase attribute as BO/select (re-mined on
+            # train, deterministic → identical column semantics) so x.A=y.A group
+            # rules learned on the phrase attribute can fire at test.
+            if getattr(hp, "enable_phrase_attrs", True):
+                try:
+                    _ph, _ = compute_phrase_attributes(
+                        train_docs, train_y, test_docs, label_names)
+                    if _ph is not None and _ph.shape[1] > 0:
+                        _test_virtual_attrs["phrase"] = _ph
+                except Exception as _e:
+                    log.warning("test phrase-attr skipped: %s", _e)
             _test_virtual_attrs = filter_degenerate_groups(_test_virtual_attrs)
             log.info("Built test virtual_attrs: %d attributes", len(_test_virtual_attrs))
 
@@ -1173,6 +1243,57 @@ def main() -> None:
             final_rdl_set, test_docs_for_analysis, test_y,
             base_test_preds, label_names, exp_dir,
         )
+
+    # ── RILL human-label budget sweep (eval-only; the active/seeded setting) ──
+    _rill_sweep = (getattr(hp, 'rill_budget_sweep', '') or '').strip()
+    if _rill_sweep and final_rdl_set is not None and len(final_rdl_set.rules) > 0:
+        try:
+            import json as _json_sw
+            from chase_inference.rill import RILLController
+            from chase_inference.oracle import GroundTruthOracle
+            from loris.rules.sim_graph import (compute_embeddings as _ce,
+                                               build_sim_graph as _bsg)
+            from loris.predicates import SimPredicate as _SP
+            budgets = [int(b) for b in _rill_sweep.split(',') if b.strip() != ""]
+            _thr = sorted(set(p.threshold for r in final_rdl_set.rules
+                              for p in r.body if isinstance(p, _SP)))
+            _sweep_docs = [Document(cnt=test_X[i],
+                                    ttl=(test_titles[i] if test_titles and i < len(test_titles) else ""),
+                                    lbl=set()) for i in range(len(test_X))]
+            _sweep_graphs, _degs = None, {}
+            if _thr:
+                _emb = _ce(list(test_X), cache_path=str(exp_dir / "test_embeddings.npy"))
+                _smax = max(50, int(getattr(hp, 'sim_min_avg_degree', 0.0) * 3))
+                _sweep_graphs = _bsg(_emb, threshold_bins=_thr, max_avg_degree=_smax)
+                _degs = {round(float(t), 3): round(float(g.nnz) / max(1, g.shape[0]), 1)
+                         for t, g in _sweep_graphs.items()}
+                log.info("RILL sweep sim-graph avg degree per threshold: %s", _degs)
+                if _degs and max(_degs.values()) < getattr(hp, 'sim_min_avg_degree', 20.0):
+                    log.warning("RILL sweep: sim graph below connectivity floor "
+                                "(max avg degree %.1f) — propagation may be vacuous",
+                                max(_degs.values()))
+            _base0 = np.zeros((len(_sweep_docs), len(label_names)), dtype=np.float32)
+            sweep_rows = []
+            for b in budgets:
+                _oracle = GroundTruthOracle(ground_truth=test_y, label_names=label_names)
+                _ctrl = RILLController(rules=final_rdl_set.rules, label_names=label_names,
+                                       oracle=_oracle, max_iterations=b, trust_check=False,
+                                       conflict_mode="negative_wins",
+                                       sim_graphs=_sweep_graphs, verbose=False)
+                _res = _ctrl.run(_sweep_docs, base_predictions=_base0.copy())
+                _mi = float(f1_score(test_y, _res.predictions, average="micro", zero_division=0))
+                _ma = float(f1_score(test_y, _res.predictions, average="macro", zero_division=0))
+                _nq = int(getattr(_res, 'n_queries', 0))
+                sweep_rows.append({"budget": b, "n_queries": _nq,
+                                   "micro_f1": _mi, "macro_f1": _ma})
+                log.info("RILL sweep: budget=%4d queries=%4d  micro=%.4f macro=%.4f",
+                         b, _nq, _mi, _ma)
+            with open(exp_dir / "rill_budget_sweep.json", "w") as _f:
+                _json_sw.dump({"budgets": sweep_rows, "sim_thresholds": _thr,
+                               "graph_avg_degree": _degs}, _f, indent=2)
+            log.info("RILL budget sweep saved to %s", exp_dir / "rill_budget_sweep.json")
+        except Exception as _sw_exc:
+            log.warning("RILL budget sweep skipped: %s", _sw_exc, exc_info=True)
 
     log.info("Chase pipeline complete. Results in %s", exp_dir)
 

@@ -293,6 +293,79 @@ def compute_text_attributes(
     return attrs, vocabs
 
 
+def compute_phrase_attributes(
+    train_docs: Sequence,
+    train_labels: np.ndarray,
+    target_docs: Sequence,
+    label_names: List[str],
+    phrase_vocab: Optional[List[str]] = None,
+    ngram_range: Tuple[int, int] = (1, 2),
+    min_support: int = 5,
+    min_lift: float = 2.0,
+    min_co_count: int = 4,
+    max_phrases: int = 400,
+) -> Tuple[Optional[sp.csr_matrix], List[str]]:
+    """Discriminative-phrase membership attribute for honest x.A=y.A propagation.
+
+    OPT-5 (AAPD-propagation-findings): cluster_k / NER / frequency-ranked values
+    carry NO label signal, so under honest (predicted) neighbour labels group
+    discovery finds 0 rules. This builds a membership matrix whose VALUES are
+    n-grams that are *label-discriminative on TRAIN* (lift = P(label|phrase)/P(label)
+    above ``min_lift`` with support), so two docs sharing such a phrase form a
+    label-coherent propagation group and ``x.phrase = y.phrase`` can fire honestly.
+
+    Mined on TRAIN only (no leakage); transformed onto ``target_docs``. The mining
+    is deterministic, so re-calling on the same train set at BO / select / test
+    yields the same vocabulary (column semantics stay consistent).
+
+    Returns ``(csr (n_target × n_phrases) int8 | None, phrase_vocab)``. None when
+    no phrase clears the gate (caller simply omits the attribute).
+    """
+    from sklearn.feature_extraction.text import CountVectorizer  # noqa: PLC0415
+
+    train_texts = [getattr(d, "cnt", "") or "" for d in train_docs]
+    Y = np.asarray(train_labels)
+    if Y.ndim == 1:                      # single-label → one-hot
+        Y = np.eye(len(label_names), dtype=np.int8)[Y]
+    n_train = len(train_texts)
+
+    if phrase_vocab is None:
+        # Fit a binary uni/bi-gram vectoriser on train and rank terms by max
+        # per-label lift (deterministic; ties broken by -df then term).
+        vec = CountVectorizer(ngram_range=ngram_range, binary=True,
+                              min_df=min_support, max_features=50000)
+        try:
+            Xtr = vec.fit_transform(train_texts).astype(np.float32)
+        except ValueError:               # empty vocabulary on tiny corpora
+            return None, []
+        terms = vec.get_feature_names_out()
+        df = np.asarray(Xtr.sum(axis=0)).ravel()              # (V,)
+        co = np.asarray(Xtr.T.dot(Y.astype(np.float32)))      # (V, L) term∧label
+        label_freq = Y.sum(axis=0).astype(np.float64)         # (L,)
+        p_label = np.maximum(label_freq / max(n_train, 1), 1e-9)
+        p_l_given_t = co / np.maximum(df[:, None], 1.0)       # (V, L)
+        lift = p_l_given_t / p_label[None, :]                 # (V, L)
+        best_l = lift.argmax(axis=1)
+        best_lift = lift[np.arange(len(terms)), best_l]
+        best_co = co[np.arange(len(terms)), best_l]
+        keep = (best_lift >= min_lift) & (df >= min_support) & (best_co >= min_co_count)
+        cand = np.nonzero(keep)[0]
+        # rank by lift, then coverage; deterministic
+        order = sorted(cand, key=lambda t: (-best_lift[t], -df[t], terms[t]))
+        phrase_vocab = [str(terms[t]) for t in order[:max_phrases]]
+        if not phrase_vocab:
+            return None, []
+
+    # Transform target docs onto the fixed phrase vocabulary (binary presence).
+    target_texts = [getattr(d, "cnt", "") or "" for d in target_docs]
+    tvec = CountVectorizer(ngram_range=ngram_range, binary=True,
+                           vocabulary=phrase_vocab)
+    M = tvec.transform(target_texts).astype(np.int8).tocsr()
+    if M.nnz:
+        M.data[:] = 1
+    return M, list(phrase_vocab)
+
+
 def compute_all_virtual_attributes(
     train_embeddings: np.ndarray,
     target_embeddings: np.ndarray,

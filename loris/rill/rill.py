@@ -722,7 +722,10 @@ class RILLController:
         else:
             status = "max_iterations"
 
-        predictions = chase.lbl.pos.astype(np.float32)
+        # B6 fix: finalise via the chase's conflict-aware builder (pos & ~neg),
+        # not pos alone — otherwise every REMOVE rule's suppression is silently
+        # dropped from RILL's output, inconsistent with the rest of the pipeline.
+        predictions = chase._build_predictions(chase.lbl)
 
         if self.verbose:
             n_labeled = int((lbl.pos.sum(axis=1) > 0).sum())

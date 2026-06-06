@@ -41,7 +41,7 @@ from loris.rules.discovery import (
 )
 from loris.rules.sim_graph import (
     auto_threshold_bins, compute_embeddings, build_sim_graph,
-    save_sim_graphs, load_sim_graphs,
+    save_sim_graphs, load_sim_graphs, MAX_AVG_DEGREE,
     precompute_neighbor_label_masks, precompute_neighbor_label_counts,
 )
 
@@ -155,18 +155,25 @@ def _generate_label_cooccurrence_rules(
     base_predictions: np.ndarray,
     min_cooccur: int = 10,
     min_precision: float = 0.60,
+    docs: Optional[list] = None,
+    require_text: bool = False,
 ) -> List["RDL"]:
-    """Generate LabelPredicate rules from label co-occurrence patterns.
+    """Generate composite ``label(A) ∧ text(P) → +B`` propagation rules.
 
-    For each pair (A, B) where A is frequently predicted correctly and B is
-    frequently missed in documents that have A, create rule: label(A) → +B.
-    Evaluate precision on the provided data and filter.
+    For each pair (A, B) where A is predicted and B is frequently missed in the
+    docs that have A, the firing region is ``A-predicted ∧ ¬B-predicted``.
+    When *require_text* (default for the redesign), mine an n-gram P that
+    separates the true-B (TP) from the false adds (FP) within that region and
+    emit ``label(A) ∧ match(P) → +B`` — a discriminative composite, NOT bare
+    co-occurrence. When *require_text* is False, fall back to ``label(A) → +B``.
     """
     from rule_discovery.loris_rule_discovery import RDL
+    from loris.predicates import MatchPredicate
     n_docs, n_labels = val_labels.shape
-    label2idx = {name: i for i, name in enumerate(label_names)}
     pred_binary = (np.asarray(base_predictions) > 0).astype(int)
     gt = np.asarray(val_labels, dtype=int)
+    texts = ([d.cnt if hasattr(d, "cnt") else d for d in docs]
+             if (require_text and docs is not None) else None)
 
     rules = []
     for a_idx, a_label in enumerate(label_names):
@@ -176,26 +183,62 @@ def _generate_label_cooccurrence_rules(
         for b_idx, b_label in enumerate(label_names):
             if a_idx == b_idx:
                 continue
-            fn_b = (gt[:, b_idx] == 1) & (pred_binary[:, b_idx] == 0)
-            cooccur_fn = int((a_predicted & fn_b).sum())
-            if cooccur_fn < min_cooccur:
-                continue
             fires_mask = a_predicted & (pred_binary[:, b_idx] == 0)
             n_fires = int(fires_mask.sum())
-            if n_fires == 0:
+            if int((a_predicted & (gt[:, b_idx] == 1) & (pred_binary[:, b_idx] == 0)).sum()) < min_cooccur \
+               or n_fires == 0:
                 continue
-            tp = int((fires_mask & (gt[:, b_idx] == 1)).sum())
-            prec = tp / n_fires
-            if prec < min_precision:
-                continue
-            rule = RDL(
-                body=(LabelPredicate(label=a_label, op="contains"),),
-                consequence=b_label,
-                consequence_op="add",
-                score=prec,
-                coverage=n_fires / n_docs,
-            )
-            rules.append(rule)
+            tp_mask = fires_mask & (gt[:, b_idx] == 1)
+
+            if texts is not None:
+                # ── composite: mine a text predicate discriminating TP from FP ──
+                from sklearn.feature_extraction.text import TfidfVectorizer
+                fire_idx = np.where(fires_mask)[0]
+                sub_texts = [texts[i] for i in fire_idx]
+                sub_tp = tp_mask[fires_mask]
+                if sub_tp.sum() < 3 or (~sub_tp).sum() < 3:
+                    continue
+                try:
+                    vec = TfidfVectorizer(max_features=300, stop_words="english",
+                                          ngram_range=(1, 2), min_df=2)
+                    X = vec.fit_transform(sub_texts)
+                except ValueError:
+                    continue
+                diff = (np.asarray(X[sub_tp].mean(axis=0)).ravel()
+                        - np.asarray(X[~sub_tp].mean(axis=0)).ravel())
+                feats = vec.get_feature_names_out()
+                best = None
+                for oi in np.argsort(-diff)[:6]:
+                    if diff[oi] < 0.01:
+                        break
+                    w = feats[oi]
+                    if len(w) < 3:
+                        continue
+                    mp = MatchPredicate("cnt", w)
+                    wmask = np.array([bool(mp(docs[i])) for i in range(n_docs)])
+                    cfire = fires_mask & wmask
+                    cn = int(cfire.sum())
+                    if cn < max(3, min_cooccur // 2):
+                        continue
+                    ctp = int((cfire & (gt[:, b_idx] == 1)).sum())
+                    cprec = ctp / cn
+                    if cprec >= min_precision and (best is None or cprec > best[0]):
+                        best = (cprec, cn, mp)
+                if best is None:
+                    continue
+                cprec, cn, mp = best
+                rules.append(RDL(
+                    body=(LabelPredicate(label=a_label, op="contains"), mp),
+                    consequence=b_label, consequence_op="add",
+                    score=cprec, coverage=cn / n_docs))
+            else:
+                prec = int(tp_mask.sum()) / n_fires
+                if prec < min_precision:
+                    continue
+                rules.append(RDL(
+                    body=(LabelPredicate(label=a_label, op="contains"),),
+                    consequence=b_label, consequence_op="add",
+                    score=prec, coverage=n_fires / n_docs))
 
     rules.sort(key=lambda r: -r.score)
     return rules
@@ -267,6 +310,165 @@ def _extract_error_driven_predicates(
             seen.add(key)
             unique.append(p)
     return unique
+
+
+def _extend_pred_masks(masks, pred_to_idx, new_preds, docs):
+    """Append fire masks for *new_preds* to (masks, pred_to_idx), keyed by id(pred).
+
+    The val-time vectorized predictor (`_vectorized_staged_predict`) and
+    `batch_select` look text predicates up by ``id(pred)``; a mined predicate that
+    is not in the mask cache makes its rule silently never-fire. This extends the
+    cache in lockstep so cumulative-prediction stages can see Stage-1/2 mined rules.
+    Returns the (possibly new) masks array; mutates *pred_to_idx* in place.
+    """
+    from loris.rules.discovery import precompute_fire_masks
+    fresh = []
+    seen_ids = set()
+    for p in new_preds:
+        if id(p) in pred_to_idx or id(p) in seen_ids:
+            continue
+        seen_ids.add(id(p))
+        fresh.append(p)
+    if not fresh:
+        return masks
+    new_masks = precompute_fire_masks(fresh, docs)          # (n_fresh, n_docs)
+    if masks is None or len(masks) == 0:
+        combined = new_masks
+        base_n = 0
+    else:
+        combined = np.vstack([masks, new_masks])
+        base_n = masks.shape[0]
+    for i, p in enumerate(fresh):
+        pred_to_idx[id(p)] = base_n + i
+    return combined
+
+
+def _synthesize_fn_add_rules(
+    docs, labels, base_preds, label_names,
+    ml_proba_cache=None, ml_model_names=None,
+    top_k_per_label: int = 8, ml_guard: bool = True,
+    min_prec: float = 0.70, min_fires: int = 3, max_rules_per_label: int = 3,
+):
+    """Stage 1 — direct FN→ADD synthesis (no random BO).
+
+    For each label L, mine n-grams that discriminate the *false-negative* region
+    (model said "not L" but truth is L) from the true-negatives, and emit
+    ``match(P) [∧ ml_thresh(L, t_low)] → +L`` rules that clear a precision floor on
+    val. Targeted candidates (a few per label) — never the 3645-pool explosion.
+    Returns ``List[RDL]`` with ``val_stats["stage"]="stage1_fn_add"``.
+    """
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from loris.predicates import MatchPredicate, MLThresholdPredicate
+    from loris.rules.rdl import RDL
+
+    texts_all = [d.cnt if hasattr(d, "cnt") else d for d in docs]
+    n = len(docs)
+    labels = np.asarray(labels)
+    base_preds = np.asarray(base_preds)
+
+    guard_model = None
+    if ml_guard and ml_proba_cache:
+        names = ml_model_names or list(ml_proba_cache.keys())
+        guard_model = next((m for m in names if "encoder" in m and m in ml_proba_cache), None)
+        if guard_model is None:
+            guard_model = next((m for m in names if m in ml_proba_cache), None)
+
+    rules = []
+    for lidx, lname in enumerate(label_names):
+        neg_pred = base_preds[:, lidx] == 0          # addable region: model said "not L"
+        fn_mask = neg_pred & (labels[:, lidx] == 1)  # true L, missed
+        tn_mask = neg_pred & (labels[:, lidx] == 0)  # true not-L
+        if int(fn_mask.sum()) < max(3, min_fires) or int(tn_mask.sum()) < 3:
+            continue
+        idx = np.where(neg_pred)[0]
+        sub_texts = [texts_all[i] for i in idx]
+        vec = TfidfVectorizer(max_features=500, stop_words="english",
+                              ngram_range=(1, 2), min_df=2)
+        try:
+            X = vec.fit_transform(sub_texts)
+        except ValueError:
+            continue
+        sub_fn = fn_mask[idx]
+        sub_tn = tn_mask[idx]
+        if sub_fn.sum() == 0 or sub_tn.sum() == 0:
+            continue
+        diff = np.asarray(X[sub_fn].mean(axis=0)).ravel() - np.asarray(X[sub_tn].mean(axis=0)).ravel()
+        feats = vec.get_feature_names_out()
+        gp = (ml_proba_cache[guard_model][:, lidx] if guard_model else None)
+
+        cands = []
+        for oi in np.argsort(-diff)[:top_k_per_label]:
+            if diff[oi] < 0.01:
+                break
+            w = feats[oi]
+            if len(w) < 3:
+                continue
+            mp = MatchPredicate("cnt", w)
+            fire = np.array([bool(mp(docs[i])) for i in range(n)]) & neg_pred
+            guard_grid = [0.0] + ([0.05, 0.10, 0.15, 0.20, 0.30]
+                                  if (ml_guard and gp is not None) else [])
+            best = None
+            for t in guard_grid:
+                f = fire if t == 0.0 else (fire & (gp >= t))
+                imp = int((f & (labels[:, lidx] == 1)).sum())
+                wor = int((f & (labels[:, lidx] == 0)).sum())
+                if imp < max(2, min_fires):
+                    continue
+                prec = imp / (imp + wor)
+                if prec < min_prec:
+                    continue
+                if best is None or prec > best[0]:
+                    best = (prec, imp, t)
+            if best is None:
+                continue
+            prec, imp, t = best
+            body = (mp,) if t == 0.0 else (mp, MLThresholdPredicate(guard_model, lname, round(t, 2)))
+            r = RDL(body=body, consequence=lname, consequence_op="add",
+                    score=float(prec), coverage=imp / n,
+                    val_stats={"stage": "stage1_fn_add", "val_prec": round(prec, 3),
+                               "val_improved": imp})
+            cands.append((prec, imp, r))
+        cands.sort(key=lambda c: (-c[0], -c[1]))
+        _keep = cands if (not max_rules_per_label or max_rules_per_label <= 0) else cands[:max_rules_per_label]
+        rules.extend(r for _, _, r in _keep)
+    return rules
+
+
+def _tag_stage(rule, stage: str) -> None:
+    """Tag a rule with its producing stage (RDL is frozen → mutate val_stats dict
+    in place; never reassign the attribute)."""
+    try:
+        rule.val_stats.setdefault("stage", stage)
+    except Exception:
+        pass
+
+
+def _has_text_predicate(rule) -> bool:
+    """True if the rule body carries a textual predicate (Match/Freq/Cooccur/Before).
+
+    Used to enforce composite label/sim+text propagation rules (no bare
+    label-co-occurrence or bare sim∧label) when ``--prop_require_text`` is on.
+    """
+    from loris.predicates import (MatchPredicate, FreqPredicate,
+                                  CooccurPredicate, BeforePredicate)
+    return any(isinstance(p, (MatchPredicate, FreqPredicate,
+                              CooccurPredicate, BeforePredicate))
+               for p in rule.body)
+
+
+def _cap_rules_per_label(rules, max_per_label):
+    """Keep at most *max_per_label* rules per consequence label (by score desc),
+    preserving the original ordering of the survivors."""
+    if not max_per_label or max_per_label <= 0:
+        return list(rules)
+    by_label: Dict[str, list] = {}
+    for r in rules:
+        by_label.setdefault(r.consequence, []).append(r)
+    keep_ids = set()
+    for _lbl, rs in by_label.items():
+        for r in sorted(rs, key=lambda r: -float(getattr(r, 'score', 0.0)))[:max_per_label]:
+            keep_ids.add(id(r))
+    return [r for r in rules if id(r) in keep_ids]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -789,24 +991,30 @@ def run_rule_discovery_batch(
                  len(_sel_non_ml), len(_sel_ml_proba),
                  len(_bo_text_masks_list), len(_bo_ml_proba))
 
-        # --- Stage 1: Inject ML baseline rules ---
+        # --- Stage 0: Inject ML baseline rules (ADD) ---
         _wl_rescue = not getattr(hp, 'no_weak_label_rescue', False)
         _wl_f1_thr = getattr(hp, 'weak_label_f1_threshold', 0.65) if _wl_rescue else 0.0
         _wl_max_k = getattr(hp, 'weak_label_max_rules', 3) if _wl_rescue else 1
-        stage1_rules, stage1_log = ChaseRuleLearner.inject_ml_baseline_rules(
-            ml_model_names=_ml_names,
-            ml_proba_cache=_sel_ml_proba,
-            label_names=label_names,
-            val_labels=_select_val_y,
-            allow_multi_model=getattr(hp, 'inject_multi_model', True),
-            weak_label_f1_threshold=_wl_f1_thr,
-            weak_label_max_rules=_wl_max_k,
-            fine_search=True,
-        )
+        if getattr(hp, 'stage0_ml', True):
+            stage1_rules, stage1_log = ChaseRuleLearner.inject_ml_baseline_rules(
+                ml_model_names=_ml_names,
+                ml_proba_cache=_sel_ml_proba,
+                label_names=label_names,
+                val_labels=_select_val_y,
+                allow_multi_model=getattr(hp, 'inject_multi_model', True),
+                weak_label_f1_threshold=_wl_f1_thr,
+                weak_label_max_rules=_wl_max_k,
+                fine_search=True,
+            )
+        else:
+            stage1_rules, stage1_log = [], []
+            log.info("Stage 0 (ML baseline) DISABLED (--no_stage0_ml)")
+        for _r in stage1_rules:
+            _tag_stage(_r, "stage0_ml")
         import json as _json_stage
         with open(str(exp_dir / "stage1_injection_log.json"), "w") as _f:
             _json_stage.dump(stage1_log, _f, indent=2)
-        log.info("Stage 1 injection log saved: %d entries", len(stage1_log))
+        log.info("Stage 0 injection log saved: %d entries", len(stage1_log))
 
         stage1_preds = _vectorized_staged_predict(
             stage1_rules, label_names, len(_select_val_docs),
@@ -822,7 +1030,7 @@ def run_rule_discovery_batch(
         else:
             stage1_preds_bo = stage1_preds
             stage1_f1_bo = stage1_f1
-        log.info("Stage 1 (ML baseline): %d rules, macro-F1=%.4f (select), %.4f (bo)",
+        log.info("Stage 0 (ML baseline): %d rules, macro-F1=%.4f (select), %.4f (bo)",
                  len(stage1_rules), stage1_f1, stage1_f1_bo)
 
         # --- Weak-label identification (drives BO weighted sampling + relaxed penalties) ---
@@ -843,67 +1051,172 @@ def run_rule_discovery_batch(
                      {ln: round(float(_stage1_plf[label_names.index(ln)]), 3)
                       for ln in sorted(_weak_labels)})
 
-        # --- Error-driven FP anchors for REMOVE ---
+        # --- Stage 1: textual/ML ADD rules to recover FN ---
+        # (a) per-cluster ADD-BO over the abstracted pattern pool — the abundant
+        #     source of ml+text ADD rules (staged mode previously SKIPPED this, which
+        #     is why only ML rules survived); (b) direct error-driven synthesis for
+        #     rare labels the BO may miss. Both op=add, scored on the cumulative P0.
+        fnadd_rules = []
+        _s1_addbo_trials = 0
+        _s1_addbo_rules = 0
+        if getattr(hp, 'stage1_fn_add', True):
+            _add_trials = []
+            for cid, learner in _learners.items():
+                learner.update_base_predictions(stage1_preds_bo, stage1_f1_bo)
+                learner.consequence_op_mode = "add"
+                learner.track = "base"
+                learner.label_weights = _label_weights if _wl_rescue else None
+                learner.weak_labels = _weak_labels if _wl_rescue else None
+                learner.storage_path = str(exp_dir / f"optuna_chase_s1add_c{cid}_a{attempt}")
+                if not no_error_driven_filter:
+                    learner.error_driven_filter = False  # ADD wants FN-discriminating, not FP
+                _add_trials.extend(learner.run_bo())
+            log.info("Stage 1 ADD-BO: %d candidate trials over the pattern pool", len(_add_trials))
+            if _add_trials:
+                _s1_add_rdl = ChaseRuleLearner.batch_select(
+                    all_trials=_add_trials,
+                    label_list=label_names,
+                    val_docs=_select_val_docs,
+                    val_labels=_select_val_y,
+                    base_predictions=stage1_preds,
+                    base_f1=stage1_f1,
+                    sort_by_gain=hp.rule_batch_sort,
+                    verbose=log.isEnabledFor(logging.DEBUG),
+                    min_rule_fires=effective_min_fires,
+                    min_n_changes=hp.min_n_changes,
+                    min_corr_prec=max(hp.min_corr_prec, 0.72),
+                    inject_ml_baseline=False,
+                    accept_docs=val_docs if _is_two_val_staged else None,
+                    accept_labels=val_y if _is_two_val_staged else None,
+                    accept_base_predictions=stage1_preds_bo if _is_two_val_staged else None,
+                    precomputed_pred_masks=_sel_text_masks,
+                    precomputed_pred_to_idx=_sel_pred_to_idx,
+                    precomputed_ml_proba=_sel_ml_proba,
+                )
+                fnadd_rules.extend(_s1_add_rdl.rules)
+                _s1_addbo_rules = len(_s1_add_rdl.rules)
+            _s1_addbo_trials = len(_add_trials)
+            # (b) direct FN→ADD synthesis (rare-label rescue)
+            _direct_fn = _synthesize_fn_add_rules(
+                _select_val_docs, _select_val_y, stage1_preds, label_names,
+                ml_proba_cache=_sel_ml_proba, ml_model_names=_ml_names,
+                top_k_per_label=getattr(hp, 'fn_add_top_k_per_label', 8),
+                ml_guard=getattr(hp, 'fn_add_ml_guard', True),
+                min_prec=getattr(hp, 'fn_add_min_val_prec', 0.70),
+                min_fires=(getattr(hp, 'fn_add_min_fires', 0) or max(3, effective_min_fires // 2)),
+                max_rules_per_label=getattr(hp, 'stage1_max_rules_per_label', 3),
+            )
+            _seen = set((r.consequence, tuple(sorted(str(p) for p in r.body))) for r in fnadd_rules)
+            for r in _direct_fn:
+                k = (r.consequence, tuple(sorted(str(p) for p in r.body)))
+                if k not in _seen:
+                    _seen.add(k)
+                    fnadd_rules.append(r)
+            for r in fnadd_rules:
+                _tag_stage(r, "stage1_fn_add")
+            # Extend mask caches for any mined predicates not already in the pool.
+            _fn_text_preds = [p for r in fnadd_rules for p in r.body
+                              if not isinstance(p, MLThresholdPredicate)]
+            if _fn_text_preds:
+                _sel_text_masks = _extend_pred_masks(
+                    _sel_text_masks, _sel_pred_to_idx, _fn_text_preds, _select_val_docs)
+                _bo_text_masks = _extend_pred_masks(
+                    _bo_text_masks, _bo_pred_to_idx, _fn_text_preds, val_docs)
+        log.info("Stage 1 (FN→ADD): %d rules (ADD-BO + direct synthesis)", len(fnadd_rules))
+
+        # Cumulative after Stage 0 + Stage 1 = P1
+        _p1_rules = list(stage1_rules) + list(fnadd_rules)
+        p1_preds = _vectorized_staged_predict(
+            _p1_rules, label_names, len(_select_val_docs),
+            _sel_ml_proba, _sel_text_masks, _sel_pred_to_idx)
+        p1_f1 = float(f1_score(_select_val_y, p1_preds, average="macro", zero_division=0))
+        if _is_two_val_staged:
+            p1_preds_bo = _vectorized_staged_predict(
+                _p1_rules, label_names, len(val_docs),
+                _bo_ml_proba, _bo_text_masks, _bo_pred_to_idx)
+            p1_f1_bo = float(f1_score(val_y, p1_preds_bo, average="macro", zero_division=0))
+        else:
+            p1_preds_bo, p1_f1_bo = p1_preds, p1_f1
+        log.info("Stage 0+1 cumulative macro-F1=%.4f (select), %.4f (bo)  [Δ vs Stage0 = %+.4f]",
+                 p1_f1, p1_f1_bo, p1_f1 - stage1_f1)
+
+        # --- Error-driven FP anchors for REMOVE (on cumulative P1) ---
         _fp_preds = _extract_error_driven_predicates(
-            val_docs, val_y, stage1_preds_bo, label_names,
+            val_docs, val_y, p1_preds_bo, label_names,
             top_k_per_label=8, mode="fp")
         if _fp_preds:
             log.info("Error-driven FP anchors: %d new predicates for REMOVE", len(_fp_preds))
             for learner in _learners.values():
                 learner.candidate_predicates = list(learner.candidate_predicates) + _fp_preds
                 learner._precomputed = False
+            _sel_text_masks = _extend_pred_masks(
+                _sel_text_masks, _sel_pred_to_idx, _fp_preds, _select_val_docs)
+            _bo_text_masks = _extend_pred_masks(
+                _bo_text_masks, _bo_pred_to_idx, _fp_preds, val_docs)
 
-        # --- Stage 2: REMOVE rules ---
-        _s2_min_n_changes = max(getattr(hp, 'min_n_changes', 2), 3)
+        # --- Stage 2: REMOVE rules (base = cumulative P1) ---
+        stage2_rdl = RDLSet([], label_names)
         stage2_trials = []
-        for cid, learner in _learners.items():
-            learner.update_base_predictions(stage1_preds_bo, stage1_f1_bo)
-            learner.consequence_op_mode = "remove"
-            learner.track = "remove"
-            learner.label_weights = _label_weights if _wl_rescue else None
-            learner.weak_labels = _weak_labels if _wl_rescue else None
-            learner.storage_path = str(exp_dir / f"optuna_chase_s2_c{cid}_a{attempt}")
-            if not no_error_driven_filter:
-                learner.error_driven_filter = True
-                learner.greedy_weights = ERROR_AWARE_WEIGHTS
-            stage2_trials.extend(learner.run_bo())
+        if getattr(hp, 'stage2_fp_remove', True):
+            _s2_min_n_changes = max(getattr(hp, 'min_n_changes', 2), 3)
+            for cid, learner in _learners.items():
+                learner.update_base_predictions(p1_preds_bo, p1_f1_bo)
+                learner.consequence_op_mode = "remove"
+                learner.track = "remove"
+                learner.label_weights = _label_weights if _wl_rescue else None
+                learner.weak_labels = _weak_labels if _wl_rescue else None
+                learner.storage_path = str(exp_dir / f"optuna_chase_s2_c{cid}_a{attempt}")
+                if not no_error_driven_filter:
+                    learner.error_driven_filter = True
+                    learner.greedy_weights = ERROR_AWARE_WEIGHTS
+                stage2_trials.extend(learner.run_bo())
 
-        if not no_tree_warmup:
-            _first_learner = next(iter(_learners.values()))
-            _s2_tree_rules = _tree_seeded_rules(
-                fire_masks=_first_learner._fire_masks,
-                candidate_predicates=_first_learner.candidate_predicates,
-                ml_proba_cache=_first_learner._ml_proba_cache,
-                existing_predictions=stage1_preds_bo,
-                val_labels=_first_learner.val_labels,
+            if not no_tree_warmup:
+                _first_learner = next(iter(_learners.values()))
+                _s2_tree_rules = _tree_seeded_rules(
+                    fire_masks=_first_learner._fire_masks,
+                    candidate_predicates=_first_learner.candidate_predicates,
+                    ml_proba_cache=_first_learner._ml_proba_cache,
+                    existing_predictions=p1_preds_bo,
+                    val_labels=_first_learner.val_labels,
+                    label_list=label_names,
+                    consequence_op="remove",
+                )
+                for rule in _s2_tree_rules:
+                    stage2_trials.append((None, rule))
+                log.info("Stage 2 tree warm-up: %d rules injected", len(_s2_tree_rules))
+
+            stage2_rdl = ChaseRuleLearner.batch_select(
+                all_trials=stage2_trials,
                 label_list=label_names,
-                consequence_op="remove",
+                val_docs=_select_val_docs,
+                val_labels=_select_val_y,
+                base_predictions=p1_preds,
+                base_f1=p1_f1,
+                sort_by_gain=hp.rule_batch_sort,
+                verbose=log.isEnabledFor(logging.DEBUG),
+                min_rule_fires=effective_min_fires,
+                min_n_changes=_s2_min_n_changes,
+                min_corr_prec=max(hp.min_corr_prec, 0.75),
+                inject_ml_baseline=False,
+                accept_docs=val_docs if _is_two_val_staged else None,
+                accept_labels=val_y if _is_two_val_staged else None,
+                accept_base_predictions=p1_preds_bo if _is_two_val_staged else None,
+                precomputed_pred_masks=_sel_text_masks,
+                precomputed_pred_to_idx=_sel_pred_to_idx,
+                precomputed_ml_proba=_sel_ml_proba,
             )
-            for rule in _s2_tree_rules:
-                stage2_trials.append((None, rule))
-            log.info("Stage 2 tree warm-up: %d rules injected", len(_s2_tree_rules))
+            stage2_rdl = RDLSet(
+                _cap_rules_per_label(stage2_rdl.rules,
+                                     getattr(hp, 'stage2_max_rules_per_label', 3)),
+                label_names)
+        else:
+            log.info("Stage 2 (FP→REMOVE) DISABLED (--no_stage2_fp_remove)")
+        for _r in stage2_rdl.rules:
+            _tag_stage(_r, "stage2_fp_remove")
 
-        stage2_rdl = ChaseRuleLearner.batch_select(
-            all_trials=stage2_trials,
-            label_list=label_names,
-            val_docs=_select_val_docs,
-            val_labels=_select_val_y,
-            base_predictions=stage1_preds,
-            base_f1=stage1_f1,
-            sort_by_gain=hp.rule_batch_sort,
-            verbose=log.isEnabledFor(logging.DEBUG),
-            min_rule_fires=effective_min_fires,
-            min_n_changes=_s2_min_n_changes,
-            min_corr_prec=max(hp.min_corr_prec, 0.75),
-            inject_ml_baseline=False,
-            accept_docs=val_docs if _is_two_val_staged else None,
-            accept_labels=val_y if _is_two_val_staged else None,
-            accept_base_predictions=stage1_preds_bo if _is_two_val_staged else None,
-            precomputed_pred_masks=_sel_text_masks,
-            precomputed_pred_to_idx=_sel_pred_to_idx,
-            precomputed_ml_proba=_sel_ml_proba,
-        )
-        stage12_rules = list(stage1_rules) + list(stage2_rdl.rules)
+        # Cumulative after Stage 0 + 1 + 2 = P2 (the seed for Stage 3)
+        stage12_rules = list(_p1_rules) + list(stage2_rdl.rules)
         stage12_preds = _vectorized_staged_predict(
             stage12_rules, label_names, len(_select_val_docs),
             _sel_ml_proba, _sel_text_masks, _sel_pred_to_idx)
@@ -918,24 +1231,55 @@ def run_rule_discovery_batch(
         else:
             stage12_preds_bo = stage12_preds
             stage12_f1_bo = stage12_f1
-        log.info("Stage 2 (REMOVE): %d rules, cumulative F1=%.4f",
-                 len(stage2_rdl.rules), stage12_f1)
+        log.info("Stage 2 (REMOVE): %d rules, cumulative F1=%.4f  [Δ vs P1 = %+.4f]",
+                 len(stage2_rdl.rules), stage12_f1, stage12_f1 - p1_f1)
 
         all_seed_rules = stage12_rules
         _seed_preds = stage12_preds
         _seed_f1 = stage12_f1
 
-        # Save staged pipeline logs
+        # Save staged pipeline logs (per-stage rule counts + cumulative/delta F1).
+        # `stage_stats` gives, per stage: how many candidates entered, how many rules
+        # survived, and the VAL cumulative/marginal macro-F1 — so each part's
+        # contribution is visible at a glance (TEST marginal is in
+        # rule_analysis_stage_rollup.json). Track-2/Stage-3 stats are appended later.
+        _stage_stats = [
+            {"stage": "stage0_ml", "n_candidates": None, "n_rules": len(stage1_rules),
+             "val_cumulative_f1": round(stage1_f1, 4), "val_delta_f1": round(stage1_f1, 4),
+             "ops": "add", "predicates": "ml_thresh"},
+            {"stage": "stage1_fn_add", "n_candidates": _s1_addbo_trials,
+             "n_rules": len(fnadd_rules), "n_addbo_rules": _s1_addbo_rules,
+             "n_direct_rules": len(fnadd_rules) - _s1_addbo_rules,
+             "val_cumulative_f1": round(p1_f1, 4), "val_delta_f1": round(p1_f1 - stage1_f1, 4),
+             "ops": "add", "predicates": "match/freq + ml_thresh"},
+            {"stage": "stage2_fp_remove", "n_candidates": len(stage2_trials),
+             "n_rules": len(stage2_rdl.rules),
+             "val_cumulative_f1": round(stage12_f1, 4), "val_delta_f1": round(stage12_f1 - p1_f1, 4),
+             "ops": "remove", "predicates": "match/freq + ml_thresh"},
+        ]
         _staged_log = {
             "stage1": stage1_log,
+            "stage1_fn_add_selected": _extract_trial_stats(fnadd_rules),
             "stage2_selected": _extract_trial_stats(stage2_rdl.rules),
             "stage2_all_count": len(stage2_trials),
+            "stage_rule_counts": {
+                "stage0_ml": len(stage1_rules),
+                "stage1_fn_add": len(fnadd_rules),
+                "stage2_fp_remove": len(stage2_rdl.rules),
+            },
             "cumulative_f1": {
-                "stage1": stage1_f1, "stage12": stage12_f1,
+                "stage0": stage1_f1, "stage01": p1_f1, "stage12": stage12_f1,
                 "seed": _seed_f1,
             },
+            "delta_f1": {
+                "stage1_fn_add": p1_f1 - stage1_f1,
+                "stage2_fp_remove": stage12_f1 - p1_f1,
+            },
+            "stage_stats": _stage_stats,
         }
         _save_stage_logs(str(exp_dir), _staged_log)
+        # expose for Track-2/Stage-3 to append its stats at the end of the function
+        _staged_log_ref = _staged_log
 
         track1_rdl_set = RDLSet(all_seed_rules, label_names)
         log.info("Staged Track 1 complete: %d rules, F1=%.4f",
@@ -1029,12 +1373,14 @@ def run_rule_discovery_batch(
     # Track 2: Propagation rules (SimPredicate + LabelPredicate)
     # ══════════════════════════════════════════════════════════════════════════
     _sim_threshold_bins_raw = getattr(hp, "sim_threshold_bins", None)
-    _track2_label_source = getattr(hp, "track2_label_source", "gt")
-    # blank mode: default to track1 unless user explicitly set --track2_label_source
-    if getattr(hp, 'track1_baseline', 'model') == 'blank' and _track2_label_source == "gt":
-        _track2_label_source = "track1"
+    _do_stage3 = getattr(hp, 'stage3_propagation', True)
+    # Stage 3 seed: propagation is learned seeded from oracle/GT labels (the active
+    # human-in-the-loop setting), NOT the model's own labels (which would be circular).
+    _track2_label_source = getattr(hp, "prop_label_source",
+                                   getattr(hp, "track2_label_source", "track1"))
 
-    log.info("=== Track 2: Building similarity graphs ===")
+    log.info("=== Track 2 (Stage 3 propagation): enabled=%s, label_source=%s ===",
+             _do_stage3, _track2_label_source)
 
     # ── Copy cached embeddings from resume_dir if available ──
     if resume_dir:
@@ -1056,13 +1402,23 @@ def run_rule_discovery_batch(
         _sim_bins = _sim_threshold_bins_raw
         log.info("Using user-specified sim_threshold_bins: %s", _sim_bins)
     else:
-        _sim_bins = auto_threshold_bins(bo_embeddings)
+        _sim_bins = auto_threshold_bins(
+            bo_embeddings,
+            min_avg_degree=getattr(hp, 'sim_min_avg_degree', 0.0))
         log.info("Auto-detected sim_threshold_bins: %s", _sim_bins)
+
+    # Keep the dense connectivity-floor bin: allow build_sim_graph to retain a
+    # threshold up to ~3× the floor degree (snowball is bounded — RILL clamps seeds).
+    _sim_max_deg = max(MAX_AVG_DEGREE, int(getattr(hp, 'sim_min_avg_degree', 0.0) * 3))
 
     # ── Build sim graph on val_bo (for BO learners) ──
     _bo_sim_dir = exp_dir / "sim_graphs_bo"
-    bo_sim_graphs = build_sim_graph(bo_embeddings, _sim_bins)
+    bo_sim_graphs = build_sim_graph(bo_embeddings, _sim_bins, max_avg_degree=_sim_max_deg)
     save_sim_graphs(bo_sim_graphs, str(_bo_sim_dir))
+    _bo_degs = {round(float(t), 3): round(float(g.nnz) / max(1, g.shape[0]), 1)
+                for t, g in bo_sim_graphs.items()}
+    log.info("Sim-graph avg degree per threshold (bo): %s  [floor=%.0f]",
+             _bo_degs, getattr(hp, 'sim_min_avg_degree', 0.0))
 
     # ── Build sim graph on val_select (for combined batch_select) ──
     # In two_val mode, _select_val_docs != val_docs, so need separate graphs
@@ -1072,13 +1428,13 @@ def run_rule_discovery_batch(
         _sel_emb_cache = str(exp_dir / "embeddings_select.npy")
         sel_embeddings = compute_embeddings(_sel_texts, cache_path=_sel_emb_cache)
         _sel_sim_dir = exp_dir / "sim_graphs_select"
-        select_sim_graphs = build_sim_graph(sel_embeddings, _sim_bins)
+        select_sim_graphs = build_sim_graph(sel_embeddings, _sim_bins, max_avg_degree=_sim_max_deg)
         save_sim_graphs(select_sim_graphs, str(_sel_sim_dir))
     else:
         select_sim_graphs = bo_sim_graphs
 
-    if False:  # Group propagation always runs; sim graphs are optional
-        log.warning("No sim graphs survived threshold filtering! Skipping Track 2.")
+    if not _do_stage3:  # Stage 3 disabled (--no_stage3_propagation): seed rules only
+        log.info("Stage 3 (propagation) DISABLED — using Stage 0/1/2 rules only")
         rdl_set = track1_rdl_set
     else:
         # ── Track 2 setup: cache predictions ──
@@ -1165,10 +1521,27 @@ def run_rule_discovery_batch(
         # ══════════════════════════════════════════════════════════════════════
         from rule_discovery.virtual_attributes import (
             compute_all_virtual_attributes, filter_degenerate_groups,
+            compute_phrase_attributes,
         )
         from rule_discovery.group_propagation import (
             discover_group_rules, discover_equal_rules,
         )
+
+        _use_phrase_attrs = getattr(hp, "enable_phrase_attrs", True)
+
+        def _add_phrase_attr(attrs_dict, target_docs):
+            """OPT-5: inject a label-discriminative-phrase membership attribute so
+            x.A=y.A propagation has honest label signal (mined on train, no leak)."""
+            if not _use_phrase_attrs:
+                return
+            try:
+                _ph, _ = compute_phrase_attributes(
+                    train_docs, train_y, target_docs, label_names)
+            except Exception as _e:        # never let an attribute break discovery
+                log.warning("phrase-attr skipped: %s", _e)
+                return
+            if _ph is not None and _ph.shape[1] > 0:
+                attrs_dict["phrase"] = _ph
 
         log.info("=== Track 2 Group Propagation: computing virtual attributes ===")
 
@@ -1188,6 +1561,7 @@ def run_rule_discovery_batch(
             target_docs=val_docs,
             label_names=label_names,
         )
+        _add_phrase_attr(bo_virtual_attrs, val_docs)
         bo_virtual_attrs = filter_degenerate_groups(bo_virtual_attrs)
         log.info("Track 2 Group: %d virtual attributes on val_bo", len(bo_virtual_attrs))
 
@@ -1244,6 +1618,7 @@ def run_rule_discovery_batch(
                 kmeans_models=_kmeans_models,
                 text_vocabs=_text_vocabs,
             )
+            _add_phrase_attr(sel_virtual_attrs, select_docs)
             sel_virtual_attrs = filter_degenerate_groups(sel_virtual_attrs)
         else:
             sel_virtual_attrs = bo_virtual_attrs
@@ -1365,12 +1740,19 @@ def run_rule_discovery_batch(
                 precomputed_pred_to_idx=_sel_pred_to_idx,
                 precomputed_ml_proba=_sel_ml_proba,
             )
-            final_rules = (list(all_seed_rules) + list(track2_rdl.rules)
-                           + _equal_rules)
+            _t2_rules = list(track2_rdl.rules)
+            _n_t2_raw = len(_t2_rules)
+            if getattr(hp, 'prop_require_text', True):
+                _t2_rules = [r for r in _t2_rules if _has_text_predicate(r)]
+            _t2_rules = _cap_rules_per_label(
+                _t2_rules, getattr(hp, 'stage3_max_rules_per_label', 2))
+            for _r in _t2_rules + list(_equal_rules):
+                _tag_stage(_r, "stage3_prop")
+            final_rules = list(all_seed_rules) + _t2_rules + _equal_rules
             rdl_set = RDLSet(final_rules, label_names)
-            log.info("Staged final: %d seed + %d Track 2 + %d equal = %d total rules",
-                     len(all_seed_rules), len(track2_rdl.rules), len(_equal_rules),
-                     len(final_rules))
+            log.info("Staged final: %d seed + %d Track2 (composite, %d→%d after text-filter+cap) "
+                     "+ %d equal = %d total rules", len(all_seed_rules), len(_t2_rules),
+                     _n_t2_raw, len(_t2_rules), len(_equal_rules), len(final_rules))
         else:
             # Original: combined batch_select (Track 1 + Track 2)
             combined_trials = all_trials + track2_trials
@@ -1405,16 +1787,20 @@ def run_rule_discovery_batch(
                 log.info("Track 2 Equal: appended %d comparison-consequence rules "
                          "(total %d)", len(_equal_rules), len(rdl_set.rules))
 
-    # ── LabelPredicate co-occurrence rules ──
-    # Generate rules from label co-occurrence patterns and add validated ones
-    _cooccur_base = rdl_set.predict(_select_val_docs) if rdl_set.rules else _select_base_preds
-    _cooccur_rules = _generate_label_cooccurrence_rules(
-        val_labels=_select_val_y,
-        label_names=label_names,
-        base_predictions=_cooccur_base,
-        min_cooccur=8,
-        min_precision=0.55,
-    )
+    # ── Composite label∧text co-occurrence rules (Stage 3 propagation) ──
+    if _do_stage3:
+        _cooccur_base = rdl_set.predict(_select_val_docs) if rdl_set.rules else _select_base_preds
+        _cooccur_rules = _generate_label_cooccurrence_rules(
+            val_labels=_select_val_y,
+            label_names=label_names,
+            base_predictions=_cooccur_base,
+            min_cooccur=8,
+            min_precision=0.55,
+            docs=_select_val_docs,
+            require_text=getattr(hp, 'prop_require_text', True),
+        )
+    else:
+        _cooccur_rules = []
     if _cooccur_rules:
         # Cross-validate on accept set
         _accept_base = rdl_set.predict(accept_docs if select_docs is None else val_docs)
@@ -1440,17 +1826,36 @@ def run_rule_discovery_batch(
             if fires >= 5 and tp / fires >= 0.50:
                 _validated_cooccur.append(rule)
         if _validated_cooccur:
+            for _r in _validated_cooccur:
+                _tag_stage(_r, "stage3_prop")
             rdl_set = RDLSet(
                 list(rdl_set.rules) + _validated_cooccur,
                 label_names,
             )
-            log.info("LabelPredicate co-occurrence: %d rules added (from %d candidates)",
+            log.info("Composite label∧text co-occurrence: %d rules added (from %d candidates)",
                      len(_validated_cooccur), len(_cooccur_rules))
         else:
             log.info("LabelPredicate co-occurrence: 0 rules passed cross-validation "
                      "(from %d candidates)", len(_cooccur_rules))
     else:
         log.info("LabelPredicate co-occurrence: no candidate rules generated")
+
+    # ── Append Stage-3 (propagation) stats to the staged log ──
+    if isinstance(locals().get('_staged_log_ref'), dict):
+        _s3_final = sum(1 for r in rdl_set.rules
+                        if (getattr(r, 'val_stats', None) or {}).get("stage") == "stage3_prop")
+        _s3_cands = len(locals().get('track2_trials') or [])
+        _staged_log_ref["stage_stats"].append({
+            "stage": "stage3_prop", "n_candidates": _s3_cands, "n_rules": _s3_final,
+            "ops": "add/equal", "predicates": "sim/label + text (composite)",
+            "note": "low coverage after conjunction is expected; TEST marginal in "
+                    "rule_analysis_stage_rollup.json",
+        })
+        _staged_log_ref["stage_rule_counts"]["stage3_prop"] = _s3_final
+        _save_stage_logs(str(exp_dir), _staged_log_ref)
+        log.info("Per-stage stats: %s",
+                 {s["stage"]: {"cand": s.get("n_candidates"), "rules": s["n_rules"],
+                               "valΔ": s.get("val_delta_f1")} for s in _staged_log_ref["stage_stats"]})
 
     out_path = str(exp_dir / "rules.json")
     rdl_set.save(out_path)
