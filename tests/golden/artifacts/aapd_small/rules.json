@@ -31,63 +31,66 @@
     "cs.cg",
     "cs.na"
   ],
-  "n_rules": 100,
+  "n_rules": 98,
   "rules": [
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_lr_bigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.it",
-          "threshold": 0.33
+          "threshold": 0.44
         }
       ],
       "consequence": "cs.it",
       "consequence_op": "add",
-      "score": 0.9016393442622951,
+      "score": 0.8943089430894309,
       "coverage": 0.0,
       "trial_number": -1,
       "val_stats": {
         "injected_baseline": true,
-        "best_f1": 0.9016393442622951
+        "best_f1": 0.8943089430894309,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_lr_bigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "math.it",
-          "threshold": 0.33
+          "threshold": 0.44
         }
       ],
       "consequence": "math.it",
       "consequence_op": "add",
-      "score": 0.9016393442622951,
+      "score": 0.8943089430894309,
       "coverage": 0.0,
       "trial_number": -1,
       "val_stats": {
         "injected_baseline": true,
-        "best_f1": 0.9016393442622951
+        "best_f1": 0.8943089430894309,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_lr_bigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.lg",
-          "threshold": 0.21
+          "threshold": 0.41
         }
       ],
       "consequence": "cs.lg",
       "consequence_op": "add",
-      "score": 0.7540983606557378,
+      "score": 0.7500000000000001,
       "coverage": 0.0,
       "trial_number": -1,
       "val_stats": {
         "injected_baseline": true,
-        "best_f1": 0.7540983606557378
+        "best_f1": 0.7500000000000001,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -107,7 +110,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.4742268041237113,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -127,22 +131,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.43678160919540227,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "cs.ai",
-          "threshold": 0.2
-        },
-        {
-          "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.ai",
           "threshold": 0.4
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "cs.ai",
+          "threshold": 0.2
         }
       ],
       "consequence": "cs.ai",
@@ -153,27 +158,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.43636363636363634,
-        "weak_label": true
-      }
-    },
-    {
-      "body": [
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_lr_bigram",
-          "label": "stat.ml",
-          "threshold": 0.11
-        }
-      ],
-      "consequence": "stat.ml",
-      "consequence_op": "add",
-      "score": 0.528735632183908,
-      "coverage": 0.0,
-      "trial_number": -1,
-      "val_stats": {
-        "injected_baseline": true,
-        "best_f1": 0.528735632183908,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -193,22 +179,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5230769230769231,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "stat.ml",
-          "threshold": 0.2
-        },
-        {
-          "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "stat.ml",
           "threshold": 0.4
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "stat.ml",
+          "threshold": 0.2
         }
       ],
       "consequence": "stat.ml",
@@ -219,7 +206,35 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
+      }
+    },
+    {
+      "body": [
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_bigram",
+          "label": "stat.ml",
+          "threshold": 0.4
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "stat.ml",
+          "threshold": 0.3
+        }
+      ],
+      "consequence": "stat.ml",
+      "consequence_op": "add",
+      "score": 0.5,
+      "coverage": 0.0,
+      "trial_number": -1,
+      "val_stats": {
+        "injected_baseline": true,
+        "best_f1": 0.5,
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -239,7 +254,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.11764705882352941,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -259,42 +275,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.56,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_lr_bigram",
-          "label": "cs.ds",
-          "threshold": 0.12
-        }
-      ],
-      "consequence": "cs.ds",
-      "consequence_op": "add",
-      "score": 0.5490196078431373,
-      "coverage": 0.0,
-      "trial_number": -1,
-      "val_stats": {
-        "injected_baseline": true,
-        "best_f1": 0.5490196078431373,
-        "weak_label": true
-      }
-    },
-    {
-      "body": [
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "cs.ds",
-          "threshold": 0.2
-        },
         {
           "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.ds",
           "threshold": 0.4
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "cs.ds",
+          "threshold": 0.2
         }
       ],
       "consequence": "cs.ds",
@@ -305,27 +302,56 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5316455696202531,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_lr_bigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.ds",
-          "threshold": 0.2
+          "threshold": 0.4
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "cs.ds",
+          "threshold": 0.3
         }
       ],
       "consequence": "cs.ds",
       "consequence_op": "add",
-      "score": 0.2745098039215686,
+      "score": 0.5316455696202531,
       "coverage": 0.0,
       "trial_number": -1,
       "val_stats": {
         "injected_baseline": true,
-        "best_f1": 0.2745098039215686,
-        "weak_label": true
+        "best_f1": 0.5316455696202531,
+        "weak_label": true,
+        "stage": "stage0_ml"
+      }
+    },
+    {
+      "body": [
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "cs.ds",
+          "threshold": 0.5
+        }
+      ],
+      "consequence": "cs.ds",
+      "consequence_op": "add",
+      "score": 0.24,
+      "coverage": 0.0,
+      "trial_number": -1,
+      "val_stats": {
+        "injected_baseline": true,
+        "best_f1": 0.24,
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -345,22 +371,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5641025641025641,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_bigram",
+          "label": "cs.dm",
+          "threshold": 0.4
+        },
         {
           "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_unigram",
           "label": "cs.dm",
           "threshold": 0.2
-        },
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_bigram",
-          "label": "cs.dm",
-          "threshold": 0.4
         }
       ],
       "consequence": "cs.dm",
@@ -371,22 +398,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5588235294117648,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_bigram",
+          "label": "cs.dm",
+          "threshold": 0.4
+        },
         {
           "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_unigram",
           "label": "cs.dm",
           "threshold": 0.3
-        },
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_bigram",
-          "label": "cs.dm",
-          "threshold": 0.4
         }
       ],
       "consequence": "cs.dm",
@@ -397,16 +425,17 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5588235294117648,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.dm",
-          "threshold": 0.45
+          "threshold": 0.44
         }
       ],
       "consequence": "cs.dm",
@@ -417,7 +446,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.47457627118644063,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -436,7 +466,8 @@
       "trial_number": -1,
       "val_stats": {
         "injected_baseline": true,
-        "best_f1": 0.7419354838709677
+        "best_f1": 0.7419354838709677,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -455,7 +486,8 @@
       "trial_number": -1,
       "val_stats": {
         "injected_baseline": true,
-        "best_f1": 0.8135593220338982
+        "best_f1": 0.8135593220338982,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -475,22 +507,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.47058823529411764,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_bigram",
+          "label": "math.co",
+          "threshold": 0.4
+        },
         {
           "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_unigram",
           "label": "math.co",
           "threshold": 0.2
-        },
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_bigram",
-          "label": "math.co",
-          "threshold": 0.4
         }
       ],
       "consequence": "math.co",
@@ -501,22 +534,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.46808510638297873,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "math.co",
-          "threshold": 0.3
-        },
-        {
-          "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "math.co",
           "threshold": 0.4
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "math.co",
+          "threshold": 0.3
         }
       ],
       "consequence": "math.co",
@@ -527,7 +561,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.46808510638297873,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -547,7 +582,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.34285714285714286,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -566,7 +602,8 @@
       "trial_number": -1,
       "val_stats": {
         "injected_baseline": true,
-        "best_f1": 0.6530612244897959
+        "best_f1": 0.6530612244897959,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -586,7 +623,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5098039215686274,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -606,27 +644,35 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.47619047619047616,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_lr_bigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.ni",
-          "threshold": 0.1
+          "threshold": 0.2
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "cs.ni",
+          "threshold": 0.4
         }
       ],
       "consequence": "cs.ni",
       "consequence_op": "add",
-      "score": 0.41025641025641024,
+      "score": 0.3333333333333333,
       "coverage": 0.0,
       "trial_number": -1,
       "val_stats": {
         "injected_baseline": true,
-        "best_f1": 0.41025641025641024,
-        "weak_label": true
+        "best_f1": 0.3333333333333333,
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -646,7 +692,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.21428571428571425,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -666,22 +713,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5000000000000001,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_bigram",
+          "label": "cs.cc",
+          "threshold": 0.4
+        },
         {
           "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_unigram",
           "label": "cs.cc",
           "threshold": 0.2
-        },
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_bigram",
-          "label": "cs.cc",
-          "threshold": 0.4
         }
       ],
       "consequence": "cs.cc",
@@ -692,22 +740,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5000000000000001,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "cs.cc",
-          "threshold": 0.3
-        },
-        {
-          "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.cc",
           "threshold": 0.4
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "cs.cc",
+          "threshold": 0.3
         }
       ],
       "consequence": "cs.cc",
@@ -718,7 +767,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5000000000000001,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -738,7 +788,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.4375,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -758,22 +809,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.4,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "math.oc",
-          "threshold": 0.4
-        },
         {
           "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "math.oc",
           "threshold": 0.2
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "math.oc",
+          "threshold": 0.4
         }
       ],
       "consequence": "math.oc",
@@ -784,22 +836,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.39999999999999997,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "math.oc",
-          "threshold": 0.4
-        },
         {
           "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "math.oc",
           "threshold": 0.3
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "math.oc",
+          "threshold": 0.4
         }
       ],
       "consequence": "math.oc",
@@ -810,7 +863,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.39999999999999997,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -830,7 +884,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.39999999999999997,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -849,7 +904,8 @@
       "trial_number": -1,
       "val_stats": {
         "injected_baseline": true,
-        "best_f1": 0.9047619047619048
+        "best_f1": 0.9047619047619048,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -869,7 +925,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.6363636363636364,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -889,22 +946,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.6086956521739131,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "cs.cv",
-          "threshold": 0.4
-        },
         {
           "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.cv",
           "threshold": 0.2
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "cs.cv",
+          "threshold": 0.4
         }
       ],
       "consequence": "cs.cv",
@@ -915,7 +973,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.6086956521739131,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -935,7 +994,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.6086956521739131,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -954,7 +1014,8 @@
       "trial_number": -1,
       "val_stats": {
         "injected_baseline": true,
-        "best_f1": 0.7027027027027029
+        "best_f1": 0.7027027027027029,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -974,7 +1035,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.4597701149425288,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -994,22 +1056,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.4528301886792453,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "cs.dc",
-          "threshold": 0.4
-        },
-        {
-          "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.dc",
           "threshold": 0.2
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "cs.dc",
+          "threshold": 0.4
         }
       ],
       "consequence": "cs.dc",
@@ -1020,7 +1083,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.41025641025641024,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1040,7 +1104,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.3888888888888889,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1060,7 +1125,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.4,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1080,22 +1146,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.3846153846153846,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "cs.sy",
-          "threshold": 0.4
-        },
-        {
-          "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.sy",
           "threshold": 0.2
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "cs.sy",
+          "threshold": 0.4
         }
       ],
       "consequence": "cs.sy",
@@ -1106,16 +1173,17 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.23529411764705885,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.sy",
-          "threshold": 0.5
+          "threshold": 0.45
         }
       ],
       "consequence": "cs.sy",
@@ -1126,7 +1194,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.16666666666666669,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1146,7 +1215,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.6,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1166,22 +1236,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5925925925925926,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "cs.ne",
-          "threshold": 0.2
-        },
-        {
-          "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.ne",
           "threshold": 0.4
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "cs.ne",
+          "threshold": 0.2
         }
       ],
       "consequence": "cs.ne",
@@ -1192,7 +1263,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.4545454545454545,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1212,7 +1284,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.47619047619047616,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1232,7 +1305,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5454545454545454,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1252,22 +1326,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5098039215686274,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "cs.ir",
-          "threshold": 0.4
-        },
-        {
-          "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.ir",
           "threshold": 0.2
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "cs.ir",
+          "threshold": 0.4
         }
       ],
       "consequence": "cs.ir",
@@ -1278,7 +1353,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.43750000000000006,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1298,7 +1374,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.48484848484848486,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1317,16 +1394,17 @@
       "trial_number": -1,
       "val_stats": {
         "injected_baseline": true,
-        "best_f1": 0.8
+        "best_f1": 0.8,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "quant-ph",
-          "threshold": 0.4
+          "threshold": 0.37
         }
       ],
       "consequence": "quant-ph",
@@ -1336,7 +1414,8 @@
       "trial_number": -1,
       "val_stats": {
         "injected_baseline": true,
-        "best_f1": 0.962962962962963
+        "best_f1": 0.962962962962963,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1356,7 +1435,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.4827586206896552,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1376,22 +1456,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.48,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "cs.cy",
-          "threshold": 0.3
-        },
-        {
-          "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.cy",
           "threshold": 0.2
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "cs.cy",
+          "threshold": 0.3
         }
       ],
       "consequence": "cs.cy",
@@ -1402,7 +1483,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.4,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1422,7 +1504,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.1111111111111111,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1442,7 +1525,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.38095238095238093,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1462,20 +1546,21 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.3225806451612903,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.pl",
           "threshold": 0.3
         },
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_bigram",
+          "model_name": "loris_clf_tfidf_svm_unigram",
           "label": "cs.pl",
           "threshold": 0.3
         }
@@ -1488,7 +1573,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.23809523809523808,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1508,7 +1594,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1528,20 +1615,21 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.4444444444444444,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.db",
           "threshold": 0.3
         },
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_bigram",
+          "model_name": "loris_clf_tfidf_svm_unigram",
           "label": "cs.db",
           "threshold": 0.3
         }
@@ -1554,16 +1642,17 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.24242424242424243,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.db",
-          "threshold": 0.39
+          "threshold": 0.35
         }
       ],
       "consequence": "cs.db",
@@ -1574,7 +1663,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.2857142857142857,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1594,7 +1684,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.45454545454545453,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1614,20 +1705,21 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.4444444444444445,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.se",
           "threshold": 0.3
         },
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_bigram",
+          "model_name": "loris_clf_tfidf_svm_unigram",
           "label": "cs.se",
           "threshold": 0.3
         }
@@ -1640,7 +1732,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.25531914893617025,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1660,7 +1753,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.18181818181818182,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1680,7 +1774,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.28571428571428575,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1700,20 +1795,21 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.1951219512195122,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "math.pr",
           "threshold": 0.3
         },
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_bigram",
+          "model_name": "loris_clf_tfidf_svm_unigram",
           "label": "math.pr",
           "threshold": 0.3
         }
@@ -1726,7 +1822,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.18518518518518517,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1746,7 +1843,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.15384615384615385,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1766,22 +1864,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.3636363636363636,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "cs.cg",
-          "threshold": 0.4
-        },
         {
           "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.cg",
           "threshold": 0.2
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "cs.cg",
+          "threshold": 0.4
         }
       ],
       "consequence": "cs.cg",
@@ -1792,22 +1891,23 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.3636363636363636,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "cs.cg",
-          "threshold": 0.4
-        },
-        {
-          "type": "MLThresholdPredicate",
           "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.cg",
           "threshold": 0.3
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_tfidf_svm_unigram",
+          "label": "cs.cg",
+          "threshold": 0.4
         }
       ],
       "consequence": "cs.cg",
@@ -1818,7 +1918,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.3636363636363636,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1838,7 +1939,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.3636363636363636,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1858,7 +1960,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.5,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1878,20 +1981,21 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.42857142857142855,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.na",
           "threshold": 0.3
         },
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_bigram",
+          "model_name": "loris_clf_tfidf_svm_unigram",
           "label": "cs.na",
           "threshold": 0.3
         }
@@ -1904,16 +2008,17 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.3225806451612903,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
       "body": [
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
+          "model_name": "loris_clf_tfidf_svm_bigram",
           "label": "cs.na",
-          "threshold": 0.35
+          "threshold": 0.33
         }
       ],
       "consequence": "cs.na",
@@ -1924,7 +2029,8 @@
       "val_stats": {
         "injected_baseline": true,
         "best_f1": 0.4,
-        "weak_label": true
+        "weak_label": true,
+        "stage": "stage0_ml"
       }
     },
     {
@@ -1948,7 +2054,8 @@
         "n_worsened": 3,
         "corr_prec": 0.8519,
         "f1_gain": 0.001,
-        "display_f1": 0.5573
+        "display_f1": 0.557,
+        "stage": "stage2_fp_remove"
       }
     },
     {
@@ -1972,7 +2079,8 @@
         "n_worsened": 1,
         "corr_prec": 0.75,
         "f1_gain": 0.0008,
-        "display_f1": 0.5571
+        "display_f1": 0.5568,
+        "stage": "stage2_fp_remove"
       }
     },
     {
@@ -1996,7 +2104,8 @@
         "n_worsened": 0,
         "corr_prec": 0.8333,
         "f1_gain": 0.0014,
-        "display_f1": 0.5578
+        "display_f1": 0.5574,
+        "stage": "stage2_fp_remove"
       }
     },
     {
@@ -2020,7 +2129,8 @@
         "n_worsened": 2,
         "corr_prec": 0.75,
         "f1_gain": 0.0005,
-        "display_f1": 0.5568
+        "display_f1": 0.5564,
+        "stage": "stage2_fp_remove"
       }
     },
     {
@@ -2044,37 +2154,8 @@
         "n_worsened": 0,
         "corr_prec": 0.8333,
         "f1_gain": 0.0006,
-        "display_f1": 0.5569
-      }
-    },
-    {
-      "body": [
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "stat.ml",
-          "threshold": 0.35
-        },
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_bigram",
-          "label": "quant-ph",
-          "threshold": 0.25
-        }
-      ],
-      "consequence": "cs.db",
-      "consequence_op": "remove",
-      "score": 2.0795432190748047,
-      "coverage": 0.14,
-      "trial_number": 13,
-      "val_stats": {
-        "n_fires": 56,
-        "n_redundant": 51,
-        "n_improved": 5,
-        "n_worsened": 0,
-        "corr_prec": 0.8333,
-        "f1_gain": 0.0014,
-        "display_f1": 0.5578
+        "display_f1": 0.5566,
+        "stage": "stage2_fp_remove"
       }
     },
     {
@@ -2098,37 +2179,8 @@
         "n_worsened": 0,
         "corr_prec": 0.75,
         "f1_gain": 0.0028,
-        "display_f1": 0.5591
-      }
-    },
-    {
-      "body": [
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_unigram",
-          "label": "cs.lg",
-          "threshold": 0.55
-        },
-        {
-          "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_bigram",
-          "label": "math.pr",
-          "threshold": 0.25
-        }
-      ],
-      "consequence": "cs.cv",
-      "consequence_op": "remove",
-      "score": 1.85998857183524,
-      "coverage": 0.0475,
-      "trial_number": 225,
-      "val_stats": {
-        "n_fires": 19,
-        "n_redundant": 16,
-        "n_improved": 3,
-        "n_worsened": 0,
-        "corr_prec": 0.75,
-        "f1_gain": 0.0028,
-        "display_f1": 0.5591
+        "display_f1": 0.5588,
+        "stage": "stage2_fp_remove"
       }
     },
     {
@@ -2146,8 +2198,8 @@
         },
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_bigram",
-          "label": "cs.cr",
+          "model_name": "loris_clf_bilstm",
+          "label": "cs.it",
           "threshold": 0.25
         }
       ],
@@ -2163,7 +2215,8 @@
         "n_worsened": 0,
         "corr_prec": 0.75,
         "f1_gain": 0.0008,
-        "display_f1": 0.5571
+        "display_f1": 0.5568,
+        "stage": "stage2_fp_remove"
       }
     },
     {
@@ -2181,8 +2234,8 @@
         },
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_bigram",
-          "label": "cs.cr",
+          "model_name": "loris_clf_bilstm",
+          "label": "cs.it",
           "threshold": 0.25
         }
       ],
@@ -2198,7 +2251,44 @@
         "n_worsened": 0,
         "corr_prec": 0.75,
         "f1_gain": 0.0006,
-        "display_f1": 0.5569
+        "display_f1": 0.5566,
+        "stage": "stage2_fp_remove"
+      }
+    },
+    {
+      "body": [
+        {
+          "type": "MatchPredicate",
+          "attr": "cnt",
+          "r": {
+            "raw": "\\b(?:mathematicals|mathematical|conceptses|reasonings|conceptss|reasoning|concepts|logicals|theories|logical|theorys|logics|theory|logic)\\b\\s+\\b(?:programings|programming|schedulings|broadcasts|channelses|programing|programses|scheduling|broadcast|channelss|programss|channels|networks|programs|formats|network|format)\\b",
+            "flags": 2,
+            "sim_text": "logic programming"
+          },
+          "sim": true,
+          "threshold": 0.45
+        },
+        {
+          "type": "MLThresholdPredicate",
+          "model_name": "loris_clf_bilstm",
+          "label": "cs.it",
+          "threshold": 0.25
+        }
+      ],
+      "consequence": "cs.se",
+      "consequence_op": "remove",
+      "score": 0.8725995417192581,
+      "coverage": 0.0175,
+      "trial_number": 337,
+      "val_stats": {
+        "n_fires": 7,
+        "n_redundant": 4,
+        "n_improved": 3,
+        "n_worsened": 0,
+        "corr_prec": 0.75,
+        "f1_gain": 0.0006,
+        "display_f1": 0.5566,
+        "stage": "stage2_fp_remove"
       }
     },
     {
@@ -2216,14 +2306,14 @@
         },
         {
           "type": "MLThresholdPredicate",
-          "model_name": "loris_clf_tfidf_svm_bigram",
+          "model_name": "loris_clf_bilstm",
           "label": "cs.it",
           "threshold": 0.25
         }
       ],
       "consequence": "cs.ds",
       "consequence_op": "remove",
-      "score": 1.2747791225936835,
+      "score": 0.6939018633571928,
       "coverage": 0.02,
       "trial_number": 8,
       "val_stats": {
@@ -2232,36 +2322,9 @@
         "n_improved": 4,
         "n_worsened": 0,
         "corr_prec": 0.8,
-        "f1_gain": 0.0007,
-        "display_f1": 0.557
-      }
-    },
-    {
-      "body": [
-        {
-          "type": "GroupPredicate",
-          "attr_name": "cluster_100",
-          "group_count": 100
-        },
-        {
-          "type": "LabelPredicate",
-          "label": "cs.cg",
-          "op": "contains"
-        }
-      ],
-      "consequence": "cs.cg",
-      "consequence_op": "add",
-      "score": 0.011111111111111183,
-      "coverage": 0.0175,
-      "trial_number": 0,
-      "val_stats": {
-        "n_fires": 7,
-        "n_redundant": 2,
-        "n_improved": 4,
-        "n_worsened": 1,
-        "corr_prec": 0.6667,
-        "f1_gain": 0.0129,
-        "display_f1": 0.5787
+        "f1_gain": 0.0008,
+        "display_f1": 0.5568,
+        "stage": "stage2_fp_remove"
       }
     }
   ]

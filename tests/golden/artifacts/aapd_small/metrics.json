@@ -1,11 +1,11 @@
 {
   "baseline_test_micro_f1": 0.5246995994659546,
   "baseline_test_macro_f1": 0.27615334687981097,
-  "final_micro_f1": 0.6143128562381254,
-  "final_macro_f1": 0.5212332820276891,
-  "micro_f1_delta": 0.0896132567721708,
-  "macro_f1_delta": 0.24507993514787818,
-  "n_rules": 100,
+  "final_micro_f1": 0.6204238921001927,
+  "final_macro_f1": 0.5211028448627805,
+  "micro_f1_delta": 0.0957242926342381,
+  "macro_f1_delta": 0.2449494979829695,
+  "n_rules": 98,
   "hparams": {
     "subset_size": 2000,
     "val_ratio": 0.4,
@@ -64,9 +64,25 @@
     "min_corr_prec": 0.65,
     "sim_threshold": null,
     "sim_cascade_rounds": 3,
-    "predicate_top_k": 0,
-    "per_type_top_k": null,
+    "predicate_top_k": 240,
+    "per_type_top_k": 60,
     "batch_metric_mode": "global_macro",
+    "stage0_ml": true,
+    "stage1_fn_add": true,
+    "stage2_fp_remove": true,
+    "stage3_propagation": true,
+    "fn_add_min_val_prec": 0.7,
+    "fn_add_top_k_per_label": 8,
+    "fn_add_ml_guard": true,
+    "fn_add_min_fires": 0,
+    "prop_require_text": true,
+    "prop_label_source": "track1",
+    "rill_budget_sweep": "",
+    "stage1_max_rules_per_label": 0,
+    "stage2_max_rules_per_label": 0,
+    "stage3_max_rules_per_label": 0,
+    "prop_trial_frac": 0.5,
+    "sim_min_avg_degree": 20.0,
     "baseline_mode": "best",
     "min_rules": 1,
     "min_avg_coverage": 0.01,
@@ -86,6 +102,14 @@
     "tfidf_lr_bigram": {
       "micro_f1": 0.28490489680291375,
       "macro_f1": 0.04547803617571059
+    },
+    "textcnn": {
+      "micro_f1": 0.16180948238364506,
+      "macro_f1": 0.028837209302325584
+    },
+    "bilstm": {
+      "micro_f1": 0.0,
+      "macro_f1": 0.0
     }
   }
 }
