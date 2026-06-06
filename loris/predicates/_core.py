@@ -349,13 +349,14 @@ class MatchPredicate(TextualPredicate):
     r: _Pattern
     sim: bool = False
     threshold: float = 0.85
+    negate: bool = False    # B5/Phase-2: True ⇒ fires when r is ABSENT (¬match)
 
     def __post_init__(self) -> None:
         # Normalise r to _Pattern before frozen check fires
         object.__setattr__(self, "r", _as_pattern(self.r))
         super().__post_init__()
 
-    def __call__(self, doc: Document) -> bool:
+    def _matches(self, doc: Document) -> bool:
         text = self.attr_value(doc)
         if self.sim:
             emb_pat = _get_embedding(self.r.sim_text or self.r.raw)
@@ -365,9 +366,14 @@ class MatchPredicate(TextualPredicate):
             return False
         return self.r.search(text) is not None
 
+    def __call__(self, doc: Document) -> bool:
+        m = self._matches(doc)
+        return (not m) if self.negate else m
+
     def __repr__(self) -> str:
         sim_str = f", sim={self.threshold}" if self.sim else ""
-        return f"match(x.{self.attr}, {self.r.raw!r}{sim_str})"
+        neg = "¬" if self.negate else ""
+        return f"{neg}match(x.{self.attr}, {self.r.raw!r}{sim_str})"
 
 
 # ---------------------------------------------------------------------------
@@ -875,6 +881,7 @@ def predicate_to_dict(p: Predicate) -> Dict[str, Any]:
         base["r"] = _pat_dict(p.r)
         base["sim"] = p.sim
         base["threshold"] = p.threshold
+        base["negate"] = p.negate
 
     elif isinstance(p, FreqPredicate):
         base["attr"] = p.attr
@@ -943,6 +950,7 @@ def predicate_from_dict(d: Dict[str, Any]) -> Predicate:
             r=_Pattern(**d["r"]),
             sim=d.get("sim", False),
             threshold=d.get("threshold", 0.85),
+            negate=d.get("negate", False),
         )
     if ptype == "FreqPredicate":
         return FreqPredicate(

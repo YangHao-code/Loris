@@ -354,18 +354,14 @@ def discover_group_rules(
         best_pred_info = None
 
         for pred, is_negated in rescue_preds:
-            # B5 fix: a negated rescue predicate is validated below with ~text_mask
-            # but was emitted (lines further down) as a PLAIN POSITIVE MatchPredicate,
-            # so the applied rule fired on exactly the opposite documents from what
-            # was validated. MatchPredicate has no negation flag yet (added in B18 /
-            # the x.lbl\τ predicate), so skip negated candidates rather than emit an
-            # inverted, wrong-direction rule.
-            if is_negated:
-                continue
-            # Compute text predicate mask
+            # Compute text predicate mask; for a negated candidate the rule fires
+            # where the phrase is ABSENT (B5: now emitted as a real negated
+            # MatchPredicate below, so validation and application agree).
             text_mask = np.array(
                 [bool(pred(Document(cnt=d.cnt))) for d in val_docs], dtype=bool
             )
+            if is_negated:
+                text_mask = ~text_mask
 
             # Combined fire mask
             combined = fire_mask & text_mask
@@ -395,8 +391,10 @@ def discover_group_rules(
                 LabelPredicate(label=label_name, op="contains"),
             ]
             if is_negated:
+                # B5 complete: a real negated MatchPredicate (fires when the phrase
+                # is ABSENT) — matches the ~text_mask used to validate it.
                 body_preds.append(MatchPredicate(
-                    attr="cnt", r=pred.r, sim=False, threshold=0.85
+                    attr="cnt", r=pred.r, sim=False, threshold=0.85, negate=True
                 ))
                 # Store negation info in val_stats
                 neg_info = f"NOT {pred.r.raw}"
