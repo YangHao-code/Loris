@@ -279,19 +279,33 @@ def supervised(feat_pool, Y_pool, seed_idx, feat_test, sample_weight=None):
 
 
 # ───────────────────────── metrics ─────────────────────────
-def best_f1(scores_test, Yte, tn):
+def best_f1(eval_scores, eval_Y, tn, sel_scores=None, sel_Y=None):
+    """micro/macro F1 on (eval_scores, eval_Y) at one global threshold.
+
+    HONEST (Phase-4 fix): the threshold is chosen to maximise micro-F1 on a
+    SEPARATE selection set (sel_scores/sel_Y — the held-out non-seed pool), not on
+    the test set, then applied to the test set. Picking the threshold on test was
+    selection-on-test leakage that inflated all absolute numbers (the deltas were
+    still fair since every method leaked equally, but the absolutes were optimistic).
+    If sel_* is omitted it falls back to the old oracle behaviour (threshold on the
+    eval set itself) — used only when no held-out set is available.
+    """
     from sklearn.metrics import f1_score
-    s = scores_test[:, tn]
-    pos = s[s > 0]
+    if sel_scores is None:
+        sel_scores, sel_Y = eval_scores, eval_Y
+    ssel = sel_scores[:, tn]; sev = eval_scores[:, tn]
+    pos = ssel[ssel > 0]
     if pos.size == 0:
         return 0.0, 0.0
-    bm, bM = -1.0, 0.0
+    best_thr, best_mi = None, -1.0
     for thr in np.quantile(pos, np.linspace(0.5, 0.999, 40)):
-        P = (s >= thr).astype(np.int8)
-        mi = f1_score(Yte[:, tn], P, average="micro", zero_division=0)
-        if mi > bm:
-            bm = mi; bM = f1_score(Yte[:, tn], P, average="macro", zero_division=0)
-    return bm, bM
+        mi = f1_score(sel_Y[:, tn], (ssel >= thr).astype(np.int8),
+                      average="micro", zero_division=0)
+        if mi > best_mi:
+            best_mi, best_thr = mi, thr
+    Pe = (sev >= best_thr).astype(np.int8)
+    return (f1_score(eval_Y[:, tn], Pe, average="micro", zero_division=0),
+            f1_score(eval_Y[:, tn], Pe, average="macro", zero_division=0))
 
 
 # ───────────────────────── main efficiency curve ─────────────────────────
@@ -329,11 +343,14 @@ def efficiency_curve(dataset="bgc", data_root="/root/autodl-tmp/Loris/data",
             sidx = seeds_unsupervised(pool_idx, S, deg, pool_feats, rng)
         else:
             sidx = seeds_random(pool_idx, S, rng)
+        # held-out pool docs (exclude the seeds, whose propagated scores are clamped
+        # to perfect labels) = the honest threshold-selection set; eval on test.
+        nonseed = np.setdiff1d(pool_idx, np.asarray(sidx), assume_unique=False)
         # base model on same seeds — predicted on ALL docs (so propagation can
         # run ON TOP of the base; test slice = the supervised baseline itself).
         base_all = supervised(feats, Y[:ntr], sidx, feats, sample_weight=sw)
         sup = base_all[test_rows]
-        sup_mi, sup_ma = best_f1(sup, Yte, tn)
+        sup_mi, sup_ma = best_f1(sup, Yte, tn, base_all[nonseed], Y[nonseed])
         # combined graph: embedding kNN + seed-mined discriminative-phrase edges
         # (x.A=y.A). Phrase part depends on the seeds, so it's built per budget.
         Wn_use = Wn
@@ -341,15 +358,16 @@ def efficiency_curve(dataset="bgc", data_root="/root/autodl-tmp/Loris/data",
             P = phrase_graph(txt_all, sidx, Y[sidx])
             if P is not None:
                 Wn_use = (0.5 * Wn + 0.5 * P).tocsr()
-        # propagation from blank seeds: 1-hop vs multi-hop (standalone RILL)
-        F1 = seeded_chase(Wn_use, Y, sidx, hops=1, alpha=alpha)[test_rows]
-        FM = seeded_chase(Wn_use, Y, sidx, hops=hops, alpha=alpha)[test_rows]
-        p1_mi, p1_ma = best_f1(F1, Yte, tn)
-        pm_mi, pm_ma = best_f1(FM, Yte, tn)
+        # propagation from blank seeds: 1-hop vs multi-hop (standalone RILL). Keep
+        # full-doc scores so the threshold is picked on the held-out pool, not test.
+        F1f = seeded_chase(Wn_use, Y, sidx, hops=1, alpha=alpha)
+        FMf = seeded_chase(Wn_use, Y, sidx, hops=hops, alpha=alpha)
+        p1_mi, p1_ma = best_f1(F1f[test_rows], Yte, tn, F1f[nonseed], Y[nonseed])
+        pm_mi, pm_ma = best_f1(FMf[test_rows], Yte, tn, FMf[nonseed], Y[nonseed])
         # propagation ON TOP OF the base predictions (the chase refines the basic
         # predictions, seeds clamped) — directly answers "multi-hop on top of base?"
-        FMb = seeded_chase(Wn_use, Y, sidx, hops=hops, alpha=alpha, F0_init=base_all)[test_rows]
-        pmb_mi, pmb_ma = best_f1(FMb, Yte, tn)
+        FMbf = seeded_chase(Wn_use, Y, sidx, hops=hops, alpha=alpha, F0_init=base_all)
+        pmb_mi, pmb_ma = best_f1(FMbf[test_rows], Yte, tn, FMbf[nonseed], Y[nonseed])
         row = dict(seeds=int(S), seeding=seeding,
                    sup_micro=sup_mi, sup_macro=sup_ma,
                    prop1_micro=p1_mi, prop1_macro=p1_ma,
