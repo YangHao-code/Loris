@@ -5,10 +5,42 @@ artifacts. They guard the human-efficiency loop (paper core).
 """
 import numpy as np
 import pytest
+import scipy.sparse as sp
+from types import SimpleNamespace
 
 from loris.document import Document
-from loris.rill.rill import RILLController
+from loris.rill.rill import RILLController, InfluenceEstimator
 from loris.rill.oracle import OracleBase
+
+
+class _MockRDG:
+    def bfs_from_label(self, label):
+        return []          # no label-rule downstream → isolates the sim-reach term
+
+    def __repr__(self):
+        return "MockRDG"
+
+
+def test_bug1_doc_specific_influence():
+    """Influence must depend on the DOC's similarity neighbourhood, not be a
+    near-constant over the candidate-label set (audit bug#1 — degenerate
+    RILL document selection)."""
+    n_docs, n_labels = 5, 2
+    tfc = np.zeros((1, n_docs), dtype=bool)            # 1 dummy rule, fires nowhere
+    adj = sp.lil_matrix((n_docs, n_docs), dtype=bool)  # doc0 -> {1,2,3}; doc4 -> none
+    for j in (1, 2, 3):
+        adj[0, j] = True
+    est = InfluenceEstimator(_MockRDG(), tfc, n_labels, sim_adjacency=adj.tocsr())
+    lbl = SimpleNamespace(pos=np.zeros((n_docs, n_labels), dtype=bool))
+    U = np.array([1, 2, 3])
+    infl0 = est.estimate_total_influence(0, U, lbl, ["A", "B"])
+    infl4 = est.estimate_total_influence(4, U, lbl, ["A", "B"])
+    assert infl0 == 3.0, f"doc0 reach should be 3, got {infl0}"
+    assert infl4 == 0.0, f"doc4 reach should be 0, got {infl4}"
+    assert infl0 > infl4, "denser-neighbourhood doc must outrank an isolated doc"
+    # regression: no sim adjacency => sim term absent (legacy base-only behaviour)
+    est2 = InfluenceEstimator(_MockRDG(), tfc, n_labels, sim_adjacency=None)
+    assert est2.estimate_total_influence(0, U, lbl, ["A", "B"]) == 0.0
 
 
 class _EmptyOracle(OracleBase):
@@ -70,4 +102,5 @@ def test_livelock_empty_oracle_terminates():
 if __name__ == "__main__":
     test_seeded_rng_reproducible()
     test_livelock_empty_oracle_terminates()
+    test_bug1_doc_specific_influence()
     print("RILL fix tests passed")

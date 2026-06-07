@@ -63,13 +63,35 @@ class InfluenceEstimator:
         rdg: RuleDependencyGraph,
         text_fire_cache: np.ndarray,
         n_labels: int,
+        sim_adjacency=None,
     ) -> None:
         self.rdg = rdg
         self.text_fire_cache = text_fire_cache
         self.n_labels = n_labels
+        # bug#1: doc-specific cross-document reach. sim_adjacency[x] gives the
+        # similarity neighbours of x; labeling x propagates its labels to them,
+        # so a doc in a denser *unlabeled* neighbourhood is more valuable to
+        # query. Without this, influence depends only on the candidate-label set
+        # (≈constant across docs) → degenerate (≈random) document selection.
+        self._sim_adj = sim_adjacency
+        self._n_docs = int(text_fire_cache.shape[1]) if text_fire_cache is not None else 0
+        self._u_fp = None
+        self._u_mask_arr = None
 
         # Pre-compute downstream rule sets for each label (cached)
         self._label_downstream: Dict[str, List[int]] = {}
+
+    def _u_mask(self, U_indices: np.ndarray) -> np.ndarray:
+        """Boolean (n_docs,) membership mask for U, rebuilt only when U changes."""
+        fp = (len(U_indices),
+              int(U_indices[0]) if len(U_indices) else -1,
+              int(U_indices[-1]) if len(U_indices) else -1)
+        if self._u_fp != fp:
+            m = np.zeros(self._n_docs, dtype=bool)
+            if len(U_indices):
+                m[U_indices] = True
+            self._u_mask_arr, self._u_fp = m, fp
+        return self._u_mask_arr
 
     def _get_downstream_rules(self, label: str) -> List[int]:
         """Return list of rule indices reachable from *label* (cached)."""
@@ -147,7 +169,17 @@ class InfluenceEstimator:
         total = 0
         for _, τ_name in candidates:
             total += self.estimate_influence(τ_name, U_indices)
-        return total / len(candidates)
+        base = total / len(candidates)
+        # bug#1: add doc-SPECIFIC cross-document reach so influence is not
+        # ≈constant across docs. Labeling doc_idx propagates its labels to its
+        # similarity neighbours, so count how many are still unlabeled (in U).
+        if self._sim_adj is not None and self._n_docs and len(U_indices):
+            row = self._sim_adj[doc_idx]
+            neigh = (row.indices if hasattr(row, "indices")
+                     else np.nonzero(np.asarray(row).ravel())[0])
+            if len(neigh):
+                base += float(self._u_mask(U_indices)[neigh].sum())
+        return base
 
     def rank_unlabeled(
         self,
@@ -590,7 +622,18 @@ class RILLController:
             logger.info("RILL: RDG built — %s", rdg)
 
         # Step 6: Estimator & TrustChecker
-        estimator = InfluenceEstimator(rdg, text_fire_cache, self.n_labels)
+        # bug#1: combine all sim-graph thresholds into one adjacency so the
+        # estimator can score each doc's cross-document propagation reach.
+        _sim_adj = None
+        if self.sim_graphs:
+            _mats = [g for g in self.sim_graphs.values() if g is not None]
+            if _mats:
+                _acc = _mats[0].astype(bool)
+                for _g in _mats[1:]:
+                    _acc = _acc + _g.astype(bool)
+                _sim_adj = _acc.tocsr()
+        estimator = InfluenceEstimator(rdg, text_fire_cache, self.n_labels,
+                                       sim_adjacency=_sim_adj)
         trust_checker = TrustChecker(
             rdg, text_fire_cache, self.label_names, self.rules,
             max_bfs_depth=self.trust_bfs_depth,
