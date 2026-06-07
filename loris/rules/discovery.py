@@ -986,6 +986,16 @@ def _compute_conjunction_mask(
 # Optuna 目标函数 (Level 1)
 # ===========================================================================
 
+def _wilson_lb(k: int, n: int, z: float = 1.96) -> float:
+    """Wilson score lower bound — sample-size-aware precision (A2/LBoost).
+    100%-on-1-fire scores far below 95%-on-50; downweights rare patterns."""
+    if n <= 0:
+        return 0.0
+    p = k / n
+    z2 = z * z
+    return (p + z2 / (2 * n) - z * ((p * (1 - p) / n + z2 / (4 * n * n)) ** 0.5)) / (1 + z2 / n)
+
+
 def evaluate_chase_configuration(
     trial: optuna.Trial,
     candidates: List[Predicate],
@@ -1527,14 +1537,22 @@ def evaluate_chase_configuration(
             # those docs) is still admitted on confidence × coverage — its value
             # shows under the RILL human-seed sweep, not the staged metric. The
             # tiny scale keeps it strictly below any true-F1-gain rule.
+            # A2 (Wilson): require a sound small-sample confidence lower bound
+            # (blocks 100%-on-1-fire artifacts).
+            if _wilson_lb(n_improved, n_fire) < 0.60:
+                return target_gain
             return 1e-3 * (corr_prec ** 2.0) * float(np.log1p(n_improved))
 
         precision_multiplier = corr_prec ** 2.0
         coverage_bonus = np.log1p(n_improved) / 3.0
 
+        # A1 (LBoost confidence): corr_prec is fire-count-invariant, so reward
+        # well-supported rules — 95% precision on 20 fires outranks 95% on 2.
+        conf_mult = min(1.0, (n_improved / max(n_fire, 1)) / 0.75)
         f1_gain = (target_gain * precision_multiplier
                    * (1.0 + coverage_bonus) * length_penalty
-                   * fires_factor * changes_factor * cross_label_bonus)
+                   * fires_factor * changes_factor * cross_label_bonus
+                   * conf_mult)
 
         _diag_inc(f"sim_positive(gain={f1_gain:.4f},tgt={target_gain:.4f},raw_prec={sim_raw_prec:.3f},self_loop={not _is_cross_label},fires={n_fire},ff={fires_factor:.2f},imp={n_improved},wor={n_worsened},body={n_body})")
 
@@ -1557,14 +1575,19 @@ def evaluate_chase_configuration(
                 return target_gain
             # LBoost-style: admit precise label-propagation rules even without
             # staged F1-gain (see sim path above); value shows under RILL seeds.
+            if _wilson_lb(n_improved, n_fire) < 0.60:
+                return target_gain
             return 1e-3 * (corr_prec ** 2.0) * float(np.log1p(n_improved))
 
         precision_multiplier = corr_prec ** 2.0
         coverage_bonus = np.log1p(n_improved) / 3.0
 
+        # A1 (LBoost confidence): reward well-supported propagation rules.
+        conf_mult = min(1.0, (n_improved / max(n_fire, 1)) / 0.75)
         f1_gain = (target_gain * precision_multiplier
                    * (1.0 + coverage_bonus) * length_penalty
-                   * fires_factor * changes_factor * cross_label_bonus)
+                   * fires_factor * changes_factor * cross_label_bonus
+                   * conf_mult)
 
         _diag_inc(f"label_positive(gain={f1_gain:.4f},tgt={target_gain:.4f},raw_prec={label_raw_prec:.3f},fires={n_fire},ff={fires_factor:.2f},imp={n_improved},wor={n_worsened},body={n_body})")
     else:
