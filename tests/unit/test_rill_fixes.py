@@ -43,6 +43,27 @@ def test_bug1_doc_specific_influence():
     assert est2.estimate_total_influence(0, U, lbl, ["A", "B"]) == 0.0
 
 
+def test_greedy_coverage_discount():
+    """After a seed covers a neighbourhood, an overlapping doc is discounted
+    (audit opt#4/#15 — submodular max-coverage seeding)."""
+    n_docs, n_labels = 6, 2
+    tfc = np.zeros((1, n_docs), dtype=bool)
+    adj = sp.lil_matrix((n_docs, n_docs), dtype=bool)
+    for j in (1, 2, 3):     # doc0 -> {1,2,3}
+        adj[0, j] = True
+    for j in (2, 3, 5):     # doc4 -> {2,3,5}  (overlaps doc0 on 2,3)
+        adj[4, j] = True
+    est = InfluenceEstimator(_MockRDG(), tfc, n_labels, sim_adjacency=adj.tocsr())
+    lbl = SimpleNamespace(pos=np.zeros((n_docs, n_labels), dtype=bool))
+    U = np.array([1, 2, 3, 5])
+    before = est.estimate_total_influence(4, U, lbl, ["A", "B"])   # reach {2,3,5}=3
+    est.mark_covered(0)                                            # covers {0,1,2,3}
+    after = est.estimate_total_influence(4, U, lbl, ["A", "B"])    # only {5} left =1
+    assert before == 3.0, f"before={before}"
+    assert after == 1.0, f"after covering doc0, doc4 should reach only doc5, got {after}"
+    assert after < before
+
+
 class _EmptyOracle(OracleBase):
     """Oracle that returns NO labels for every doc (forces the livelock path)."""
     def __init__(self, label_names):
@@ -103,4 +124,5 @@ if __name__ == "__main__":
     test_seeded_rng_reproducible()
     test_livelock_empty_oracle_terminates()
     test_bug1_doc_specific_influence()
+    test_greedy_coverage_discount()
     print("RILL fix tests passed")

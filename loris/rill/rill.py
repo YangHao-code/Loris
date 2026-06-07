@@ -77,9 +77,26 @@ class InfluenceEstimator:
         self._n_docs = int(text_fire_cache.shape[1]) if text_fire_cache is not None else 0
         self._u_fp = None
         self._u_mask_arr = None
+        self._covered = None   # opt#4/#15: greedy max-coverage discount mask
 
         # Pre-compute downstream rule sets for each label (cached)
         self._label_downstream: Dict[str, List[int]] = {}
+
+    def mark_covered(self, doc_idx: int) -> None:
+        """Greedy max-coverage (opt#4/#15): after a doc is queried, mark it and
+        its similarity neighbours as covered so subsequent influence scores
+        discount already-reachable docs (submodular 1−1/e selection) instead of
+        re-querying the same dense neighbourhood."""
+        if self._sim_adj is None or not self._n_docs:
+            return
+        if self._covered is None:
+            self._covered = np.zeros(self._n_docs, dtype=bool)
+        self._covered[doc_idx] = True
+        row = self._sim_adj[doc_idx]
+        neigh = (row.indices if hasattr(row, "indices")
+                 else np.nonzero(np.asarray(row).ravel())[0])
+        if len(neigh):
+            self._covered[neigh] = True
 
     def _u_mask(self, U_indices: np.ndarray) -> np.ndarray:
         """Boolean (n_docs,) membership mask for U, rebuilt only when U changes."""
@@ -178,7 +195,11 @@ class InfluenceEstimator:
             neigh = (row.indices if hasattr(row, "indices")
                      else np.nonzero(np.asarray(row).ravel())[0])
             if len(neigh):
-                base += float(self._u_mask(U_indices)[neigh].sum())
+                reachable = self._u_mask(U_indices)[neigh]
+                # opt#4/#15: discount neighbours already covered by earlier seeds
+                if self._covered is not None:
+                    reachable = reachable & ~self._covered[neigh]
+                base += float(reachable.sum())
         return base
 
     def rank_unlabeled(
@@ -732,6 +753,7 @@ class RILLController:
                 ] if labels_star else []
                 if label_indices:
                     chase.inject_labels_and_resume(x_star, label_indices)
+                    estimator.mark_covered(x_star)   # opt#4/#15 greedy coverage
 
                     if self.verbose and iteration % 50 == 0:
                         n_labeled = int((lbl.pos.sum(axis=1) > 0).sum())
