@@ -1030,6 +1030,7 @@ def evaluate_chase_configuration(
     sim_min_precision: float = 0.75,
     sim_self_loop_min_prec: float = -1.0,  # -1 = 使用 max(sim_min_precision, 0.85)
     label_prec_objective: bool = False,  # True = label 规则也用 precision 导向目标
+    prop_admit_on_precision: bool = False,  # LBoost-style: admit precise sim/label propagation rules even without staged F1-gain (value shows under RILL seeds)
     # ── REMOVE rules (staged pipeline) ──
     consequence_op_mode: str = "add",  # "add" / "remove" / "both"
     remove_label_names: Optional[List[str]] = None,
@@ -1519,7 +1520,14 @@ def evaluate_chase_configuration(
 
         if target_gain <= 0:
             _diag_inc(f"sim_neg_f1_gain({target_gain:.6f},raw_prec={sim_raw_prec:.3f},fires={n_fire},imp={n_improved},wor={n_worsened})")
-            return target_gain
+            if not prop_admit_on_precision:
+                return target_gain
+            # LBoost-style admission: a high-precision propagation rule that does
+            # NOT move the zero-budget staged F1 (the strong base already covers
+            # those docs) is still admitted on confidence × coverage — its value
+            # shows under the RILL human-seed sweep, not the staged metric. The
+            # tiny scale keeps it strictly below any true-F1-gain rule.
+            return 1e-3 * (corr_prec ** 2.0) * float(np.log1p(n_improved))
 
         precision_multiplier = corr_prec ** 2.0
         coverage_bonus = np.log1p(n_improved) / 3.0
@@ -1545,7 +1553,11 @@ def evaluate_chase_configuration(
 
         if target_gain <= 0:
             _diag_inc(f"label_neg_f1_gain({target_gain:.6f},raw_prec={label_raw_prec:.3f},fires={n_fire},imp={n_improved},wor={n_worsened})")
-            return target_gain
+            if not prop_admit_on_precision:
+                return target_gain
+            # LBoost-style: admit precise label-propagation rules even without
+            # staged F1-gain (see sim path above); value shows under RILL seeds.
+            return 1e-3 * (corr_prec ** 2.0) * float(np.log1p(n_improved))
 
         precision_multiplier = corr_prec ** 2.0
         coverage_bonus = np.log1p(n_improved) / 3.0
@@ -1672,6 +1684,7 @@ class ChaseRuleLearner:
         sim_min_precision: float = 0.75,
         sim_self_loop_min_prec: float = -1.0,
         label_prec_objective: bool = False,
+        prop_admit_on_precision: bool = False,
         consequence_op_mode: str = "add",  # "add" / "remove" / "both"
     ) -> None:
         self.candidate_predicates = list(candidate_predicates)
@@ -1721,6 +1734,7 @@ class ChaseRuleLearner:
         self.sim_min_precision = sim_min_precision
         self.sim_self_loop_min_prec = sim_self_loop_min_prec
         self.label_prec_objective = label_prec_objective
+        self.prop_admit_on_precision = prop_admit_on_precision
         self.consequence_op_mode = consequence_op_mode
 
         # Weak-label rescue
@@ -2309,6 +2323,7 @@ class ChaseRuleLearner:
                     sim_min_precision=self.sim_min_precision,
                     sim_self_loop_min_prec=self.sim_self_loop_min_prec,
                     label_prec_objective=self.label_prec_objective,
+                    prop_admit_on_precision=self.prop_admit_on_precision,
                     **_fit_kw,
                 )
 
@@ -2537,6 +2552,7 @@ class ChaseRuleLearner:
                 sim_min_precision=self.sim_min_precision,
                 sim_self_loop_min_prec=self.sim_self_loop_min_prec,
                 label_prec_objective=self.label_prec_objective,
+                prop_admit_on_precision=self.prop_admit_on_precision,
                 consequence_op_mode=self.consequence_op_mode,
                 remove_label_names=_remove_label_names,
                 label_weights=self.label_weights,

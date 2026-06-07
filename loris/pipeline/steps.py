@@ -1714,6 +1714,7 @@ def run_rule_discovery_batch(
                 sim_min_precision=getattr(hp, 'sim_min_precision', 0.60),
                 sim_self_loop_min_prec=getattr(hp, 'sim_self_loop_min_prec', -1.0),
                 label_prec_objective=getattr(hp, 'label_prec_objective', False),
+                prop_admit_on_precision=getattr(hp, 'prop_admit_on_precision', False),
             )
             t2_learner.neighbor_label_counts = neighbor_label_counts
             t2_learner.label_weights = _t2_label_weights

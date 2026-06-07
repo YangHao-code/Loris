@@ -282,6 +282,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--rill_sweep_max_docs", type=int, default=3000,
                    help="Cap on test docs used in the RILL budget sweep (sim graph "
                         "is O(n^2); the full test set, e.g. BGC=33k, is intractable).")
+    p.add_argument("--prop_admit_on_precision", action="store_true",
+                   help="LBoost-style: admit precise sim/label propagation rules even "
+                        "when they don't move the zero-budget staged F1 (the strong base "
+                        "already covers those docs). Their value shows under the RILL "
+                        "human-seed sweep. Without this, ~0 propagation rules survive.")
     return p.parse_args()
 
 
@@ -416,6 +421,7 @@ def main() -> None:
     hp.sim_min_avg_degree = args.sim_min_avg_degree
     hp.sim_target_degrees = args.sim_target_degrees
     hp.rill_sweep_max_docs = args.rill_sweep_max_docs
+    hp.prop_admit_on_precision = args.prop_admit_on_precision
     if args.sim_threshold_bins == "auto":
         hp.sim_threshold_bins = None  # will be auto-detected from embeddings
     else:

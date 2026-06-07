@@ -82,6 +82,7 @@ class HParams:
     sim_min_avg_degree: float = 20.0    # sim-graph connectivity floor for RILL propagation
     sim_target_degrees: str = ""        # "" = default (5,10,20,40); else CSV finer/denser avg-degree bins (enrich similarity discovery)
     rill_sweep_max_docs: int = 3000     # cap test docs for the RILL budget sweep (sim graph is O(n^2); 0 ⇒ 3000)
+    prop_admit_on_precision: bool = False  # LBoost-style: admit precise sim/label propagation rules even without staged F1-gain (value shows under RILL human seeds, not the zero-budget metric)
 
     # ── Baseline mode ──────────────────────────────────────────────────────────
     baseline_mode: str = "best"
