@@ -516,6 +516,7 @@ class RILLController:
         sim_decay: float = 1.0,
         sim_conf_threshold: float = 0.0,
         virtual_attrs: Optional[Dict[str, "np.ndarray"]] = None,
+        seed: int = 42,
     ) -> None:
         self.rules = list(rules)
         self.label_names = list(label_names)
@@ -531,6 +532,9 @@ class RILLController:
         self.sim_decay = sim_decay
         self.sim_conf_threshold = sim_conf_threshold
         self.virtual_attrs = virtual_attrs
+        # bug#19/opt#9: seeded RNG so large-U sampling (and thus query order) is
+        # reproducible across runs instead of using the global unseeded np.random.
+        self.rng = np.random.RandomState(seed)
 
     def run(
         self,
@@ -622,7 +626,7 @@ class RILLController:
             else:
                 # Large U: sample a subset for scoring efficiency
                 sample_size = min(200, len(U))
-                sample_idx = np.random.choice(len(U), sample_size, replace=False)
+                sample_idx = self.rng.choice(len(U), sample_size, replace=False)
                 sample_U = U[sample_idx]
                 scores = np.array([
                     estimator.estimate_total_influence(
@@ -676,13 +680,13 @@ class RILLController:
                     else:
                         labels_star = fallback_labels
 
-            if not rejected and labels_star:
+            if not rejected:
                 # Step 24–25: Inject ALL labels and resume Chase
                 label_indices = [
                     self._label2idx[τ]
                     for τ in labels_star
                     if τ in self._label2idx
-                ]
+                ] if labels_star else []
                 if label_indices:
                     chase.inject_labels_and_resume(x_star, label_indices)
 
@@ -694,6 +698,12 @@ class RILLController:
                             iteration, x_star, labels_star, influence,
                             n_labeled, n_docs, len(U),
                         )
+                else:
+                    # bug#14: oracle returned no injectable label (empty, or all
+                    # out-of-vocab) — skip x_star, else it is never given a pos
+                    # label, stays in U, and is re-selected every iteration
+                    # (livelock, especially under constant influence #1).
+                    skip_set.add(x_star)
 
             # Step 27–29: Update U
             U = np.where(
