@@ -444,15 +444,29 @@ def _tag_stage(rule, stage: str) -> None:
 
 
 def _has_text_predicate(rule) -> bool:
-    """True if the rule body carries a textual predicate (Match/Freq/Cooccur/Before).
-
-    Used to enforce composite label/sim+text propagation rules (no bare
-    label-co-occurrence or bare sim∧label) when ``--prop_require_text`` is on.
-    """
+    """True if the rule body carries a textual predicate (Match/Freq/Cooccur/Before)."""
     from loris.predicates import (MatchPredicate, FreqPredicate,
                                   CooccurPredicate, BeforePredicate)
     return any(isinstance(p, (MatchPredicate, FreqPredicate,
                               CooccurPredicate, BeforePredicate))
+               for p in rule.body)
+
+
+def _is_valid_propagation_rule(rule) -> bool:
+    """True if a Stage-3 propagation rule carries GRAPH structure (Sim/Group) OR
+    a textual predicate. Rejects only BARE ``label→label`` co-occurrence (neither
+    graph nor text), which is circular/weak.
+
+    Pure graph propagation (``sim(x,y)∧label(τ∈y)→+τ``) is allowed: the
+    similarity edge IS the cross-document evidence, so a text predicate is not
+    required — this is what the ``--prop_require_text`` gate enforces. (Equal
+    ``x.lbl=y.lbl`` rules are handled separately and always kept.)
+    """
+    from loris.predicates import (MatchPredicate, FreqPredicate,
+                                  CooccurPredicate, BeforePredicate,
+                                  SimPredicate, GroupPredicate)
+    return any(isinstance(p, (MatchPredicate, FreqPredicate, CooccurPredicate,
+                              BeforePredicate, SimPredicate, GroupPredicate))
                for p in rule.body)
 
 
@@ -1769,14 +1783,15 @@ def run_rule_discovery_batch(
             _t2_rules = list(track2_rdl.rules)
             _n_t2_raw = len(_t2_rules)
             if getattr(hp, 'prop_require_text', True):
-                _t2_rules = [r for r in _t2_rules if _has_text_predicate(r)]
+                # graph-structure (sim/group) OR text — only bare label→label is dropped
+                _t2_rules = [r for r in _t2_rules if _is_valid_propagation_rule(r)]
             _t2_rules = _cap_rules_per_label(
                 _t2_rules, getattr(hp, 'stage3_max_rules_per_label', 2))
             for _r in _t2_rules + list(_equal_rules):
                 _tag_stage(_r, "stage3_prop")
             final_rules = list(all_seed_rules) + _t2_rules + _equal_rules
             rdl_set = RDLSet(final_rules, label_names)
-            log.info("Staged final: %d seed + %d Track2 (composite, %d→%d after text-filter+cap) "
+            log.info("Staged final: %d seed + %d Track2 (composite, %d→%d after structure-filter+cap) "
                      "+ %d equal = %d total rules", len(all_seed_rules), len(_t2_rules),
                      _n_t2_raw, len(_t2_rules), len(_equal_rules), len(final_rules))
         else:
