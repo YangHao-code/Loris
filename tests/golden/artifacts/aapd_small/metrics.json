@@ -1,11 +1,11 @@
 {
   "baseline_test_micro_f1": 0.5246995994659546,
   "baseline_test_macro_f1": 0.27615334687981097,
-  "final_micro_f1": 0.6204238921001927,
-  "final_macro_f1": 0.5211028448627805,
-  "micro_f1_delta": 0.0957242926342381,
-  "macro_f1_delta": 0.2449494979829695,
-  "n_rules": 98,
+  "final_micro_f1": 0.6135357368753953,
+  "final_macro_f1": 0.5206718133609306,
+  "micro_f1_delta": 0.08883613740944074,
+  "macro_f1_delta": 0.24451846648111963,
+  "n_rules": 100,
   "hparams": {
     "subset_size": 2000,
     "val_ratio": 0.4,
@@ -84,6 +84,8 @@
     "prop_trial_frac": 0.5,
     "sim_min_avg_degree": 20.0,
     "sim_target_degrees": "",
+    "rill_sweep_max_docs": 3000,
+    "prop_admit_on_precision": false,
     "baseline_mode": "best",
     "min_rules": 1,
     "min_avg_coverage": 0.01,
@@ -103,14 +105,6 @@
     "tfidf_lr_bigram": {
       "micro_f1": 0.28490489680291375,
       "macro_f1": 0.04547803617571059
-    },
-    "textcnn": {
-      "micro_f1": 0.1739130434782609,
-      "macro_f1": 0.030467571644042235
-    },
-    "bilstm": {
-      "micro_f1": 0.0,
-      "macro_f1": 0.0
     }
   }
 }
