@@ -2721,6 +2721,7 @@ class ChaseRuleLearner:
         min_rule_fires: int = 1,
         min_n_changes: int = 1,
         min_corr_prec: float = 0.5,
+        prop_admit_on_precision: bool = False,  # LBoost-style: keep precise sim/group propagation rules even if they show low corr-prec / zero-improved on the strong select-base (value at test-with-seeds / RILL)
         # ── accept cross-check: 训练集泛化验证 ──
         accept_docs: Optional[List[Document]] = None,
         accept_labels: Optional[np.ndarray] = None,
@@ -2995,8 +2996,16 @@ class ChaseRuleLearner:
                                          "fires": n_fires_val, "chg": n_changes, "imp": n_improved, "wor": n_worsened})
                 continue
 
+            # LBoost-style loose admission for PROPAGATION rules (sim/group): on a
+            # strong select-base they would flip already-correct labels → low
+            # precision / zero-improved HERE, but their value is at test-time with
+            # human seeds (RILL), not the zero-budget select metric. Admit them when
+            # --prop_admit_on_precision (they still must FIRE — low_fires unchanged).
+            _prop_loose = prop_admit_on_precision and any(
+                isinstance(p, (SimPredicate, GroupPredicate)) for p in rule.body)
+
             # 硬性过滤：完全无正纠正 → 跳过
-            if n_changes > 0 and n_improved == 0:
+            if n_changes > 0 and n_improved == 0 and not _prop_loose:
                 _rej["zero_improved"] += 1
                 continue
 
@@ -3005,7 +3014,7 @@ class ChaseRuleLearner:
                 _eff_min_prec = min_corr_prec
             else:
                 _eff_min_prec = _adaptive_corr_prec(min_corr_prec, _label_pos_bs)
-            if n_changes > 0 and corr_prec < _eff_min_prec:
+            if n_changes > 0 and corr_prec < _eff_min_prec and not _prop_loose:
                 _rej["low_corr_prec"] += 1
                 if len(_rej_details) < 10:
                     _rej_details.append({"reason": "low_corr_prec", "label": consequence_label,
