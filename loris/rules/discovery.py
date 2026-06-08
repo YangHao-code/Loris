@@ -1548,7 +1548,11 @@ def evaluate_chase_configuration(
 
         # A1 (LBoost confidence): corr_prec is fire-count-invariant, so reward
         # well-supported rules — 95% precision on 20 fires outranks 95% on 2.
-        conf_mult = min(1.0, (n_improved / max(n_fire, 1)) / 0.75)
+        # Gated to propagation runs (--prop_admit_on_precision): off the flag it
+        # would only down-weight rules with no propagation benefit, so keep =1.0
+        # (verified a no-op on the golden config: --check bit-identical).
+        conf_mult = (min(1.0, (n_improved / max(n_fire, 1)) / 0.75)
+                     if prop_admit_on_precision else 1.0)
         f1_gain = (target_gain * precision_multiplier
                    * (1.0 + coverage_bonus) * length_penalty
                    * fires_factor * changes_factor * cross_label_bonus
@@ -1583,7 +1587,10 @@ def evaluate_chase_configuration(
         coverage_bonus = np.log1p(n_improved) / 3.0
 
         # A1 (LBoost confidence): reward well-supported propagation rules.
-        conf_mult = min(1.0, (n_improved / max(n_fire, 1)) / 0.75)
+        # Gated to --prop_admit_on_precision (see sim branch above): keeps the
+        # default (no-flag) path bit-identical to pre-A1 behaviour.
+        conf_mult = (min(1.0, (n_improved / max(n_fire, 1)) / 0.75)
+                     if prop_admit_on_precision else 1.0)
         f1_gain = (target_gain * precision_multiplier
                    * (1.0 + coverage_bonus) * length_penalty
                    * fires_factor * changes_factor * cross_label_bonus
