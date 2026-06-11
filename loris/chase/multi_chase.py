@@ -403,9 +403,11 @@ class MultiChase:
             if consequence_lidx is None:
                 continue
 
-            sim_pred = next(p for p in rule.body if isinstance(p, SimPredicate))
-            adj = self.sim_graphs.get(sim_pred.threshold)
-            if adj is None:
+            # Lever D symmetry: enforce ALL SimPredicates conjunctively (was
+            # next() → first only). Single-SimPredicate bodies are unchanged.
+            sim_preds = [p for p in rule.body if isinstance(p, SimPredicate)]
+            adjs = [self.sim_graphs.get(sp.threshold) for sp in sim_preds]
+            if any(a is None for a in adjs):
                 continue
 
             # Step 1: y_mask — which docs y satisfy LabelPredicate?
@@ -420,8 +422,11 @@ class MultiChase:
                 if lp.op == "contains":
                     y_mask *= lbl.pos[:, lidx].astype(np.float32)
 
-            # Step 2: SpMV — which x have qualifying neighbours?
-            has_neighbor = np.asarray((adj @ y_mask) > 0).ravel()
+            # Step 2: SpMV — which x have qualifying neighbours under EVERY graph?
+            has_neighbor = None
+            for adj in adjs:
+                _hn = np.asarray((adj @ y_mask) > 0).ravel()
+                has_neighbor = _hn if has_neighbor is None else (has_neighbor & _hn)
 
             # Step 3: AND with text predicates on x
             combined = text_fire_cache[rule_idx] & has_neighbor
@@ -464,13 +469,13 @@ class MultiChase:
             if consequence_lidx is None:
                 continue
 
-            group_pred = next(
-                (p for p in rule.body if isinstance(p, GroupPredicate)), None
-            )
-            if group_pred is None:
-                continue
-            membership = self.virtual_attrs.get(group_pred.attr_name)
-            if membership is None:
+            # Lever D: a rule may carry MORE THAN ONE GroupPredicate
+            # (x.A=y.A ∧ x.B=y.B → +τ). Enforce ALL of them conjunctively — the
+            # historical code took only the first via next(), silently ignoring a
+            # 2nd literal. For a single-GroupPredicate body this loop is
+            # bit-identical to the old behaviour (golden-neutral).
+            group_preds = [p for p in rule.body if isinstance(p, GroupPredicate)]
+            if not group_preds:
                 continue
 
             # Step 1: y_mask — which docs y satisfy LabelPredicate?
@@ -485,16 +490,27 @@ class MultiChase:
                 if lp.op == "contains":
                     y_mask &= lbl.pos[:, lidx].astype(bool)
 
-            # Step 2: comparison-predicate fire via SpMV (x.A=y.A ∧ label∈y.lbl).
-            # `membership` is a (n_docs × n_values) 0/1 csr; doc x fires iff it
-            # shares >=1 attribute value with some y_mask qualifier. Never
-            # materializes the n_docs×n_docs co-membership matrix:
+            # Step 2: comparison-predicate fire via SpMV (x.A=y.A ∧ label∈y.lbl),
+            # AND'd across every group literal. `membership` is a
+            # (n_docs × n_values) 0/1 csr; doc x fires iff it shares >=1 attribute
+            # value with some y_mask qualifier. Never materializes the
+            # n_docs×n_docs co-membership matrix:
             #   col  = membershipᵀ @ y_mask    (qualifiers per value)
             #   fire = (membership @ col) > 0  (shares a value with a qualifier)
             # Mirrors group_propagation.compute_group_fire_mask; self-inclusion is
             # intentional (Step 4 excludes docs already holding the consequence).
-            _col = membership.T.dot(y_mask.astype(np.float32))
-            group_fire = np.asarray(membership.dot(_col)).ravel() > 0
+            group_fire = None
+            _missing = False
+            for gp in group_preds:
+                membership = self.virtual_attrs.get(gp.attr_name)
+                if membership is None:
+                    _missing = True
+                    break
+                _col = membership.T.dot(y_mask.astype(np.float32))
+                _gf = np.asarray(membership.dot(_col)).ravel() > 0
+                group_fire = _gf if group_fire is None else (group_fire & _gf)
+            if _missing or group_fire is None:
+                continue
 
             # Step 3: AND with text predicates on x
             combined = text_fire_cache[rule_idx] & group_fire

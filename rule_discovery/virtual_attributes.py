@@ -9,5 +9,7 @@ from loris.rules.virtual_attributes import (  # noqa: F401
     compute_cluster_attributes,
     compute_all_virtual_attributes,
     compute_phrase_attributes,
+    compute_llm_attributes,
+    llm_doc_hash,
     filter_degenerate_groups,
 )

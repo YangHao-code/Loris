@@ -66,6 +66,24 @@ def parse_args() -> argparse.Namespace:
                    help="Override experiment output directory")
     p.add_argument("--subset_size", type=int, default=0,
                    help="Max training docs (0=all)")
+    p.add_argument("--label_budget", type=int, default=0,
+                   help="Weak-supervision Γ: # labeled train docs the base model "
+                        "(and rule discovery) may see. 0 ⇒ full supervision (old "
+                        "behaviour). >0 ⇒ base fits on a Γ-sized labeled subset; the "
+                        "held-out test set is then labeled under the RILL human budget. "
+                        "This is the regime where rules/propagation add F1.")
+    p.add_argument("--label_budget_seeding", default="coverage",
+                   choices=["coverage", "random"],
+                   help="How Γ is chosen when --label_budget>0 (coverage-greedy over "
+                        "the kNN graph, or stratified random). Only used if label_budget>0.")
+    p.add_argument("--prop_graph_space", default="embed",
+                   choices=["embed", "pseudo_label"],
+                   help="Propagation-graph space for the RILL sweep's explicit-diffusion "
+                        "arm. 'embed' (default) ⇒ diffusion arm OFF (golden-neutral). "
+                        "'pseudo_label' ⇒ run seeded label-diffusion along a kNN graph in "
+                        "the weak base's PREDICTED-label space and emit diffuse_*/"
+                        "diffuse_prop_gain_* columns (the validated honest, micro-safe "
+                        "graph that beats raw-embedding propagation).")
     p.add_argument("--top_labels", type=int, default=None,
                    help="Restrict to N most-frequent labels (default: dataset-specific)")
     p.add_argument("--no_router", action="store_true",
@@ -253,6 +271,9 @@ def parse_args() -> argparse.Namespace:
                    help="# FN-discriminative predicates mined per label in Stage 1")
     p.add_argument("--no_fn_add_ml_guard", action="store_true",
                    help="Do NOT AND an ml_thresh(L) guard onto FN→ADD text bodies")
+    p.add_argument("--fn_add_richer", action="store_true",
+                   help="Lever B: mine richer high-precision FN→ADD LFs "
+                        "(2-phrase conjunctions + negative guards + cross-representation ML guards)")
     p.add_argument("--fn_add_min_fires", type=int, default=0,
                    help="Min fires for an FN→ADD rule (0 ⇒ use effective_min_fires)")
     p.add_argument("--no_prop_require_text", action="store_true",
@@ -287,7 +308,50 @@ def parse_args() -> argparse.Namespace:
                         "when they don't move the zero-budget staged F1 (the strong base "
                         "already covers those docs). Their value shows under the RILL "
                         "human-seed sweep. Without this, ~0 propagation rules survive.")
+    p.add_argument("--enable_multiattr_joins", action="store_true",
+                   help="Lever D: mine deeper multi-literal joins x.A=y.A ∧ x.B=y.B "
+                        "(two attributes from different families AND'd) — the conjunction "
+                        "is far more label-coherent than either shallow attribute alone.")
+    p.add_argument("--enable_llm_attrs", action="store_true",
+                   help="Lever C: add a closed-ontology LLM membership attribute for x.A=y.A "
+                        "(reads the offline cache from --llm_attr_cache). Gate behind the "
+                        "propagation_joinkey_probe.py acceptance test first.")
+    p.add_argument("--llm_attr_cache", type=str, default="",
+                   help="Path to the offline LLM attribute cache (doc_hash → [ontology values]) "
+                        "produced by precompute_llm_attributes.py. Empty ⇒ Lever C off.")
+    p.add_argument("--diagnostic_max_rules", action="store_true",
+                   help="ILLUSTRATIVE writeup arm: loosen admission gates + lift per-label "
+                        "caps + enable richer/multiattr to admit FAR more rules. This does "
+                        "NOT improve F1 (it keeps rules that failed the 'actually-helps' bar) "
+                        "— use only to show a fuller rule set, clearly labelled as such.")
     return p.parse_args()
+
+
+def _apply_diagnostic_overrides(args, hp) -> None:
+    """``--diagnostic_max_rules``: compose existing knobs to admit FAR more rules
+    for an ILLUSTRATIVE writeup arm. This is **not** an F1 improvement — it keeps
+    rules that did not clear the 'actually-helps' bar; report it as such. Loosens
+    the precision/F1-gain gates, lifts per-label caps, and turns on the
+    richer/multiattr generators. Default OFF ⇒ golden-neutral."""
+    hp.diagnostic_max_rules = True
+    hp.prop_admit_on_precision = True
+    hp.enable_multiattr_joins = True
+    hp.fn_add_richer = True
+    hp.min_f1_gain = 0.0
+    hp.min_corr_prec = min(getattr(hp, "min_corr_prec", 0.5), 0.40)
+    hp.fn_add_min_val_prec = min(getattr(hp, "fn_add_min_val_prec", 0.70), 0.55)
+    hp.rule_min_precision = min(getattr(hp, "rule_min_precision", 0.5), 0.40)
+    hp.stage1_max_rules_per_label = 0   # 0 = uncapped
+    hp.stage2_max_rules_per_label = 0
+    hp.stage3_max_rules_per_label = 0
+    args.group_min_corr_prec = min(getattr(args, "group_min_corr_prec", 0.50), 0.40)
+    log.warning(
+        "DIAGNOSTIC MAX-RULES MODE — gates loosened + caps lifted to admit more "
+        "rules FOR ILLUSTRATION ONLY (does NOT raise F1; keeps rules that failed "
+        "the helps-bar). prop_admit_on_precision=True, multiattr+richer=ON, "
+        "min_corr_prec=%.2f, fn_add_min_val_prec=%.2f, group_min_corr_prec=%.2f, "
+        "min_f1_gain=0, per-label caps=uncapped.",
+        hp.min_corr_prec, hp.fn_add_min_val_prec, args.group_min_corr_prec)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -354,6 +418,9 @@ def main() -> None:
 
     hp = HParams(
         subset_size=args.subset_size,
+        label_budget=args.label_budget,
+        label_budget_seeding=args.label_budget_seeding,
+        prop_graph_space=args.prop_graph_space,
         top_labels=top_labels,
         max_trials=args.max_trials,
         top_n_rules=args.top_n_rules,
@@ -410,6 +477,7 @@ def main() -> None:
     hp.fn_add_min_val_prec = args.fn_add_min_val_prec
     hp.fn_add_top_k_per_label = args.fn_add_top_k_per_label
     hp.fn_add_ml_guard = not args.no_fn_add_ml_guard
+    hp.fn_add_richer = args.fn_add_richer
     hp.fn_add_min_fires = args.fn_add_min_fires
     hp.prop_require_text = not args.no_prop_require_text
     hp.prop_label_source = args.prop_label_source
@@ -422,6 +490,11 @@ def main() -> None:
     hp.sim_target_degrees = args.sim_target_degrees
     hp.rill_sweep_max_docs = args.rill_sweep_max_docs
     hp.prop_admit_on_precision = args.prop_admit_on_precision
+    hp.enable_multiattr_joins = args.enable_multiattr_joins
+    hp.enable_llm_attrs = args.enable_llm_attrs
+    hp.llm_attr_cache = args.llm_attr_cache
+    if getattr(args, "diagnostic_max_rules", False):
+        _apply_diagnostic_overrides(args, hp)
     if args.sim_threshold_bins == "auto":
         hp.sim_threshold_bins = None  # will be auto-detected from embeddings
     else:
@@ -935,6 +1008,8 @@ def main() -> None:
                 train_docs=train_docs,
                 target_docs=test_docs,
                 label_names=label_names,
+                enable_llm_attrs=getattr(hp, "enable_llm_attrs", False),
+                llm_cache_path=(getattr(hp, "llm_attr_cache", "") or None),
             )
             # OPT-5: same discriminative-phrase attribute as BO/select (re-mined on
             # train, deterministic → identical column semantics) so x.A=y.A group
@@ -1269,9 +1344,22 @@ def main() -> None:
             from loris.rules.sim_graph import (compute_embeddings as _ce,
                                                build_sim_graph as _bsg)
             from loris.predicates import SimPredicate as _SP
+            from loris.eval.rill_efficiency import (build_graph as _bg,
+                                                    seeded_chase as _sc,
+                                                    best_f1 as _bf)
+            from sklearn.preprocessing import normalize as _nrm
             budgets = [int(b) for b in _rill_sweep.split(',') if b.strip() != ""]
             _thr = sorted(set(p.threshold for r in final_rdl_set.rules
                               for p in r.body if isinstance(p, _SP)))
+            # The human-efficiency curve needs a propagation graph even when no
+            # SimPredicate RULE survived staged admission: the graph is the
+            # comparison-predicate structure that human seeds propagate along, and
+            # its value lives in the seeded sweep — not the zero-budget staged
+            # metric the BO scored against. So fall back to default similarity bins.
+            if not _thr:
+                _thr = [0.35, 0.40, 0.45, 0.50]
+                log.info("RILL sweep: no SimPredicate rule admitted — building a "
+                         "default propagation graph at thresholds %s", _thr)
             # Bound the sweep: the sim graph is O(n^2) and per-query influence
             # estimation is O(|U|); the full test set (e.g. BGC=33k) is
             # intractable. Deterministic seeded subsample capped at rill_sweep_max_docs.
@@ -1300,25 +1388,109 @@ def main() -> None:
                     log.warning("RILL sweep: sim graph below connectivity floor "
                                 "(max avg degree %.1f) — propagation may be vacuous",
                                 max(_degs.values()))
-            _base0 = np.zeros((len(_sweep_docs), len(label_names)), dtype=np.float32)
+            # Headline human-efficiency curve: RILL refines the ACTUAL base+rules
+            # label state (the controller applies `rules` on top of base_predictions),
+            # then adds B human seeds and propagates. So budget=0 == base+rules, and
+            # the curve shows what each human label buys. Seed with base-model preds
+            # on the sweep docs; fall back to blank (pure-propagation) if unavailable.
+            if base_test_preds is not None:
+                _base0 = np.asarray(base_test_preds, dtype=np.float32)[_sw_idx]
+            else:
+                _base0 = np.zeros((len(_sweep_docs), len(label_names)), dtype=np.float32)
+            # base+rules reference at ZERO human labels — the propagation control's
+            # starting point (rules applied, no queries). LORIS at budget B minus
+            # "this reference with the SAME B queried docs clamped to GT directly"
+            # = what propagation adds BEYOND just using the B human labels. If that
+            # gap is ~0, the curve is just the injected labels, not the rules.
+            _ref_ctrl = RILLController(
+                rules=final_rdl_set.rules, label_names=label_names,
+                oracle=GroundTruthOracle(ground_truth=_sweep_y, label_names=label_names),
+                max_iterations=0, trust_check=False, conflict_mode="negative_wins",
+                sim_graphs=_sweep_graphs, verbose=False, active_relabel=True)
+            _baserules_preds = _ref_ctrl.run(_sweep_docs, base_predictions=_base0.copy()).predictions
+            # ── pseudo_label diffusion arm (flag-gated; OFF when prop_graph_space="embed") ──
+            # Banks the validated honest upgrade: the native RILL arm above shows
+            # PROP-GAIN≡0 (its graph only TARGETS queries, never SPREADS labels). This
+            # arm realizes the join-key probe's small but real gain by explicitly
+            # diffusing each human seed along a kNN graph in the weak base's PREDICTED-
+            # label space (honest, micro-safe — beats raw-embedding propagation).
+            _diffuse = (getattr(hp, 'prop_graph_space', 'embed') or 'embed') == 'pseudo_label'
+            _G_diff, _tn_diff = None, []
+            if _diffuse:
+                # Build the predicted-label space from base+RULES (richer + non-
+                # degenerate vs the weak base alone, which can be all-zero at tiny Γ).
+                _pl = _nrm(np.asarray(_baserules_preds, dtype=np.float32))
+                if _pl.shape[1] >= 2 and np.isfinite(_pl).all() and _pl.any():
+                    _G_diff = _bg(_pl, k=10)[0]
+                    _tn_diff = [i for i in range(len(label_names))
+                                if int(_sweep_y[:, i].sum()) >= 3]
+                    log.info("RILL sweep: pseudo_label diffusion arm ON "
+                             "(predicted-label kNN graph; %d trainable labels)",
+                             len(_tn_diff))
+                else:
+                    log.warning("RILL sweep: pseudo_label diffusion arm skipped "
+                                "(degenerate base predictions)")
             sweep_rows = []
             for b in budgets:
                 _oracle = GroundTruthOracle(ground_truth=_sweep_y, label_names=label_names)
                 _ctrl = RILLController(rules=final_rdl_set.rules, label_names=label_names,
                                        oracle=_oracle, max_iterations=b, trust_check=False,
                                        conflict_mode="negative_wins",
-                                       sim_graphs=_sweep_graphs, verbose=False)
+                                       sim_graphs=_sweep_graphs, verbose=False,
+                                       active_relabel=True)
                 _res = _ctrl.run(_sweep_docs, base_predictions=_base0.copy())
                 _mi = float(f1_score(_sweep_y, _res.predictions, average="micro", zero_division=0))
                 _ma = float(f1_score(_sweep_y, _res.predictions, average="macro", zero_division=0))
                 _nq = int(getattr(_res, 'n_queries', 0))
-                sweep_rows.append({"budget": b, "n_queries": _nq,
-                                   "micro_f1": _mi, "macro_f1": _ma})
-                log.info("RILL sweep: budget=%4d queries=%4d  micro=%.4f macro=%.4f",
-                         b, _nq, _mi, _ma)
+                # CONTROL (isolates neighbour-propagation): identical to LORIS on
+                # the queried docs themselves, but with propagation to NON-queried
+                # docs disabled (they keep the base+rules prediction). So
+                # LORIS − direct = the F1 the chase adds by spreading each human
+                # label to its neighbours. If ≤ 0, the human labels help only their
+                # own docs and propagation is inert/harmful (graph not label-coherent).
+                _direct = _baserules_preds.copy()
+                _qdocs = [int(q.get('doc_idx')) for q in getattr(_res, 'query_log', [])
+                          if q.get('doc_idx') is not None and not q.get('rejected', False)]
+                for _qd in _qdocs:
+                    _direct[_qd] = _res.predictions[_qd]   # queried docs identical to LORIS
+                _dmi = float(f1_score(_sweep_y, (_direct > 0).astype(int), average="micro", zero_division=0))
+                _dma = float(f1_score(_sweep_y, (_direct > 0).astype(int), average="macro", zero_division=0))
+                _row = {"budget": b, "n_queries": _nq,
+                        "micro_f1": _mi, "macro_f1": _ma,
+                        "direct_micro_f1": _dmi, "direct_macro_f1": _dma,
+                        "prop_gain_micro": _mi - _dmi,
+                        "prop_gain_macro": _ma - _dma}
+                log.info("RILL sweep: budget=%4d q=%4d  LORIS micro=%.4f macro=%.4f | "
+                         "direct micro=%.4f macro=%.4f | PROP-GAIN micro=%+.4f macro=%+.4f",
+                         b, _nq, _mi, _ma, _dmi, _dma, _mi - _dmi, _ma - _dma)
+                # pseudo_label explicit-diffusion diagnostic (oracle-threshold, like the
+                # join-key probe): seed the SAME RILL-queried docs with their human
+                # labels, diffuse base+rules along the predicted-label kNN graph, and
+                # isolate the propagation gain vs the same seeds clamped WITHOUT spread.
+                if _G_diff is not None and _tn_diff and _qdocs:
+                    _sidx = np.array(sorted(set(int(q) for q in _qdocs)), dtype=int)
+                    _F = _sc(_G_diff, _sweep_y.astype(np.float32), _sidx,
+                             hops=30, alpha=0.70,
+                             F0_init=_baserules_preds.astype(np.float32))
+                    _ddir = _baserules_preds.astype(np.float32).copy()
+                    _ddir[_sidx] = _sweep_y[_sidx]
+                    _fmi, _fma = _bf(_F, _sweep_y, _tn_diff)
+                    _cmi, _cma = _bf(_ddir, _sweep_y, _tn_diff)
+                    _row.update({"diffuse_micro_f1": _fmi, "diffuse_macro_f1": _fma,
+                                 "diffuse_direct_micro_f1": _cmi,
+                                 "diffuse_direct_macro_f1": _cma,
+                                 "diffuse_prop_gain_micro": _fmi - _cmi,
+                                 "diffuse_prop_gain_macro": _fma - _cma})
+                    log.info("RILL sweep[pseudo_label]: budget=%4d  diffuse micro=%.4f "
+                             "macro=%.4f | direct micro=%.4f macro=%.4f | "
+                             "DIFFUSE-PROP-GAIN micro=%+.4f macro=%+.4f",
+                             b, _fmi, _fma, _cmi, _cma, _fmi - _cmi, _fma - _cma)
+                sweep_rows.append(_row)
             with open(exp_dir / "rill_budget_sweep.json", "w") as _f:
                 _json_sw.dump({"budgets": sweep_rows, "sim_thresholds": _thr,
-                               "graph_avg_degree": _degs}, _f, indent=2)
+                               "graph_avg_degree": _degs,
+                               "prop_graph_space": ("pseudo_label" if _G_diff is not None
+                                                    else "embed")}, _f, indent=2)
             log.info("RILL budget sweep saved to %s", exp_dir / "rill_budget_sweep.json")
         except Exception as _sw_exc:
             log.warning("RILL budget sweep skipped: %s", _sw_exc, exc_info=True)

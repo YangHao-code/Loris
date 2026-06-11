@@ -19,6 +19,9 @@ class HParams:
     val_ratio: float = 0.40
     top_labels: int = 20
     two_val: bool = False  # split val into val_bo (BO) + val_select (batch_select)
+    label_budget: int = 0  # weak-supervision Γ: # labeled train docs the base model may see (0 ⇒ full-supervision, old behaviour). >0 ⇒ base fits on a Γ-sized labeled subset; the rest is the unlabeled pool RILL/rules label.
+    label_budget_seeding: str = "coverage"  # how Γ is chosen: "coverage" (greedy max-coverage over kNN graph) | "random". Only used when label_budget>0.
+    prop_graph_space: str = "embed"  # propagation-graph feature space for the RILL sweep's explicit-diffusion arm: "embed" (raw MiniLM cosine — old/no-op default) | "pseudo_label" (kNN in the weak base's PREDICTED-label space; honest, micro-safe, recovers a sliver of the diffusion ceiling). "" or "embed" ⇒ diffusion arm OFF (golden-neutral).
 
     # ── PatternAbstractor ─────────────────────────────────────────────────────
     n_clusters: Optional[int] = None
@@ -66,7 +69,11 @@ class HParams:
     fn_add_min_val_prec: float = 0.70   # precision floor for FN→ADD rules
     fn_add_top_k_per_label: int = 8     # # FN-discriminative predicates mined per label
     fn_add_ml_guard: bool = True        # AND an ml_thresh(L) guard onto the text body
+    fn_add_richer: bool = False         # Lever B: also mine 2-phrase conjunctions + ¬guards + cross-rep ML guards
     fn_add_min_fires: int = 0           # 0 ⇒ use effective_min_fires
+    enable_multiattr_joins: bool = False  # Lever D: mine x.A=y.A ∧ x.B=y.B multi-literal joins
+    enable_llm_attrs: bool = False      # Lever C: closed-ontology LLM membership attribute for x.A=y.A
+    llm_attr_cache: str = ""            # path to the offline LLM attribute cache (doc_hash → [values])
     prop_require_text: bool = True      # propagation rules must carry a text predicate
     prop_label_source: str = "track1"   # "gt" | "track1" | "model" seed for propagation BO
     # ^ B2 fix: mine comparison/group rules against the SAME label state seen at
@@ -83,6 +90,7 @@ class HParams:
     sim_target_degrees: str = ""        # "" = default (5,10,20,40); else CSV finer/denser avg-degree bins (enrich similarity discovery)
     rill_sweep_max_docs: int = 3000     # cap test docs for the RILL budget sweep (sim graph is O(n^2); 0 ⇒ 3000)
     prop_admit_on_precision: bool = False  # LBoost-style: admit precise sim/label propagation rules even without staged F1-gain (value shows under RILL human seeds, not the zero-budget metric)
+    diagnostic_max_rules: bool = False  # ILLUSTRATIVE writeup arm: loosen gates + lift caps to admit far more rules (does NOT raise F1)
 
     # ── Baseline mode ──────────────────────────────────────────────────────────
     baseline_mode: str = "best"

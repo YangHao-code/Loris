@@ -230,6 +230,16 @@ def _extract_rescue_predicates(
     return results
 
 
+def _attr_family(name: str) -> str:
+    """Coarse family of a virtual-attribute name (cluster/ner/syn/regex/phrase/
+    llm/topic). Multi-literal joins (Lever D) only pair attributes from
+    *different* families to maximise complementarity and bound the pair space."""
+    for fam in ("cluster", "ner", "syn", "regex", "phrase", "llm", "topic"):
+        if name.startswith(fam):
+            return fam
+    return name.split("_")[0]
+
+
 def discover_group_rules(
     virtual_attrs: Dict[str, np.ndarray],
     label_state: np.ndarray,
@@ -245,6 +255,8 @@ def discover_group_rules(
     base_label_prec: Optional[np.ndarray] = None,
     asym_margin: float = 0.05,
     narrow_prec_floor: Optional[float] = None,
+    multiattr: bool = False,
+    max_multiattr_signal: int = 6,
 ) -> List[Tuple[MockTrial, RDL]]:
     """Exhaustively enumerate (attr, label) group propagation rules.
 
@@ -275,6 +287,9 @@ def discover_group_rules(
     results: List[Tuple[MockTrial, RDL]] = []
     borderline: List[Tuple[str, int, np.ndarray, Dict]] = []
     trial_counter = 0
+    # Lever D: cache (attr, label) fire masks so Phase 1b can AND pairs of them
+    # without recomputing the SpMV. Only populated when multi-literal joins are on.
+    _fire_cache: Dict[Tuple[str, int], np.ndarray] = {}
 
     logger.info("=== Group Rule Discovery: %d attrs × %d labels = %d candidates ===",
                 len(virtual_attrs), len(label_names),
@@ -289,6 +304,8 @@ def discover_group_rules(
 
         for label_idx, label_name in enumerate(label_names):
             fire_mask = compute_group_fire_mask(membership, label_idx, label_state)
+            if multiattr:
+                _fire_cache[(attr_name, label_idx)] = fire_mask
             metrics = evaluate_group_rule(
                 fire_mask, label_idx, val_labels, existing_predictions,
                 min_fires=min_fires, min_corr_prec=0.0,
@@ -336,6 +353,72 @@ def discover_group_rules(
                     borderline.append((attr_name, label_idx, fire_mask, metrics))
 
     logger.info("Phase 1: %d rules passed, %d borderline for rescue", len(results), len(borderline))
+
+    # Phase 1b (Lever D): multi-literal conjunctive joins  x.A=y.A ∧ x.B=y.B → +τ.
+    # Two independent group stars AND'd: a doc fires only if it shares a value of
+    # BOTH attributes with label-carriers — far more selective (= label-coherent)
+    # than either shallow attribute alone, the direct fix for "candidates fail the
+    # precision gate". OFF (default) ⇒ skipped ⇒ bit-for-bit golden-neutral. The
+    # chase ANDs the same per-attribute masks, so discovery & test agree.
+    n_multi = 0
+    if multiattr:
+        from itertools import combinations
+        for label_idx, label_name in enumerate(label_names):
+            gate = _eff_gate(label_idx)
+            # attributes that carry SOME signal for this label (pairing two
+            # no-signal attrs cannot help); keep the most-promising few to bound
+            # the pair space to O(max_multiattr_signal^2).
+            sig: List[Tuple[str, np.ndarray, float]] = []
+            for (a_name, a_lidx), fm in _fire_cache.items():
+                if a_lidx != label_idx:
+                    continue
+                mt = evaluate_group_rule(fm, label_idx, val_labels,
+                                         existing_predictions,
+                                         min_fires=min_fires, min_corr_prec=0.0)
+                if mt is None or mt["corr_prec"] < _narrow_floor:
+                    continue
+                sig.append((a_name, fm, mt["corr_prec"]))
+            sig.sort(key=lambda s: (-s[2], s[0]))
+            sig = sig[:max_multiattr_signal]
+            for (a_name, a_fm, a_p), (b_name, b_fm, b_p) in combinations(sig, 2):
+                if _attr_family(a_name) == _attr_family(b_name):
+                    continue
+                combined = a_fm & b_fm
+                mt = evaluate_group_rule(combined, label_idx, val_labels,
+                                         existing_predictions,
+                                         min_fires=min_fires, min_corr_prec=0.0)
+                if mt is None:
+                    continue
+                if mt["corr_prec"] < gate or mt["f1_gain"] < min_f1_gain:
+                    continue
+                # the conjunction must genuinely beat BOTH single attributes
+                if mt["corr_prec"] <= max(a_p, b_p) + 1e-9:
+                    continue
+                body = (
+                    GroupPredicate(attr_name=a_name,
+                                   group_count=virtual_attrs[a_name].shape[1]),
+                    GroupPredicate(attr_name=b_name,
+                                   group_count=virtual_attrs[b_name].shape[1]),
+                    LabelPredicate(label=label_name, op="contains"),
+                )
+                rule = RDL(
+                    body=body, consequence=label_name, consequence_op="add",
+                    score=mt["f1_gain"], coverage=mt["n_fires"] / len(val_docs),
+                    trial_number=trial_counter,
+                    val_stats={**mt, "multiattr": "%s&%s" % (a_name, b_name)},
+                )
+                trial = MockTrial(
+                    number=trial_counter, values=[mt["f1_gain"]],
+                    params={"attr_name": "%s&%s" % (a_name, b_name),
+                            "label": label_name, "corr_prec": mt["corr_prec"]},
+                )
+                results.append((trial, rule))
+                n_multi += 1
+                trial_counter += 1
+                logger.info("  MULTI: %s ∧ %s × %s → corr_prec=%.3f (vs %.3f/%.3f), fires=%d",
+                            a_name, b_name, label_name, mt["corr_prec"], a_p, b_p,
+                            mt["n_fires"])
+        logger.info("Phase 1b: %d multi-literal join rules discovered.", n_multi)
 
     # Phase 2: Rescue borderline rules with text predicates
     n_rescued = 0

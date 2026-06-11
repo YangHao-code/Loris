@@ -343,11 +343,62 @@ def _extend_pred_masks(masks, pred_to_idx, new_preds, docs):
     return combined
 
 
+def _pick_guard_models(names, proba_cache, max_models: int = 3):
+    """Deterministic guard-model selection spanning representation families
+    (encoder / tfidf / neural). Used by the *richer* FN→ADD synthesis to AND a
+    **cross-representation** ML guard onto a text rule (BGC-Exp2 lesson: a rule
+    fires more precisely when an *independent* representation also votes for the
+    label). Order is fixed (family priority, then remaining models in `names`
+    order) so the synthesis stays deterministic."""
+    if not names or not proba_cache:
+        return []
+    fam_tests = (
+        ("encoder", lambda m: "encoder" in m),
+        ("tfidf",   lambda m: "tfidf" in m),
+        ("neural",  lambda m: ("cnn" in m or "lstm" in m)),
+    )
+    picked: List[str] = []
+    for _fam, test in fam_tests:
+        m = next((mm for mm in names if test(mm) and mm in proba_cache), None)
+        if m is not None and m not in picked:
+            picked.append(m)
+    for m in names:                       # fill remaining slots deterministically
+        if len(picked) >= max_models:
+            break
+        if m in proba_cache and m not in picked:
+            picked.append(m)
+    return picked[:max_models]
+
+
+def _best_ml_guard(fire, lidx, labels, guard_specs, min_prec, min_fires, ml_guard):
+    """Maximise precision of ``fire`` over a no-guard option plus each
+    ``(guard_name, proba_vec)`` at a small threshold grid. Returns
+    ``(prec, imp, guard_name, t)`` or ``None`` if nothing clears the floor.
+    No-guard (t=0) is tried first so ties prefer the simpler body."""
+    best = None
+    for gname, gv in [(None, None)] + list(guard_specs):
+        grid = [0.0] if gname is None else (
+            [0.05, 0.10, 0.15, 0.20, 0.30] if (ml_guard and gv is not None) else [])
+        for t in grid:
+            f = fire if gname is None else (fire & (gv >= t))
+            imp = int((f & (labels[:, lidx] == 1)).sum())
+            wor = int((f & (labels[:, lidx] == 0)).sum())
+            if imp < max(2, min_fires):
+                continue
+            prec = imp / (imp + wor)
+            if prec < min_prec:
+                continue
+            if best is None or prec > best[0]:
+                best = (prec, imp, gname, t)
+    return best
+
+
 def _synthesize_fn_add_rules(
     docs, labels, base_preds, label_names,
     ml_proba_cache=None, ml_model_names=None,
     top_k_per_label: int = 8, ml_guard: bool = True,
     min_prec: float = 0.70, min_fires: int = 3, max_rules_per_label: int = 3,
+    richer: bool = False,
 ):
     """Stage 1 — direct FN→ADD synthesis (no random BO).
 
@@ -356,9 +407,17 @@ def _synthesize_fn_add_rules(
     ``match(P) [∧ ml_thresh(L, t_low)] → +L`` rules that clear a precision floor on
     val. Targeted candidates (a few per label) — never the 3645-pool explosion.
     Returns ``List[RDL]`` with ``val_stats["stage"]="stage1_fn_add"``.
+
+    When *richer* (Lever B, SALT/REGAL high-precision LF template), additionally
+    mine — for each label — (1) **2-phrase-set conjunctions** (``cooccur(w1,w2)``)
+    kept only if they *beat* the best single-phrase rule's precision, (2)
+    **negative guards** (``∧ ¬match(w)``) that rescue a near-miss phrase, and (3)
+    **cross-representation ML guards** (a guard from a different model family).
+    All extras still clear the same precision floor. *richer=False* is
+    byte-identical to the historical behaviour (golden-neutral).
     """
     from sklearn.feature_extraction.text import TfidfVectorizer
-    from loris.predicates import MatchPredicate, MLThresholdPredicate
+    from loris.predicates import MatchPredicate, MLThresholdPredicate, CooccurPredicate
     from loris.rules.rdl import RDL
 
     texts_all = [d.cnt if hasattr(d, "cnt") else d for d in docs]
@@ -367,11 +426,14 @@ def _synthesize_fn_add_rules(
     base_preds = np.asarray(base_preds)
 
     guard_model = None
+    _rich_guards: List[str] = []
     if ml_guard and ml_proba_cache:
         names = ml_model_names or list(ml_proba_cache.keys())
         guard_model = next((m for m in names if "encoder" in m and m in ml_proba_cache), None)
         if guard_model is None:
             guard_model = next((m for m in names if m in ml_proba_cache), None)
+        if richer:
+            _rich_guards = _pick_guard_models(names, ml_proba_cache, max_models=3)
 
     rules = []
     for lidx, lname in enumerate(label_names):
@@ -428,6 +490,69 @@ def _synthesize_fn_add_rules(
                     val_stats={"stage": "stage1_fn_add", "val_prec": round(prec, 3),
                                "val_improved": imp})
             cands.append((prec, imp, r))
+
+        # ── Lever B (richer): deeper, higher-precision LFs on the same FN region ──
+        if richer:
+            _gspecs = [(gm, ml_proba_cache[gm][:, lidx]) for gm in _rich_guards
+                       if gm in ml_proba_cache]
+            _best_single = max((c[0] for c in cands), default=0.0)
+            _order = np.argsort(-diff)
+            _top = [feats[oi] for oi in _order[:top_k_per_label]
+                    if diff[oi] >= 0.01 and len(feats[oi]) >= 3]
+            _fire1 = None
+            if _top:
+                _mp1 = MatchPredicate("cnt", _top[0])
+                _fire1 = np.array([bool(_mp1(docs[i])) for i in range(n)]) & neg_pred
+
+            # (1) 2-phrase-set conjunction: top-1 phrase × each other top phrase.
+            if len(_top) >= 2 and _fire1 is not None:
+                w1 = _top[0]
+                for w2 in _top[1:]:
+                    _mp2 = MatchPredicate("cnt", w2)
+                    fire = _fire1 & np.array([bool(_mp2(docs[i])) for i in range(n)])
+                    bg = _best_ml_guard(fire, lidx, labels, _gspecs,
+                                        min_prec, min_fires, ml_guard)
+                    if bg is None:
+                        continue
+                    prec, imp, gname, t = bg
+                    if prec <= _best_single + 1e-9:   # must beat the single-phrase rule
+                        continue
+                    cp = CooccurPredicate("cnt", w1, w2)
+                    body = (cp,) if gname is None else (
+                        cp, MLThresholdPredicate(gname, lname, round(t, 2)))
+                    cands.append((prec, imp, RDL(
+                        body=body, consequence=lname, consequence_op="add",
+                        score=float(prec), coverage=imp / n,
+                        val_stats={"stage": "stage1_fn_add", "val_prec": round(prec, 3),
+                                   "val_improved": imp, "rich": "cooccur"})))
+
+            # (2) Negative guard: rescue the top phrase with ∧ ¬match(w_fp), where
+            #     w_fp is frequent in the phrase rule's FP region, rare in its TP.
+            if _fire1 is not None:
+                _sub_fire1 = _fire1[idx]
+                _sub_fp = _sub_fire1 & sub_tn
+                _sub_tp = _sub_fire1 & sub_fn
+                if int(_sub_fp.sum()) >= max(2, min_fires) and int(_sub_tp.sum()) >= max(2, min_fires):
+                    _dneg = (np.asarray(X[_sub_fp].mean(axis=0)).ravel()
+                             - np.asarray(X[_sub_tp].mean(axis=0)).ravel())
+                    _ni = int(np.argmax(_dneg))
+                    if _dneg[_ni] >= 0.01 and len(feats[_ni]) >= 3:
+                        w_fp = feats[_ni]
+                        _mpn = MatchPredicate("cnt", w_fp, negate=True)
+                        fire = _fire1 & np.array([bool(_mpn(docs[i])) for i in range(n)])
+                        bg = _best_ml_guard(fire, lidx, labels, _gspecs,
+                                            min_prec, min_fires, ml_guard)
+                        if bg is not None:
+                            prec, imp, gname, t = bg
+                            if prec > _best_single + 1e-9:
+                                body = ((_mp1, _mpn) if gname is None else
+                                        (_mp1, _mpn, MLThresholdPredicate(gname, lname, round(t, 2))))
+                                cands.append((prec, imp, RDL(
+                                    body=body, consequence=lname, consequence_op="add",
+                                    score=float(prec), coverage=imp / n,
+                                    val_stats={"stage": "stage1_fn_add", "val_prec": round(prec, 3),
+                                               "val_improved": imp, "rich": "neg_guard"})))
+
         cands.sort(key=lambda c: (-c[0], -c[1]))
         _keep = cands if (not max_rules_per_label or max_rules_per_label <= 0) else cands[:max_rules_per_label]
         rules.extend(r for _, _, r in _keep)
@@ -1119,6 +1244,7 @@ def run_rule_discovery_batch(
                 min_prec=getattr(hp, 'fn_add_min_val_prec', 0.70),
                 min_fires=(getattr(hp, 'fn_add_min_fires', 0) or max(3, effective_min_fires // 2)),
                 max_rules_per_label=getattr(hp, 'stage1_max_rules_per_label', 3),
+                richer=getattr(hp, 'fn_add_richer', False),
             )
             _seen = set((r.consequence, tuple(sorted(str(p) for p in r.body))) for r in fnadd_rules)
             for r in _direct_fn:
@@ -1600,6 +1726,8 @@ def run_rule_discovery_batch(
             train_docs=train_docs,
             target_docs=val_docs,
             label_names=label_names,
+            enable_llm_attrs=getattr(hp, "enable_llm_attrs", False),
+            llm_cache_path=(getattr(hp, "llm_attr_cache", "") or None),
         )
         _add_phrase_attr(bo_virtual_attrs, val_docs)
         bo_virtual_attrs = filter_degenerate_groups(bo_virtual_attrs)
@@ -1627,6 +1755,7 @@ def run_rule_discovery_batch(
             min_corr_prec=_group_min_prec,
             base_label_prec=_base_lbl_prec,
             narrow_prec_floor=(0.30 if getattr(hp, "asym_group_gate", False) else None),
+            multiattr=getattr(hp, "enable_multiattr_joins", False),
         )
         log.info("Track 2 Group: %d rules discovered on val_bo", len(_group_trials))
 
@@ -1657,6 +1786,8 @@ def run_rule_discovery_batch(
                 label_names=label_names,
                 kmeans_models=_kmeans_models,
                 text_vocabs=_text_vocabs,
+                enable_llm_attrs=getattr(hp, "enable_llm_attrs", False),
+                llm_cache_path=(getattr(hp, "llm_attr_cache", "") or None),
             )
             _add_phrase_attr(sel_virtual_attrs, select_docs)
             sel_virtual_attrs = filter_degenerate_groups(sel_virtual_attrs)
@@ -1793,9 +1924,17 @@ def run_rule_discovery_batch(
                 _tag_stage(_r, "stage3_prop")
             final_rules = list(all_seed_rules) + _t2_rules + _equal_rules
             rdl_set = RDLSet(final_rules, label_names)
+            # Lever B/D provenance: how many admitted rules came from the deeper
+            # generators (richer FN→ADD conjunctions/guards, multi-literal joins).
+            _n_multi = sum(1 for r in final_rules
+                           if (getattr(r, "val_stats", None) or {}).get("multiattr"))
+            _n_rich = sum(1 for r in final_rules
+                          if (getattr(r, "val_stats", None) or {}).get("rich"))
             log.info("Staged final: %d seed + %d Track2 (composite, %d→%d after structure-filter+cap) "
-                     "+ %d equal = %d total rules", len(all_seed_rules), len(_t2_rules),
-                     _n_t2_raw, len(_t2_rules), len(_equal_rules), len(final_rules))
+                     "+ %d equal = %d total rules  [richer-LF=%d, multiattr-join=%d]",
+                     len(all_seed_rules), len(_t2_rules),
+                     _n_t2_raw, len(_t2_rules), len(_equal_rules), len(final_rules),
+                     _n_rich, _n_multi)
         else:
             # Original: combined batch_select (Track 1 + Track 2)
             combined_trials = all_trials + track2_trials

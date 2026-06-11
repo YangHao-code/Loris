@@ -366,6 +366,84 @@ def compute_phrase_attributes(
     return M, list(phrase_vocab)
 
 
+def llm_doc_hash(text: str) -> str:
+    """Stable content hash used to key the offline LLM attribute/judgment cache.
+    The precompute script and the pipeline MUST agree on this so a doc resolves
+    to the same cached values at BO / select / test (fit-once-and-reuse)."""
+    import hashlib  # noqa: PLC0415
+    return hashlib.sha1((text or "").encode("utf-8")).hexdigest()[:16]
+
+
+def compute_llm_attributes(
+    docs: Sequence,
+    cache_path: Optional[str],
+    vocab: Optional[List[str]] = None,
+    attr_name: str = "llm",
+) -> Tuple[Optional[sp.csr_matrix], List[str]]:
+    """Closed-ontology LLM membership attribute for ``x.A=y.A`` (Lever C).
+
+    Reads a precomputed cache ``{doc_hash: [value, ...]}`` produced OFFLINE by a
+    local LLM (see ``precompute_llm_attributes.py``) over a **closed** ontology,
+    and builds a (n_docs × n_values) 0/1 csr — the same shape as every other
+    virtual attribute, so it auto-enrols into group/equal/multi-literal discovery.
+
+    The LLM is non-deterministic, so its output is captured ONCE in the cache and
+    reused verbatim, keyed by ``llm_doc_hash(doc.cnt)``. ``vocab=None`` fits the
+    value vocabulary (deterministic, ``(-df, value)``); pass the returned vocab at
+    select/test to keep column semantics identical (the contract group rules need).
+
+    Returns ``(csr | None, vocab)``. ``None`` (caller omits the attribute) when the
+    cache is absent/empty — so a missing cache is golden-neutral, never a crash.
+    """
+    import json, os  # noqa: PLC0415
+    if not cache_path or not os.path.exists(cache_path):
+        return None, []
+    try:
+        with open(cache_path) as f:
+            cache = json.load(f)
+    except Exception as e:                                   # never break discovery
+        logger.warning("compute_llm_attributes: cannot read cache %s: %s", cache_path, e)
+        return None, []
+
+    texts = [getattr(d, "cnt", "") or "" for d in docs]
+    per_doc = [
+        [str(v).strip().lower() for v in (cache.get(llm_doc_hash(t)) or []) if str(v).strip()]
+        for t in texts
+    ]
+
+    if vocab is None:                                        # fit value vocabulary
+        df: Dict[str, int] = {}
+        for vals in per_doc:
+            for v in set(vals):
+                df[v] = df.get(v, 0) + 1
+        vocab = [v for v, _ in sorted(df.items(), key=lambda kv: (-kv[1], kv[0]))]
+        if not vocab:
+            return None, []
+
+    idx = {v: j for j, v in enumerate(vocab)}
+    rows: List[int] = []
+    cols: List[int] = []
+    for i, vals in enumerate(per_doc):
+        for v in set(vals):
+            j = idx.get(v)
+            if j is not None:
+                rows.append(i)
+                cols.append(j)
+    n_docs, n_vals = len(docs), len(vocab)
+    if n_vals == 0:
+        return None, []
+    M = sp.csr_matrix(
+        (np.ones(len(rows), np.int8),
+         (np.asarray(rows, np.int64), np.asarray(cols, np.int64))),
+        shape=(n_docs, n_vals), dtype=np.int8,
+    )
+    if M.nnz:
+        M.data[:] = 1
+    logger.info("compute_llm_attributes (%s): %d docs, %d closed-ontology values",
+                os.path.basename(cache_path), n_docs, n_vals)
+    return M, list(vocab)
+
+
 def compute_all_virtual_attributes(
     train_embeddings: np.ndarray,
     target_embeddings: np.ndarray,
@@ -381,6 +459,8 @@ def compute_all_virtual_attributes(
     enable_text_attrs: bool = True,
     enable_cluster_attrs: bool = True,
     text_max_vocab: int = 2000,
+    enable_llm_attrs: bool = False,
+    llm_cache_path: Optional[str] = None,
 ) -> Tuple[Dict[str, sp.csr_matrix], Dict[int, object], Dict[str, List[str]]]:
     """Compute all virtual attributes as multi-value csr membership matrices.
 
@@ -425,6 +505,15 @@ def compute_all_virtual_attributes(
                 "zero attributes — spaCy pass likely broken (fail loud rather "
                 "than silently degrade to cluster-only)."
             )
+
+    # Lever C: closed-ontology LLM membership attribute (offline cache). The
+    # group rule references it by NAME and the fire-mask is computed intra-matrix
+    # per call, so no cross-call column threading is needed — a fresh fit from the
+    # SAME cache is consistent. Default OFF / no cache ⇒ no attribute (golden-neutral).
+    if enable_llm_attrs and llm_cache_path:
+        _llm_M, _ = compute_llm_attributes(target_docs, llm_cache_path)
+        if _llm_M is not None and _llm_M.shape[1] > 0:
+            all_attrs["llm"] = _llm_M
 
     # Fail-loud structural guard (catches silent shape/type corruption).
     n_target = len(target_docs)
