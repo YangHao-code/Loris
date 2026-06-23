@@ -603,6 +603,29 @@ class BeforePredicate(TextualPredicate):
 
 _ML_MODEL_CACHE: Dict[str, Any] = {}
 
+# Per-(model_name, document-text) prediction memo.
+# MLThresholdPredicate.__call__ runs one model forward per doc; the staged Stage-3
+# co-occurrence step (pipeline/steps.py:1984/1998) re-predicts the *full* rule set over
+# thousands of docs, so an LLM-in-pool (e.g. Mistral) turns that into 1e4–1e5 redundant
+# forwards and the run appears to hang. This memo caches each model's output per unique
+# document text so repeated evals are O(1) — value-identical to recomputing.
+# CRITICAL (staleness): the memo is a snapshot. It is invalidated for a model name
+# whenever that name is (re)registered via register_ml_model — so a retrained model
+# (iterative path) can never serve stale predictions. The standard (re)train path goes
+# through register_ml_model; do NOT mutate a registered model in place without
+# re-registering, or its memo will be stale.
+_ML_PRED_MEMO: Dict[Tuple[str, str], Any] = {}
+_MEMO_MISS = object()  # sentinel: distinguishes "not cached" from a cached falsy value
+
+
+def clear_ml_pred_memo(name: Optional[str] = None) -> None:
+    """Drop memoized per-doc predictions — for *name* only, or all models if None."""
+    if name is None:
+        _ML_PRED_MEMO.clear()
+    else:
+        for _k in [k for k in _ML_PRED_MEMO if k[0] == name]:
+            del _ML_PRED_MEMO[_k]
+
 
 def register_ml_model(name: str, model: Any) -> None:
     """
@@ -619,6 +642,9 @@ def register_ml_model(name: str, model: Any) -> None:
         Model object with a ``predict(text) -> str`` method.
     """
     _ML_MODEL_CACHE[name] = model
+    # Invalidate any memoized predictions for this name: a (re)registered model may be
+    # freshly retrained, so previously cached per-doc outputs are now stale.
+    clear_ml_pred_memo(name)
 
 
 def _get_ml_model(model_name: str) -> Any:
@@ -693,13 +719,24 @@ class MLThresholdPredicate(Predicate):
 
     def __call__(self, doc: Document) -> bool:
         model = _get_ml_model(self.model_name)
+        # Memoize the model's per-doc output (keyed by text) so repeated evaluations of
+        # the same (model, doc) — across many rules / predict passes — cost one forward,
+        # not one per call. Invalidated on register_ml_model (see _ML_PRED_MEMO).
+        _key = (self.model_name, doc.cnt)
         if hasattr(model, "predict_proba_single"):
-            proba = model.predict_proba_single(doc.cnt)
+            proba = _ML_PRED_MEMO.get(_key)
+            if proba is None:
+                proba = model.predict_proba_single(doc.cnt)
+                _ML_PRED_MEMO[_key] = proba
             label_idx = model.label_index(self.label)
             return float(proba[label_idx]) >= self.threshold
         # fallback to argmax
         if hasattr(model, "predict"):
-            return model.predict(doc.cnt) == self.label
+            label = _ML_PRED_MEMO.get(_key, _MEMO_MISS)
+            if label is _MEMO_MISS:
+                label = model.predict(doc.cnt)
+                _ML_PRED_MEMO[_key] = label
+            return label == self.label
         return False
 
     def __repr__(self) -> str:

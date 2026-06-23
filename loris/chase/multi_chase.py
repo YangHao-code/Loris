@@ -24,6 +24,7 @@ Design notes
 from __future__ import annotations
 
 import logging
+import os
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -282,19 +283,55 @@ class MultiChase:
                 if key not in _all_unique_preds:
                     _all_unique_preds[key] = p
 
-        # Step 2: evaluate each unique predicate once on all docs
+        # Step 2: evaluate each unique predicate once on all docs.
+        # Env-gated fast-path (CHASE_BATCH_ML): MLThresholdPredicate.__call__ does one model
+        # forward *per doc*; when M is an LLM (Mistral-in-pool) that is intractable on a big
+        # test chase. Batch those predicates per model — one batched predict_proba over all
+        # docs, then threshold. Output is identical (proba[:,label] >= t, same as __call__);
+        # off by default so golden/other runs are unchanged.
+        _batched_keys: set = set()
+        if os.environ.get("CHASE_BATCH_ML"):
+            try:
+                from loris.predicates._core import MLThresholdPredicate, _get_ml_model
+                by_model: Dict[str, list] = {}
+                for key, pred in _all_unique_preds.items():
+                    if isinstance(pred, MLThresholdPredicate):
+                        by_model.setdefault(pred.model_name, []).append((key, pred))
+                if by_model:
+                    texts = [d.cnt for d in docs]
+                    for mn, plist in by_model.items():
+                        model = _get_ml_model(mn)
+                        clf = getattr(model, "_clf", model)
+                        proba = np.asarray(clf.predict_proba(texts), dtype=np.float64)
+                        if proba.ndim == 1:
+                            proba = proba.reshape(n_docs, -1)
+                        for key, pred in plist:
+                            li = model.label_index(pred.label)
+                            _pred_key_to_mask[key] = (proba[:, li] >= pred.threshold)
+                            _batched_keys.add(key)
+                    logger.info(
+                        "  [CHASE_BATCH_ML] batched %d ML predicate masks over %d model(s)",
+                        len(_batched_keys), len(by_model),
+                    )
+            except Exception as _e:  # pragma: no cover — fall back to per-doc
+                logger.warning(
+                    "  [CHASE_BATCH_ML] fast-path failed (%s); using per-doc eval", _e
+                )
+                _batched_keys = set()
+
+        _todo = [(k, p) for k, p in _all_unique_preds.items() if k not in _batched_keys]
         logger.info(
             "  Computing %d unique predicate masks on %d docs ...",
-            len(_all_unique_preds), n_docs,
+            len(_todo), n_docs,
         )
-        for i, (key, pred) in enumerate(_all_unique_preds.items()):
+        for i, (key, pred) in enumerate(_todo):
             mask = np.array([bool(pred(doc)) for doc in docs], dtype=bool)
             _pred_key_to_mask[key] = mask
-            if (i + 1) % 50 == 0 or i == len(_all_unique_preds) - 1:
+            if (i + 1) % 50 == 0 or i == len(_todo) - 1:
                 _elapsed = time.monotonic() - _t0
                 logger.info(
                     "  predicate masks: %d/%d (%.1fs elapsed)",
-                    i + 1, len(_all_unique_preds), _elapsed,
+                    i + 1, len(_todo), _elapsed,
                 )
 
         # Step 3: AND per-predicate masks to build per-rule cache
