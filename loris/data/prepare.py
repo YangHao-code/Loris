@@ -891,6 +891,18 @@ def _build_dataset_registry() -> Dict[str, DatasetConfig]:
             stop_words=REUTERS21578_STOP_WORDS,
             prepare_fn=prepare_reuters21578,
         ),
+        # arXiv cs-papers sample — processed CSVs ship out-of-band under
+        # data/arxiv/processed/. No prepare_fn (data is pre-built); reuse AAPD
+        # stop words (both are CS-paper abstracts). Added for the baseline suite
+        # (the upstream registry omitted it though data/arxiv exists).
+        "arxiv": DatasetConfig(
+            name="arxiv",
+            display_name="arXiv (CS Papers, multi-label)",
+            data_dir=_ROOT / "data" / "arxiv",
+            default_top_labels=40,
+            stop_words=AAPD_STOP_WORDS,
+            prepare_fn=prepare_aapd,
+        ),
     }
 
 

@@ -99,7 +99,14 @@ def main():
         # seed across all four selectors + the K-sweep).
         for seed in seeds:
             t_load = time.time()
-            split = C.load_split(ds)
+            try:
+                split = C.load_split(ds)
+            except Exception as exc:
+                # one unloadable dataset must not abort the whole matrix
+                log.exception("LOAD FAILED %s seed=%d: %s — skipping dataset/seed",
+                              ds, seed, exc)
+                summary["fail"] = summary.get("fail", 0) + 1
+                continue
             log.info("Loaded %s seed=%d: train=%d val=%d test=%d labels=%d (%.1fs)",
                      ds, seed, len(split.train_X), len(split.val_X),
                      len(split.test_X), split.n_labels, time.time() - t_load)
