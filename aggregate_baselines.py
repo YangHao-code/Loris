@@ -27,7 +27,7 @@ GROUP = {
     "ruleprompt": "B:end-to-end", "deberta_svm": "B:end-to-end",
     "deberta_xgboost": "B:end-to-end", "roberta_svm": "B:end-to-end",
     "roberta_xgboost": "B:end-to-end", "gpt4": "B:end-to-end",
-    "besra": "B:end-to-end(HITL)", "ral": "B:end-to-end(HITL)",
+    "besra": "B:end-to-end(HITL)", "comal": "B:end-to-end(HITL)",
     "filter_mi": "C:pattern-sel", "filter_chi2": "C:pattern-sel",
     "weshap": "C:pattern-sel", "localboost": "C:pattern-sel",
 }

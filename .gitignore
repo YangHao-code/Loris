@@ -18,6 +18,13 @@ dist/
 *.npy
 embeddings_*.npy
 
+# Datasets (transferred out-of-band, not in git)
+data/
+# Run logs
+logs/
+# The paper PDF (not source)
+*.pdf
+
 # Editor / OS
 .DS_Store
 .idea/

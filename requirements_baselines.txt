@@ -15,5 +15,9 @@ sentencepiece>=0.1.99
 # GPT4 + RulePrompt baselines (llm_client.py) — needs OPENAI_API_KEY at runtime
 openai>=1.0.0
 
+# Group A selectors (random_ms/indiv_ms/hybrid_llm/caas) import the LORIS orchestrator,
+# which pulls in optuna via loris.rules.discovery — required or those 4 baselines crash.
+optuna>=3.0.0
+
 # Optional: 4-bit LoRA if the target torch/CUDA supports it (bf16 fallback otherwise)
 # bitsandbytes>=0.43.0

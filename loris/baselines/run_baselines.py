@@ -30,6 +30,11 @@ from loris.baselines import common as C
 log = logging.getLogger("loris.baselines")
 
 # module name -> imported lazily; each exposes BASELINES = {name: fn}
+# Order matters: later modules OVERRIDE earlier same-named baselines. The
+# ``*_orig``/``*_reef`` modules drive the AUTHORS' original source code (vendored
+# under refs/) and intentionally override the first-pass ports of the same name.
+# See refs/ and BASELINE_PLAN §4. RulePrompt keeps the first-pass reimpl (its
+# original openprompt+torch1.12 stack is incompatible with this Blackwell GPU).
 _MODULES = [
     "selectors",
     "encoder_head",
@@ -39,6 +44,12 @@ _MODULES = [
     "ruleprompt",
     "hitl",
     "pattern_select",
+    # ── original-source adapters (override the first-pass ports above) ──
+    "snuba_reef",        # Snuba  <- HazyResearch/reef
+    "weshap_orig",       # WeShap <- Gnaiqing/WeShap
+    "besra_orig",        # BESRA  <- davidtw999/BESRA
+    "rulecleaner_orig",  # LocalBoost slot -> RuleCleaner (JayLi2018/RuleCleanerKDD25)
+    "comal_orig",        # RAL slot -> CoMAL (chengzju/CoMAL); also drops first-pass 'ral'
 ]
 
 
@@ -56,6 +67,10 @@ def build_registry() -> dict:
             if name in registry:
                 log.warning("Duplicate baseline name '%s' (from %s) — overwriting.", name, mod)
             registry[name] = fn
+    # RAL released no usable code and was substituted by CoMAL (reported under its
+    # own name). Drop the first-pass 'ral' port so the RAL slot is CoMAL only.
+    if "comal" in registry:
+        registry.pop("ral", None)
     return registry
 
 
