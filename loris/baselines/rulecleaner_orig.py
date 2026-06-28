@@ -145,19 +145,25 @@ def _refine_one_label(vocab, top_idx, train_insts_pos, train_insts_neg,
     return rules
 
 def localboost(split, seed: int = 0, *, top_k: int = 200, n_patterns: int = 1000,
-               repair_strategy: str = "naive", max_rules: int = 8,
-               max_pos: int = 15, max_neg: int = 15, **kwargs) -> dict:
-    """RuleCleaner rule-refinement selection (authors' code); LocalBoost-slot.
+               repair_strategy: str = "naive", max_rules: int = 12,
+               max_pos: int = 20, max_neg: int = 20, **kwargs) -> dict:
+    """RuleCleaner rule-refinement classifier (authors' code); LocalBoost-slot.
 
-    Reported under its own name 'RuleCleaner'. kwargs: top_k, n_patterns,
-    repair_strategy ('naive'|'information_gain'), max_rules (candidate patterns
-    refined), max_pos/max_neg (labeled "complaints" per label — RuleCleaner is a
-    *limited-labeled-data* method, so a small labeled set is on-protocol and
-    keeps the O(complaints^2) tree repair tractable). Remaining top_k slots after
-    the refined patterns are filled from MI order.
+    Reported under its own name 'RuleCleaner'. This builds a genuine RULE-BASED
+    classifier from the authors' refined TreeRules (NOT a pattern ranker feeding
+    a logistic model — that collapsed to filter_mi). Per label: take the top
+    ``max_rules`` MI keyword patterns, build + REPAIR a TreeRule for each against
+    a small labeled "complaint" set (``fix_violations``), then PREDICT each test
+    doc by the refined rules' vote (label on iff the mean rule firing exceeds a
+    val-tuned global threshold). This makes RuleCleaner's refinement the thing
+    being measured, distinct from the filter/Shapley selectors.
+
+    kwargs: top_k (unused for prediction; kept for CLI parity), n_patterns,
+    repair_strategy ('naive'|'information_gain'), max_rules (rules/label),
+    max_pos/max_neg (labeled complaints/label — RuleCleaner is a
+    limited-labeled-data method, so small sets are on-protocol and keep the
+    O(complaints^2) repair tractable).
     """
-    from loris.baselines.pattern_select import _rank_mi, _fit_score
-
     Xtr, Xval, Xte, vocab, vec = _top_keyword_patterns(split, n_patterns)
     ytr = np.asarray(split.train_y, dtype=int)
     yval = np.asarray(split.val_y, dtype=int)
@@ -165,57 +171,66 @@ def localboost(split, seed: int = 0, *, top_k: int = 200, n_patterns: int = 1000
     n_lbl = ytr.shape[1]
     n_feat = Xtr.shape[1]
 
-    # MI ordering (shared with filter_mi) gives the candidate patterns to refine.
-    mi_order = _rank_mi(Xtr, ytr, seed)
-    cand = mi_order[: min(max_rules, mi_order.size)]
-
-    # Build train/val instance wrappers once (text reused across labels).
-    train_insts_all = [_Inst(split.train_X[i], 0, i) for i in range(len(split.train_X))]
     val_insts = [_Inst(split.val_X[i], 0, i) for i in range(len(split.val_X))]
+    test_insts = [_Inst(split.test_X[i], 0, i) for i in range(len(split.test_X))]
 
-    # Per-pattern aggregate "refinement value": mean val macro-F1 of the repaired
-    # rule across labels for which the pattern is a candidate. Patterns whose
-    # refined rules best predict val are ranked first (the RuleCleaner signal).
-    pattern_score = np.zeros(n_feat, dtype=np.float64)
+    # Per-label candidate keyword patterns: rank by chi2 of the binary pattern
+    # vs the label (fast, computed once for all labels via sklearn.chi2). This
+    # only picks WHICH patterns become candidate rules; the refinement is the
+    # authors' fix_violations.
+    from sklearn.feature_selection import chi2 as _chi2
+    label_cand = {}
+    for lab in range(n_lbl):
+        yl = ytr[:, lab]
+        if yl.sum() == 0 or yl.sum() == len(yl):
+            label_cand[lab] = np.array([], dtype=int)
+            continue
+        try:
+            sc, _ = _chi2(Xtr, yl)
+            sc = np.nan_to_num(sc)
+            label_cand[lab] = np.argsort(-sc)[: min(max_rules, n_feat)]
+        except Exception:
+            label_cand[lab] = np.arange(min(max_rules, n_feat))
+
+    # Per-label refined-rule firing scores on val + test (mean over the label's
+    # refined rules), then one global threshold tuned on val (LORIS convention).
+    val_scores = np.zeros((len(val_insts), n_lbl), dtype=np.float64)
+    test_scores = np.zeros((len(test_insts), n_lbl), dtype=np.float64)
     n_refined = 0
     with common.Timer() as t, warnings.catch_warnings():
         warnings.simplefilter("ignore")
         for lab in range(n_lbl):
             yl = ytr[:, lab]
-            if yl.sum() == 0 or yl.sum() == len(yl):
+            cand = label_cand[lab]
+            if cand.size == 0:
                 continue
             pos = [_Inst(split.train_X[i], SPAM, i) for i in np.where(yl > 0)[0]]
             neg = [_Inst(split.train_X[i], HAM, i) for i in np.where(yl == 0)[0]]
-            # cap labeled complaints per label (RuleCleaner = limited-labeled-data
-            # method; small sets are on-protocol and keep the O(n^2) repair fast)
             rng = np.random.RandomState(seed + lab)
             if len(pos) > max_pos:
                 pos = [pos[i] for i in rng.choice(len(pos), max_pos, replace=False)]
             if len(neg) > max_neg:
                 neg = [neg[i] for i in rng.choice(len(neg), max_neg, replace=False)]
             rules = _refine_one_label(vocab, cand, pos, neg, val_insts, repair_strategy)
-            yval_l = yval[:, lab]
-            for rule, j in zip(rules, cand[:len(rules)]):
-                pred = _rule_predict(rule, val_insts)
-                f1 = common.score(yval_l.reshape(-1, 1), pred.reshape(-1, 1))["macro_f1"]
-                pattern_score[j] = max(pattern_score[j], f1)
-                n_refined += 1
+            if not rules:
+                continue
+            n_refined += len(rules)
+            # mean firing across the label's refined rules
+            vacc = np.zeros(len(val_insts), dtype=np.float64)
+            tacc = np.zeros(len(test_insts), dtype=np.float64)
+            for rule in rules:
+                vacc += _rule_predict(rule, val_insts)
+                tacc += _rule_predict(rule, test_insts)
+            val_scores[:, lab] = vacc / len(rules)
+            test_scores[:, lab] = tacc / len(rules)
 
-    # Rank: refined-rule value first, then MI order for the long tail (parity
-    # with weshap/localboost downstream feature budget).
-    order = np.argsort(-pattern_score)
-    refined_cols = [j for j in order if pattern_score[j] > 0]
-    tail = [j for j in mi_order if j not in set(refined_cols)]
-    ranked = (refined_cols + tail)[: min(top_k, n_feat)]
-    cols = np.asarray(ranked, dtype=int)
-
-    metrics = _fit_score(Xtr, ytr, Xval, yval, Xte, yte, cols, seed)
+    metrics = common.score_from_scores(test_scores, yte, val_scores, yval)
     metrics["n_annotations"] = 0
     metrics["extra"] = {
-        "source": "JayLi2018/RuleCleanerKDD25 TreeRule repair",
+        "source": "JayLi2018/RuleCleanerKDD25 TreeRule repair (rule-based classifier)",
         "note": "LocalBoost-slot substitute (KDD'25); reported under own name 'RuleCleaner'",
-        "top_k": int(len(cols)), "n_patterns": int(n_feat),
-        "rules_refined": int(n_refined), "repair_strategy": repair_strategy,
+        "rules_refined": int(n_refined), "max_rules": int(max_rules),
+        "repair_strategy": repair_strategy, "n_patterns": int(n_feat),
         "wall_sec": float(t.sec),
     }
     return metrics
