@@ -60,8 +60,17 @@ def _fit_pool(split, seed: int) -> dict:
         return cached
 
     from loris.pipeline.shared import init_models
+    from loris.baselines.common import has_raw_text
 
     pool = init_models(split.n_labels)
+    # On datasets without raw text (e.g. rcv1 = hashed TF-IDF tokens), a
+    # pretrained-encoder (RoBERTa) over pseudo-"text" is meaningless AND, with no
+    # GPU on that lane, trains on CPU for hours. Drop the encoder there — the
+    # paper's rcv1 comparison is the TF-IDF/linear pool anyway (results_auto.tex
+    # footnote). Text datasets keep the full pool.
+    if not has_raw_text(split.dataset):
+        for enc_key in [k for k in pool if "encoder" in k or "lora" in k]:
+            pool.pop(enc_key, None)
     names = list(pool.keys())
 
     val_proba: List[np.ndarray] = []
