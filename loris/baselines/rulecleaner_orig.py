@@ -164,6 +164,16 @@ def localboost(split, seed: int = 0, *, top_k: int = 200, n_patterns: int = 1000
     limited-labeled-data method, so small sets are on-protocol and keep the
     O(complaints^2) repair tractable).
     """
+    from loris.baselines.common import has_raw_text
+    # RuleCleaner is a keyword/text TREE-RULE method (predicates match words in
+    # the document text). On datasets without raw text (rcv1 = hashed TF-IDF
+    # tokens like 'w5215'), keyword rules are meaningless — and the authors'
+    # repair path even crashes on the pseudo-tokens. Skip by design, exactly as
+    # the transformer/text baselines do on rcv1 (paper footnote).
+    if not has_raw_text(split.dataset):
+        raise NotImplementedError(
+            f"RuleCleaner (localboost) requires raw text; dataset "
+            f"'{split.dataset}' ships hashed TF-IDF only.")
     Xtr, Xval, Xte, vocab, vec = _top_keyword_patterns(split, n_patterns)
     ytr = np.asarray(split.train_y, dtype=int)
     yval = np.asarray(split.val_y, dtype=int)
