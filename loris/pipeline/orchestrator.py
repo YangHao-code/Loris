@@ -778,7 +778,7 @@ def main() -> None:
         # ── 3.2 dynamic router ──────────────────────────────────────────
         selected_idx = run_dynamic_router(
             pool, train_X, train_y, rule_eval_X, rule_eval_y, hp, exp_dir,
-            skip_router=args.no_router,
+            skip_router=args.no_router, selector=args.selector,
         )
         registered_names = register_selected_models(pool, selected_idx, label_names)
 
