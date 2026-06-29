@@ -71,9 +71,11 @@ def _run_loris(ds, seed, k, *, selector="router", pattern_select="loris",
                CUDA_VISIBLE_DEVICES="0")
     t0 = time.time()
     log = exp_dir / "run.log"
-    # Per-cell wall-clock safety cap (45 min): a hung chase shouldn't stall the
-    # whole matrix. bgc/arxiv at canonical caps are the slowest; 45 min is ample.
-    timeout_s = int(os.environ.get("LORIS_CELL_TIMEOUT", "2700"))
+    # No hard wall-clock kill: LORIS runs at canonical caps legitimately take a
+    # long time (esp. bgc/arxiv), and a premature kill yields spurious FAILs with
+    # null macro. Optional soft cap via LORIS_CELL_TIMEOUT (unset = no timeout).
+    _to = os.environ.get("LORIS_CELL_TIMEOUT", "").strip()
+    timeout_s = int(_to) if _to else None
     with open(log, "w") as lf:
         try:
             rc = subprocess.call(cmd, stdout=lf, stderr=subprocess.STDOUT,
