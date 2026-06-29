@@ -316,6 +316,116 @@ def _build_multi_label_oracle_mask(
     return oracle
 
 
+def _baseline_select_models(
+    selector: str,
+    pool: Dict[str, object],
+    model_names: List[str],
+    train_X: List[str], train_y: np.ndarray,
+    val_X: List[str], val_y: np.ndarray,
+    k: int,
+    seed: int = 0,
+) -> List[int]:
+    """Group-A model selection: return K model indices via a baseline rule.
+
+    The selection LOGIC mirrors loris/baselines/selectors.py but returns indices
+    (no ensemble vote) so LORIS's pipeline runs on the K selected models and
+    reports LORIS's downstream F1 (paper protocol). Models are fit-as-needed on
+    train; predictions evaluated on val.
+
+      random_ms  — K uniformly at random (seeded).
+      indiv_ms   — top-K by individual val macro-F1.
+      hybrid_llm — difficulty routing: keep the K models that "win" the most val
+                   docs (highest per-doc Dice-F1).
+      caas       — LinUCB contextual bandit over arms=models; top-K by value.
+    """
+    import numpy as _np
+    from sklearn.metrics import f1_score as _f1
+
+    n = len(model_names)
+    k = max(1, min(k, n))
+
+    # random_ms needs no fitting.
+    if selector == "random_ms":
+        rng = _np.random.RandomState(seed)
+        return sorted(rng.choice(n, k, replace=False).tolist())
+
+    # Fit each model (train) and collect val hard preds + per-model val macro.
+    val_pred: List[_np.ndarray] = []
+    val_macro: List[float] = []
+    yval = _np.asarray(val_y, dtype=_np.int32)
+    for i, name in enumerate(model_names):
+        clf = pool[name]
+        try:
+            _np.random.seed(42 + seed + i)
+            clf.fit(train_X, train_y, val_X, val_y)
+            vp = _np.asarray(clf.predict(val_X), dtype=_np.int32)
+            vm = float(_f1(yval, vp, average="macro", zero_division=0))
+        except Exception:
+            vp = _np.zeros_like(yval)
+            vm = 0.0
+        val_pred.append(vp)
+        val_macro.append(vm)
+
+    if selector == "indiv_ms":
+        order = _np.argsort(-_np.asarray(val_macro))[:k]
+        return sorted(int(i) for i in order)
+
+    # per-doc per-model Dice-F1 (shared by hybrid_llm and caas)
+    nval = yval.shape[0]
+    f1_dm = _np.zeros((nval, n), dtype=_np.float64)
+    for j in range(n):
+        p = val_pred[j]
+        tp = (p & yval).sum(axis=1).astype(_np.float64)
+        denom = (p.sum(axis=1) + yval.sum(axis=1)).astype(_np.float64)
+        f1_dm[:, j] = _np.divide(2.0 * tp, denom, out=_np.zeros(nval),
+                                 where=denom > 0)
+
+    if selector == "hybrid_llm":
+        wins = _np.bincount(f1_dm.argmax(axis=1), minlength=n).astype(_np.float64)
+        mass = f1_dm.sum(axis=0)
+        key = wins * 1e6 + mass + _np.asarray(val_macro) * 1e-6
+        order = _np.argsort(-key)[:k]
+        return sorted(int(i) for i in order)
+
+    if selector == "caas":
+        # LinUCB over arms=models; context = low-dim lexical features of val docs.
+        import math
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        from sklearn.decomposition import TruncatedSVD
+        try:
+            vec = TfidfVectorizer(max_features=5000, sublinear_tf=True)
+            Xv = vec.fit_transform(val_X)
+            d = max(2, min(8, Xv.shape[0] - 1, Xv.shape[1] - 1))
+            ctx = TruncatedSVD(n_components=d, random_state=seed).fit_transform(Xv)
+        except Exception:
+            ctx = _np.zeros((nval, 2))
+        ctx = _np.hstack([ctx, _np.ones((nval, 1))]).astype(_np.float64)
+        d = ctx.shape[1]
+        A = [_np.eye(d) for _ in range(n)]
+        b = [_np.zeros(d) for _ in range(n)]
+        rng = _np.random.RandomState(seed)
+        pulls = min(400, nval)
+        for t in rng.choice(nval, pulls, replace=False) if pulls else []:
+            x = ctx[t]
+            ucb = _np.array([
+                float((_np.linalg.inv(A[j]) @ b[j]) @ x
+                      + math.sqrt(max(x @ _np.linalg.inv(A[j]) @ x, 0)))
+                for j in range(n)])
+            arm = int(ucb.argmax())
+            A[arm] += _np.outer(x, x)
+            b[arm] += float(f1_dm[t, arm]) * x
+        xbar = ctx.mean(axis=0)
+        value = _np.array([float((_np.linalg.inv(A[j]) @ b[j]) @ xbar)
+                           for j in range(n)])
+        key = value * 1e3 + _np.asarray(val_macro) * 1e-3
+        order = _np.argsort(-key)[:k]
+        return sorted(int(i) for i in order)
+
+    # unknown selector → fall back to top-K by val macro
+    order = _np.argsort(-_np.asarray(val_macro))[:k]
+    return sorted(int(i) for i in order)
+
+
 def run_dynamic_router(
     pool: Dict[str, object],
     train_X: List[str], train_y: np.ndarray,
@@ -323,12 +433,25 @@ def run_dynamic_router(
     hp: HParams,
     exp_dir: Path,
     skip_router: bool = False,
+    selector: str = "router",
 ) -> List[int]:
     t0 = time.time()
     log.info("=== Step 3.2  Dynamic Router ===")
     model_names = list(pool.keys())
     n_models = len(model_names)
     k = min(hp.k_models, n_models)
+
+    # ── Group A: baseline model-selection (replace the router's selected_idx) ──
+    # The paper's "model selection" experiment keeps the full LORIS pipeline and
+    # only swaps THIS component, then reports LORIS's downstream labeling F1.
+    sel = selector if selector != "router" else getattr(hp, "selector", "router")
+    if sel and sel != "router":
+        idx = _baseline_select_models(
+            sel, pool, model_names, train_X, train_y, val_X, val_y, k,
+            seed=int(getattr(hp, "seed", 0) or 0))
+        log.info("Model selection via '%s' (K=%d): %s",
+                 sel, k, [model_names[i] for i in idx])
+        return idx
 
     if skip_router or n_models <= k:
         val_f1 = {}
@@ -452,6 +575,114 @@ def register_selected_models(
 # Step 3.3 — rule discovery
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _alt_pattern_scores(method: str, F, L, coverages, val_y):
+    """Group-C predicate ranking criteria over the fire-mask × label matrix.
+
+    F: (n_pred, n_docs) bool/float predicate firings on val.
+    L: (n_docs, n_labels) float multi-hot labels.
+    Returns a length-n_pred score array (higher = keep).
+
+      filter_mi    — summed mutual information between each predicate's firing
+                     and each label (binary MI), over labels.
+      filter_chi2  — summed chi-square statistic, over labels.
+      weshap       — Monte-Carlo Shapley: marginal gain of each predicate to the
+                     val macro-F1 of a cheap logistic ensemble over random
+                     permutations (approximate; cost noted in plan).
+      localboost   — greedy boosting: iteratively add the predicate that most
+                     improves the current logistic ensemble's val macro-F1; rank
+                     = negative add-order (earlier picks score higher).
+    """
+    import numpy as _np
+    n_pred, n_docs = F.shape
+    Fb = (F > 0).astype(_np.int8)            # (n_pred, n_docs)
+    Y = (val_y > 0).astype(_np.int8)         # (n_docs, n_labels)
+    n_lbl = Y.shape[1]
+
+    if method in ("filter_mi", "filter_chi2"):
+        from sklearn.feature_selection import mutual_info_classif, chi2
+        Xp = Fb.T                            # (n_docs, n_pred) features = predicates
+        agg = _np.zeros(n_pred, dtype=_np.float64)
+        for j in range(n_lbl):
+            yj = Y[:, j]
+            if yj.sum() == 0 or yj.sum() == n_docs:
+                continue
+            if method == "filter_mi":
+                agg += mutual_info_classif(Xp, yj, discrete_features=True,
+                                           random_state=0)
+            else:
+                sc, _ = chi2(Xp, yj)
+                agg += _np.nan_to_num(sc)
+        return agg
+
+    # weshap / localboost use a cheap per-label logistic ensemble val macro-F1.
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import f1_score as _f1
+    # split val in half: fit on one, score Shapley/boost gain on the other
+    rng = _np.random.RandomState(0)
+    perm = rng.permutation(n_docs)
+    half = n_docs // 2
+    fit_idx, ev_idx = perm[:half], perm[half:]
+    Xp = Fb.T
+
+    def _macro_with(cols):
+        if not cols:
+            return 0.0
+        Xf, Xe = Xp[fit_idx][:, cols], Xp[ev_idx][:, cols]
+        preds = _np.zeros((len(ev_idx), n_lbl), dtype=_np.int8)
+        for j in range(n_lbl):
+            yj = Y[fit_idx, j]
+            if yj.sum() == 0 or yj.sum() == len(yj):
+                continue
+            try:
+                lr = LogisticRegression(max_iter=120, solver="liblinear")
+                lr.fit(Xf, yj)
+                preds[:, j] = lr.predict(Xe)
+            except Exception:
+                pass
+        return float(_f1(Y[ev_idx], preds, average="macro", zero_division=0))
+
+    if method == "weshap":
+        # Monte-Carlo Shapley over predicates (small budget for tractability).
+        n_perm = 4
+        cap = min(n_pred, 250)               # cap candidate pool for cost
+        cand = list(_np.argsort(-coverages)[:cap])
+        contrib = _np.zeros(n_pred, dtype=_np.float64)
+        for _ in range(n_perm):
+            order = list(cand)
+            rng.shuffle(order)
+            cur, prev = [], 0.0
+            for p in order:
+                cur.append(p)
+                f = _macro_with(cur)
+                contrib[p] += (f - prev)
+                prev = f
+        return contrib
+
+    if method == "localboost":
+        # greedy forward selection by val-macro gain; earlier picks rank higher.
+        cap = min(n_pred, 250)
+        cand = set(_np.argsort(-coverages)[:cap].tolist())
+        chosen, scores = [], _np.zeros(n_pred, dtype=_np.float64)
+        prev = 0.0
+        budget = min(60, len(cand))
+        for step in range(budget):
+            best_p, best_f = None, prev
+            for p in list(cand):
+                f = _macro_with(chosen + [p])
+                if f > best_f:
+                    best_f, best_p = f, p
+            if best_p is None:
+                break
+            chosen.append(best_p)
+            cand.discard(best_p)
+            scores[best_p] = float(budget - step)  # earlier = higher
+            prev = best_f
+        # un-chosen but candidate predicates get a small coverage-based tail
+        return scores
+
+    return _np.asarray(coverages, dtype=_np.float64)
+
+
 def _select_top_predicates(
     store: PatternStore,
     val_docs: List[Document],
@@ -459,12 +690,22 @@ def _select_top_predicates(
     label_names: List[str],
     top_k: int = 100,
     per_type_top_k: Optional[int] = None,
+    pattern_select: str = "loris",
 ) -> Tuple[list, Optional[np.ndarray]]:
     """Select top predicates using hybrid scoring: phi * log1p(coverage * 100).
 
     Returns ``(selected_preds, fire_masks)`` where *fire_masks* is a bool
     array of shape ``(n_selected, n_val_docs)`` that can be passed downstream
     to avoid recomputing ``pred(doc)`` in ``precompute_fire_masks()``.
+
+    ``pattern_select`` (Group C, paper "varying pattern selection"): ranks the
+    candidate **predicates** by an alternative criterion instead of LORIS's
+    hybrid-phi, then keeps top-k the same way. Options: 'loris' (default,
+    hybrid-phi), 'filter_mi' (summed mutual information over labels), 'filter_chi2'
+    (summed chi-square), 'weshap' (Monte-Carlo Shapley over the predicate set),
+    'localboost' (greedy boosting: iteratively add the predicate that most
+    improves val macro-F1 of the current logistic ensemble). All operate on the
+    same predicate fire-mask × label matrix, so only the SELECTION changes.
 
     When *per_type_top_k* is set, predicates are grouped by class name
     (MatchPredicate, CooccurPredicate, …) and the top *per_type_top_k* are
@@ -532,12 +773,26 @@ def _select_top_predicates(
     log.info("  phi matrix done in %.1fs", t_phi - t_masks)
 
     # ── 4. 混合打分 ─────────────────────────────────────────────────────────
-    # scored: (hybrid, phi, cov, pred, original_candidate_index)
+    # scored: (score, phi, cov, pred, original_candidate_index)
+    # Group C: replace the hybrid-phi score with an alternative predicate ranking
+    # criterion when pattern_select != "loris" (paper "varying pattern selection").
+    alt = None
+    if pattern_select and pattern_select != "loris":
+        alt = _alt_pattern_scores(pattern_select, F, L, coverages, val_y)
+        log.info("  pattern selection via '%s' over %d predicates",
+                 pattern_select, F.shape[0])
+
     scored: List[Tuple[float, float, float, object, int]] = []
     for idx_in_valid, orig_idx in enumerate(valid_indices):
         bp = float(best_phis[idx_in_valid])
         cov = float(coverages[idx_in_valid])
-        if bp >= 0.02:
+        if alt is not None:
+            # alternative criterion drives ranking; keep a tiny phi floor so
+            # pure-noise predicates (no label association at all) are dropped.
+            if bp >= 0.0:
+                scored.append((float(alt[idx_in_valid]), bp, cov,
+                               candidates[orig_idx], int(orig_idx)))
+        elif bp >= 0.02:
             cov_factor = np.sqrt(cov * (1 - cov)) * 2
             hybrid = bp * cov_factor
             scored.append((hybrid, bp, cov, candidates[orig_idx], int(orig_idx)))
@@ -632,6 +887,7 @@ def _select_cluster_models(
             pool, cluster_train_X, cluster_train_y,
             cluster_val_X, cluster_val_y,
             hp, exp_dir, skip_router=False,
+            selector=getattr(hp, "selector", "router"),
         )
         cluster_ml_names = register_selected_models(
             pool, cluster_selected_idx, label_names, suffix=f"_c{cid}"

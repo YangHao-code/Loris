@@ -78,6 +78,7 @@ def run_rule_discovery(
         store, val_docs, val_y, label_names,
         top_k=hp.predicate_top_k,
         per_type_top_k=getattr(hp, "per_type_top_k", None),
+        pattern_select=getattr(hp, "pattern_select", "loris"),
     )
     # ── 自适应 max_trials：按标签数扩展搜索预算 ──
     effective_max_trials = (hp.max_trials if getattr(hp, 'no_adaptive_trials', False)
@@ -825,6 +826,7 @@ def run_rule_discovery_batch(
             store, cluster_val_docs, cluster_val_y, label_names,
             top_k=hp.predicate_top_k,
             per_type_top_k=getattr(hp, "per_type_top_k", None),
+            pattern_select=getattr(hp, "pattern_select", "loris"),
         )
         if not filtered_preds:
             log.warning("  Cluster %d: 0 filtered predicates, skipping.", cid)
