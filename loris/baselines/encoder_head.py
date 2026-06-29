@@ -88,9 +88,9 @@ class EncoderHeadClassifier:
         xgb_n_estimators: int = 300,
         xgb_max_depth: int = 6,
         finetune: bool = True,
-        ft_epochs: int = 3,
+        ft_epochs: int = 6,
         ft_lr: float = 2e-5,
-        ft_batch_size: int = 16,
+        ft_batch_size: int = 32,
     ) -> None:
         head = head.lower()
         if head not in ("svm", "logreg", "xgboost"):
@@ -164,8 +164,9 @@ class EncoderHeadClassifier:
         self.encoder.train()
         for p in self.encoder.parameters():
             p.requires_grad_(True)
+        # gradient checkpointing OFF: we have 32GB headroom, throughput matters
         try:
-            self.encoder.gradient_checkpointing_enable()
+            self.encoder.gradient_checkpointing_disable()
         except Exception:
             pass
 
@@ -179,7 +180,12 @@ class EncoderHeadClassifier:
         n = len(texts)
         idx = np.arange(n)
         bs = self.ft_batch_size
+        # early-stopping state (on val macro-F1 when val provided)
+        import copy as _copy
+        best_f1, best_state, patience_left = -1.0, None, 2
+        do_es = val_texts is not None and val_y is not None
         for epoch in range(1, self.ft_epochs + 1):
+            self.encoder.train()
             np.random.shuffle(idx)
             ep_loss = 0.0
             nb = 0
@@ -207,9 +213,42 @@ class EncoderHeadClassifier:
                 ep_loss += float(loss.item())
                 nb += 1
             import logging
-            logging.getLogger("loris.baselines").info(
-                "  [%s FT] epoch %d/%d loss=%.4f",
-                self.model_name, epoch, self.ft_epochs, ep_loss / max(nb, 1))
+            _log = logging.getLogger("loris.baselines")
+            # ── early-stopping on val macro-F1 (head logits @ 0.5) ──
+            if do_es:
+                from sklearn.metrics import f1_score as _f1
+                self.encoder.eval()
+                vpred = []
+                with torch.no_grad():
+                    for s in range(0, len(val_texts), 128):
+                        vb = list(val_texts[s:s + 128])
+                        ve = self.tokenizer(vb, padding=True, truncation=True,
+                                            max_length=self.max_length, return_tensors="pt")
+                        vi = ve["input_ids"].to(device); va = ve["attention_mask"].to(device)
+                        with torch.cuda.amp.autocast(enabled=use_amp):
+                            vo = self.encoder(input_ids=vi, attention_mask=va).last_hidden_state
+                            vm = va.unsqueeze(-1).to(vo.dtype)
+                            vp = (vo * vm).sum(1) / vm.sum(1).clamp(min=1.0)
+                            vpred.append((head(vp) >= 0).cpu().numpy())
+                vpred = np.concatenate(vpred, axis=0)
+                vf1 = float(_f1(np.asarray(val_y, dtype=np.int8), vpred.astype(np.int8),
+                                average="macro", zero_division=0))
+                _log.info("  [%s FT] epoch %d/%d loss=%.4f val_macro=%.4f",
+                          self.model_name, epoch, self.ft_epochs, ep_loss / max(nb, 1), vf1)
+                if vf1 > best_f1:
+                    best_f1, best_state, patience_left = vf1, _copy.deepcopy(self.encoder.state_dict()), 2
+                else:
+                    patience_left -= 1
+                    if patience_left <= 0:
+                        _log.info("  [%s FT] early stop at epoch %d (best val_macro=%.4f)",
+                                  self.model_name, epoch, best_f1)
+                        break
+            else:
+                _log.info("  [%s FT] epoch %d/%d loss=%.4f",
+                          self.model_name, epoch, self.ft_epochs, ep_loss / max(nb, 1))
+
+        if do_es and best_state is not None:
+            self.encoder.load_state_dict(best_state)
 
         # re-freeze: embed() will now extract fine-tuned features
         self.encoder.eval()
@@ -373,7 +412,7 @@ def _run_encoder_head(
         batch_size=batch_size,
         seed=seed,
         finetune=finetune,
-        ft_epochs=int(kwargs.get("ft_epochs", 3)),
+        ft_epochs=int(kwargs.get("ft_epochs", 6)),
     )
 
     with Timer() as t:

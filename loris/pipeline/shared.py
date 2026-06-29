@@ -144,7 +144,7 @@ def init_models(
                     num_labels=n_labels,
                     model_name=enc_name,
                     classifier_head="mlp",
-                    num_epochs=3,
+                    num_epochs=8,
                     batch_size=64,
                     pred_batch_size=128,
                     gradient_checkpointing=False,
