@@ -145,8 +145,8 @@ def init_models(
                     model_name=enc_name,
                     classifier_head="mlp",
                     num_epochs=3,
-                    batch_size=8,
-                    gradient_checkpointing=True,
+                    batch_size=32,
+                    gradient_checkpointing=False,
                     patience=2,
                 )
                 log.info("Added PretrainedEncoderClassifier (%s).", enc_name)
