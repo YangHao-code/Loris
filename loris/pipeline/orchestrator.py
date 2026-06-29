@@ -88,6 +88,23 @@ def parse_args() -> argparse.Namespace:
                    help="Restrict to N most-frequent labels (default: dataset-specific)")
     p.add_argument("--no_router", action="store_true",
                    help="Skip neural router; rank by val-F1 instead")
+    p.add_argument("--seed", type=int, default=0,
+                   help="Run seed. Maps to data-split random_state (0->42, the "
+                        "historical split; 1,2->distinct splits) and seeds model "
+                        "init / router smoothing / selector RNG. For 3-run averaging.")
+    p.add_argument("--k_models", type=int, default=None,
+                   help="K models the router/selector keeps (default: config 3). "
+                        "Used for the model-selection experiment (router ON at K).")
+    p.add_argument("--selector", default="router",
+                   choices=["router", "random_ms", "indiv_ms", "hybrid_llm", "caas"],
+                   help="Model-selection method (Group A). 'router' = LORIS dynamic "
+                        "router (default). Others replace the router's selected_idx "
+                        "with the named baseline selector, at the same K.")
+    p.add_argument("--pattern_select", default="loris",
+                   choices=["loris", "filter_mi", "filter_chi2", "weshap", "localboost"],
+                   help="Pattern-selection method (Group C). 'loris' = hybrid-phi "
+                        "(default). Others rank candidate predicates by the named "
+                        "criterion inside _select_top_predicates.")
     p.add_argument("--pattern_mode", default="full",
                    choices=["full", "fast", "sim"],
                    help="Pattern extraction mode")
@@ -447,7 +464,23 @@ def main() -> None:
         sim_threshold=args.sim_threshold,
         two_val=args.two_val,
         glove_path=args.glove_path,
+        seed=args.seed,
     )
+    if args.k_models is not None:
+        hp.k_models = int(args.k_models)
+    # Group A/C component-swap selectors + run seed (set global RNGs)
+    hp.selector = args.selector
+    hp.pattern_select = args.pattern_select
+    import random as _random
+    _random.seed(args.seed)
+    np.random.seed(args.seed)
+    try:
+        import torch as _torch
+        _torch.manual_seed(args.seed)
+        if _torch.cuda.is_available():
+            _torch.cuda.manual_seed_all(args.seed)
+    except Exception:
+        pass
     # Chase-specific attrs (not in HParams dataclass)
     hp.predicate_families = args.predicate_families
     hp.no_adaptive_trials = args.no_adaptive_trials

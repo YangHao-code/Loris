@@ -18,6 +18,7 @@ class HParams:
     subset_size: int = 0
     val_ratio: float = 0.40
     top_labels: int = 20
+    seed: int = 0  # run seed. Maps to the data-split random_state via _split_rs(seed): seed 0 -> 42 (the historical split, preserves comparability); seeds 1,2,... -> distinct splits. Also seeds model init / router smoothing / selector RNG. Enables the paper's "3 runs averaged".
     two_val: bool = False  # split val into val_bo (BO) + val_select (batch_select)
     label_budget: int = 0  # weak-supervision Γ: # labeled train docs the base model may see (0 ⇒ full-supervision, old behaviour). >0 ⇒ base fits on a Γ-sized labeled subset; the rest is the unlabeled pool RILL/rules label.
     label_budget_seeding: str = "coverage"  # how Γ is chosen: "coverage" (greedy max-coverage over kNN graph) | "random". Only used when label_budget>0.

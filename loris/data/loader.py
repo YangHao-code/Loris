@@ -40,12 +40,24 @@ def configure_logging(exp_dir: Path, debug: bool = False) -> None:
 
 
 
+def _split_rs(hp: HParams) -> int:
+    """Data-split random_state from the run seed.
+
+    seed 0 → 42 (the historical split — preserves comparability with prior
+    LORIS/baseline numbers); seeds 1,2,… → distinct splits so the paper's
+    "3 runs averaged" reflects genuinely different train/val/test partitions.
+    """
+    s = int(getattr(hp, "seed", 0) or 0)
+    return 42 if s == 0 else 1000 + s
+
+
 def load_data(
     dataset_cfg: DatasetConfig,
     hp: HParams,
 ) -> Tuple:
     t0 = time.time()
     log.info("Loading %s …", dataset_cfg.display_name)
+    _RS = _split_rs(hp)
 
     processed_dir = dataset_cfg.data_dir / "processed"
     train_csv = processed_dir / "train.csv"
@@ -87,9 +99,9 @@ def load_data(
         _dom_te = test_df[top_label_cols].values.argmax(axis=1)
         try:
             test_df, _ = train_test_split(
-                test_df, train_size=_max_test, stratify=_dom_te, random_state=42)
+                test_df, train_size=_max_test, stratify=_dom_te, random_state=_RS)
         except ValueError:
-            test_df = test_df.sample(_max_test, random_state=42)
+            test_df = test_df.sample(_max_test, random_state=_RS)
         test_df = test_df.reset_index(drop=True)
         log.info("Capped test set to %d docs (--max_test_docs).", len(test_df))
 
@@ -99,10 +111,10 @@ def load_data(
         try:
             train_df, _ = train_test_split(
                 train_df, train_size=hp.subset_size,
-                stratify=dominant, random_state=42,
+                stratify=dominant, random_state=_RS,
             )
         except ValueError:
-            train_df = train_df.sample(hp.subset_size, random_state=42)
+            train_df = train_df.sample(hp.subset_size, random_state=_RS)
         train_df = train_df.reset_index(drop=True)
         log.info("Sampled %d training documents.", len(train_df))
 
@@ -111,11 +123,11 @@ def load_data(
     try:
         tr_df, val_df = train_test_split(
             train_df, test_size=hp.val_ratio,
-            stratify=dominant_train, random_state=42,
+            stratify=dominant_train, random_state=_RS,
         )
     except ValueError:
         tr_df, val_df = train_test_split(
-            train_df, test_size=hp.val_ratio, random_state=42
+            train_df, test_size=hp.val_ratio, random_state=_RS
         )
 
     train_X = tr_df[text_col].tolist()
@@ -177,11 +189,11 @@ def load_data(
         try:
             val_bo_df, val_select_df = train_test_split(
                 val_df, test_size=0.5,
-                stratify=dominant_val, random_state=42,
+                stratify=dominant_val, random_state=_RS,
             )
         except ValueError:
             val_bo_df, val_select_df = train_test_split(
-                val_df, test_size=0.5, random_state=42
+                val_df, test_size=0.5, random_state=_RS
             )
 
         val_X = val_bo_df[text_col].tolist()
