@@ -1,30 +1,34 @@
-"""GROUP B baselines — frozen-encoder embeddings + per-label classical head.
+"""GROUP B baselines — encoder embeddings + per-label classical head.
 
-Pipeline (paper §7, "encoder + shallow head" family):
+Pipeline (paper §7): DeBERTa_SVM / DeBERTa_XGBoost / RoBERTa_SVM / RoBERTa_XGBoost
+are *"models fine-tuned on the training data"*. We therefore **fine-tune the
+encoder end-to-end** on the multi-label task (BCEWithLogitsLoss over a temporary
+linear head), then extract the **fine-tuned** pooled features and fit the named
+head (SVM / XGBoost) on them. This is the paper-faithful headline.
 
-1. Load ``AutoTokenizer`` + ``AutoModel(model_name)`` (a *frozen* feature
-   extractor — no fine-tuning).
-2. Mean-pool (attention-masked) the last hidden states into one fixed vector
-   per document for train / val / test.
-3. Fit a per-label head on the frozen features:
-     * ``head="svm"``    → ``OneVsRestClassifier(LinearSVC)`` (``decision_function``
-       gives per-label scores, val-tuned global threshold).
+A ``finetune=False`` mode keeps the original **frozen-encoder** features as a
+disclosed *ablation* (much weaker — the encoder contributes no task signal).
+
+Pipeline detail:
+
+1. Load ``AutoTokenizer`` + ``AutoModel(model_name)``.
+2. If ``finetune``: attach a linear head, fine-tune the whole encoder with
+   BCEWithLogitsLoss (AdamW, early stop on val micro-F1), then drop the head.
+   Else: keep the encoder frozen.
+3. Mean-pool (attention-masked) the last hidden states into one fixed vector per
+   document for train / val / test (using the fine-tuned-or-frozen encoder).
+4. Fit a per-label head on those features:
+     * ``head="svm"``    → ``OneVsRestClassifier(LinearSVC)``
      * ``head="logreg"`` → ``OneVsRestClassifier(LogisticRegression)``
-       (``predict_proba`` per-label scores).
-     * ``head="xgboost"``→ one ``XGBClassifier`` per label (lazy import;
-       clear error if xgboost missing).
-4. Score on test with the LORIS metric.
+     * ``head="xgboost"``→ one ``XGBClassifier`` per label.
+5. Score on test with the LORIS metric (val-tuned global threshold).
 
-BASELINES keys:
-    deberta_svm      microsoft/deberta-v3-base + SVM head
-    deberta_xgboost  microsoft/deberta-v3-base + XGBoost head
-    roberta_svm      roberta-base              + SVM head
-    roberta_xgboost  roberta-base              + XGBoost head
-
-``deberta-v3-base`` weights and ``xgboost``/``sentencepiece`` may be absent on
-the smoke box; the ``roberta_svm`` key is smoked on CPU. The ``deberta_*`` and
-``*_xgboost`` keys run once the server downloads ``microsoft/deberta-v3-base``
-and ``pip install xgboost sentencepiece``.
+BASELINES keys (headline = fine-tuned):
+    deberta_svm      microsoft/deberta-v3-base FT + SVM head
+    deberta_xgboost  microsoft/deberta-v3-base FT + XGBoost head
+    roberta_svm      roberta-base              FT + SVM head
+    roberta_xgboost  roberta-base              FT + XGBoost head
+(frozen-feature ablation available via finetune=False, keys suffixed _frozen.)
 
 On datasets without raw text (``has_raw_text==False``, e.g. rcv1) every key
 raises ``NotImplementedError`` — encoder baselines need real text.
@@ -83,6 +87,10 @@ class EncoderHeadClassifier:
         seed: int = 0,
         xgb_n_estimators: int = 300,
         xgb_max_depth: int = 6,
+        finetune: bool = True,
+        ft_epochs: int = 3,
+        ft_lr: float = 2e-5,
+        ft_batch_size: int = 16,
     ) -> None:
         head = head.lower()
         if head not in ("svm", "logreg", "xgboost"):
@@ -101,6 +109,11 @@ class EncoderHeadClassifier:
         self.seed = seed
         self.xgb_n_estimators = xgb_n_estimators
         self.xgb_max_depth = xgb_max_depth
+        self.finetune = finetune
+        self.ft_epochs = ft_epochs
+        self.ft_lr = ft_lr
+        self.ft_batch_size = ft_batch_size
+        self._ft_done = False
 
         self.tokenizer = None
         self.encoder = None
@@ -128,8 +141,88 @@ class EncoderHeadClassifier:
             p.requires_grad_(False)
         self.encoder.to(self.device)
 
+    def _finetune_encoder(self, texts: List[str], y: np.ndarray,
+                          val_texts=None, val_y=None) -> None:
+        """End-to-end fine-tune the encoder body on the multi-label task.
+
+        Attaches a temporary mean-pool + linear head, optimises BCEWithLogitsLoss
+        with AdamW, then re-freezes the (now fine-tuned) encoder so ``embed``
+        extracts task-adapted features. Paper: DeBERTa/RoBERTa are "fine-tuned
+        on the training data".
+        """
+        import torch
+        import torch.nn as nn
+
+        self._load_encoder()
+        torch.manual_seed(self.seed)
+        np.random.seed(self.seed)
+        device = self.device
+        H = self.encoder.config.hidden_size
+        head = nn.Linear(H, self.num_labels).to(device)
+
+        # unfreeze encoder for fine-tuning
+        self.encoder.train()
+        for p in self.encoder.parameters():
+            p.requires_grad_(True)
+        try:
+            self.encoder.gradient_checkpointing_enable()
+        except Exception:
+            pass
+
+        params = list(self.encoder.parameters()) + list(head.parameters())
+        opt = torch.optim.AdamW(params, lr=self.ft_lr, weight_decay=0.01)
+        crit = nn.BCEWithLogitsLoss()
+        use_amp = device.type == "cuda"
+        scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+
+        y_t = np.asarray(y, dtype=np.float32)
+        n = len(texts)
+        idx = np.arange(n)
+        bs = self.ft_batch_size
+        for epoch in range(1, self.ft_epochs + 1):
+            np.random.shuffle(idx)
+            ep_loss = 0.0
+            nb = 0
+            for s in range(0, n, bs):
+                b = idx[s:s + bs]
+                batch = [texts[i] for i in b]
+                yb = torch.from_numpy(y_t[b]).to(device)
+                enc = self.tokenizer(batch, padding=True, truncation=True,
+                                     max_length=self.max_length, return_tensors="pt")
+                input_ids = enc["input_ids"].to(device)
+                attention_mask = enc["attention_mask"].to(device)
+                opt.zero_grad()
+                with torch.cuda.amp.autocast(enabled=use_amp):
+                    out = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
+                    hidden = out.last_hidden_state
+                    mask = attention_mask.unsqueeze(-1).to(hidden.dtype)
+                    pooled = (hidden * mask).sum(1) / mask.sum(1).clamp(min=1.0)
+                    logits = head(pooled)
+                    loss = crit(logits, yb)
+                scaler.scale(loss).backward()
+                scaler.unscale_(opt)
+                torch.nn.utils.clip_grad_norm_(params, 1.0)
+                scaler.step(opt)
+                scaler.update()
+                ep_loss += float(loss.item())
+                nb += 1
+            import logging
+            logging.getLogger("loris.baselines").info(
+                "  [%s FT] epoch %d/%d loss=%.4f",
+                self.model_name, epoch, self.ft_epochs, ep_loss / max(nb, 1))
+
+        # re-freeze: embed() will now extract fine-tuned features
+        self.encoder.eval()
+        for p in self.encoder.parameters():
+            p.requires_grad_(False)
+        self._ft_done = True
+
     def embed(self, texts: List[str]) -> np.ndarray:
-        """Return frozen pooled embeddings, shape ``(len(texts), hidden)``."""
+        """Return pooled embeddings, shape ``(len(texts), hidden)``.
+
+        Uses the fine-tuned encoder weights if ``_finetune_encoder`` has run,
+        else the frozen pretrained weights.
+        """
         import torch
 
         self._load_encoder()
@@ -162,6 +255,10 @@ class EncoderHeadClassifier:
 
     def fit(self, Xtr: List[str], ytr: np.ndarray, Xval=None, yval=None) -> "EncoderHeadClassifier":
         ytr = np.asarray(ytr, dtype=np.int8)
+        # Paper-faithful: fine-tune the encoder on the task BEFORE extracting
+        # features. Frozen mode (finetune=False) is the ablation.
+        if self.finetune and not self._ft_done:
+            self._finetune_encoder(list(Xtr), ytr, Xval, yval)
         emb_tr = self.embed(list(Xtr))
 
         if self.head == "svm":
@@ -252,9 +349,15 @@ def _run_encoder_head(
     pooling: str = "mean",
     max_length: int = 256,
     batch_size: int = 32,
+    finetune: bool = True,
     **kwargs: Any,
 ) -> Dict[str, Any]:
-    """Fit a frozen-encoder + classical head baseline and score on test."""
+    """Fit an encoder + classical head baseline and score on test.
+
+    ``finetune=True`` (default, paper-faithful): fine-tune the encoder on the
+    task, then fit the head on fine-tuned features. ``finetune=False``: frozen
+    encoder features (ablation).
+    """
     if not has_raw_text(split.dataset):
         raise NotImplementedError(
             f"encoder_head baselines require raw text; dataset "
@@ -269,10 +372,12 @@ def _run_encoder_head(
         max_length=max_length,
         batch_size=batch_size,
         seed=seed,
+        finetune=finetune,
+        ft_epochs=int(kwargs.get("ft_epochs", 3)),
     )
 
     with Timer() as t:
-        clf.fit(split.train_X, split.train_y)
+        clf.fit(split.train_X, split.train_y, split.val_X, split.val_y)
         test_scores = clf.decision_scores(split.test_X)
         val_scores = clf.decision_scores(split.val_X)
 
@@ -289,6 +394,7 @@ def _run_encoder_head(
         "extra": {
             "model_name": model_name,
             "head": head,
+            "finetune": bool(finetune),
             "pooling": pooling,
             "threshold": metrics.get("threshold"),
             "wall_sec": round(t.sec, 2),
@@ -299,48 +405,77 @@ def _run_encoder_head(
 # ── Contract: BASELINES dict ─────────────────────────────────────────────────
 
 def deberta_svm(split: Split, seed: int = 0, **kwargs: Any) -> Dict[str, Any]:
-    """DeBERTa-v3-base frozen embeddings + OvR LinearSVC head.
+    """DeBERTa-v3-base FINE-TUNED + OvR LinearSVC head (paper headline).
 
-    kwargs: pooling ('mean'|'cls'), max_length, batch_size.
+    kwargs: pooling ('mean'|'cls'), max_length, batch_size, ft_epochs.
     """
     return _run_encoder_head(
-        split, "microsoft/deberta-v3-base", "svm", seed=seed, **kwargs
+        split, "microsoft/deberta-v3-base", "svm", seed=seed, finetune=True, **kwargs
     )
 
 
 def deberta_xgboost(split: Split, seed: int = 0, **kwargs: Any) -> Dict[str, Any]:
-    """DeBERTa-v3-base frozen embeddings + per-label XGBoost head.
+    """DeBERTa-v3-base FINE-TUNED + per-label XGBoost head (paper headline).
 
-    kwargs: pooling, max_length, batch_size. Needs xgboost + sentencepiece.
+    kwargs: pooling, max_length, batch_size, ft_epochs. Needs xgboost + sentencepiece.
     """
     return _run_encoder_head(
-        split, "microsoft/deberta-v3-base", "xgboost", seed=seed, **kwargs
+        split, "microsoft/deberta-v3-base", "xgboost", seed=seed, finetune=True, **kwargs
     )
 
 
 def roberta_svm(split: Split, seed: int = 0, **kwargs: Any) -> Dict[str, Any]:
-    """roberta-base frozen embeddings + OvR LinearSVC head.
-
-    kwargs: pooling ('mean'|'cls'), max_length, batch_size.
-    """
+    """roberta-base FINE-TUNED + OvR LinearSVC head (paper headline)."""
     return _run_encoder_head(
-        split, "roberta-base", "svm", seed=seed, **kwargs
+        split, "roberta-base", "svm", seed=seed, finetune=True, **kwargs
     )
 
 
 def roberta_xgboost(split: Split, seed: int = 0, **kwargs: Any) -> Dict[str, Any]:
-    """roberta-base frozen embeddings + per-label XGBoost head.
-
-    kwargs: pooling, max_length, batch_size. Needs xgboost.
-    """
+    """roberta-base FINE-TUNED + per-label XGBoost head (paper headline)."""
     return _run_encoder_head(
-        split, "roberta-base", "xgboost", seed=seed, **kwargs
+        split, "roberta-base", "xgboost", seed=seed, finetune=True, **kwargs
+    )
+
+
+# ── Frozen-encoder ablation variants (disclosed; NOT the paper headline) ──────
+def deberta_svm_frozen(split: Split, seed: int = 0, **kwargs: Any) -> Dict[str, Any]:
+    """Ablation: DeBERTa-v3-base FROZEN embeddings + OvR LinearSVC head."""
+    return _run_encoder_head(
+        split, "microsoft/deberta-v3-base", "svm", seed=seed, finetune=False, **kwargs
+    )
+
+
+def deberta_xgboost_frozen(split: Split, seed: int = 0, **kwargs: Any) -> Dict[str, Any]:
+    """Ablation: DeBERTa-v3-base FROZEN embeddings + per-label XGBoost head."""
+    return _run_encoder_head(
+        split, "microsoft/deberta-v3-base", "xgboost", seed=seed, finetune=False, **kwargs
+    )
+
+
+def roberta_svm_frozen(split: Split, seed: int = 0, **kwargs: Any) -> Dict[str, Any]:
+    """Ablation: roberta-base FROZEN embeddings + OvR LinearSVC head."""
+    return _run_encoder_head(
+        split, "roberta-base", "svm", seed=seed, finetune=False, **kwargs
+    )
+
+
+def roberta_xgboost_frozen(split: Split, seed: int = 0, **kwargs: Any) -> Dict[str, Any]:
+    """Ablation: roberta-base FROZEN embeddings + per-label XGBoost head."""
+    return _run_encoder_head(
+        split, "roberta-base", "xgboost", seed=seed, finetune=False, **kwargs
     )
 
 
 BASELINES = {
+    # paper headline: fine-tuned encoder + named head
     "deberta_svm": deberta_svm,
     "deberta_xgboost": deberta_xgboost,
     "roberta_svm": roberta_svm,
     "roberta_xgboost": roberta_xgboost,
+    # disclosed frozen-encoder ablations
+    "deberta_svm_frozen": deberta_svm_frozen,
+    "deberta_xgboost_frozen": deberta_xgboost_frozen,
+    "roberta_svm_frozen": roberta_svm_frozen,
+    "roberta_xgboost_frozen": roberta_xgboost_frozen,
 }
