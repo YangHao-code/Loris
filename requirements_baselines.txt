@@ -21,3 +21,7 @@ optuna>=3.0.0
 
 # Optional: 4-bit LoRA if the target torch/CUDA supports it (bf16 fallback otherwise)
 # bitsandbytes>=0.43.0
+
+# LORIS chase virtual/text attributes (group rules) need spaCy + en_core_web_sm
+spacy>=3.7,<3.9
+# en_core_web_sm model: pip install the 3.7.1 wheel from hf-mirror.com/spacy/en_core_web_sm
