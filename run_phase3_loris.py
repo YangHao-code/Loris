@@ -36,12 +36,14 @@ PATTERN_SELECTORS = ["loris", "filter_mi", "filter_chi2", "weshap", "localboost"
 CANON_FLAGS = [
     "--top_labels", "30", "--two_val", "--rule_strategy", "batch",
     "--cluster_model_selection", "global", "--batch_metric_mode", "global_macro",
-    "--track1_baseline", "blank", "--pattern_mode", "sim",
-    # Bound the chase BO: the default adaptive floor is max(max_trials, 15*n_labels)
-    # = 450 trials/cluster at 30 labels, which makes a single run >30 min when the
-    # selector picks the encoder (re-evaluated per candidate). Cap at a fixed
-    # budget applied EQUALLY to every cell incl. the LORIS reference row, so the
-    # selector/pattern comparison stays apples-to-apples. Disclosed in the report.
+    "--track1_baseline", "blank", "--pattern_mode", "full",
+    # pattern_mode 'full' (regex matching), NOT 'sim': sim-mode screening embeds
+    # every sentence per predicate-call on CPU (~34.5M cold encodes/cell on
+    # reuters = days/cell, intractable cold). 'full' uses regex matching — fast.
+    # Applied EQUALLY to the LORIS reference row (A_router) so the selector /
+    # pattern-selector comparisons stay apples-to-apples. Disclosed in report.
+    # Bound the chase BO: adaptive floor is max(max_trials, 15*n_labels)=450/cluster
+    # at 30 labels otherwise. Fixed budget applied to every cell incl. LORIS ref.
     "--max_trials", "40", "--no_adaptive_trials",
 ]
 
@@ -67,8 +69,10 @@ def _run_loris(ds, seed, k, *, selector="router", pattern_select="loris",
            "--exp_dir", str(exp_dir)]
     env = dict(os.environ,
                HF_HOME="/root/autodl-tmp/hf_cache", HF_HUB_OFFLINE="1",
-               TOKENIZERS_PARALLELISM="false", PYTHONUNBUFFERED="1",
-               CUDA_VISIBLE_DEVICES="0")
+               TOKENIZERS_PARALLELISM="false", PYTHONUNBUFFERED="1")
+    # CUDA_VISIBLE_DEVICES inherited from the parent (set per-lane by the
+    # 2-GPU launcher); default to GPU 0 if unset.
+    env.setdefault("CUDA_VISIBLE_DEVICES", "0")
     t0 = time.time()
     log = exp_dir / "run.log"
     # No hard wall-clock kill: LORIS runs at canonical caps legitimately take a
