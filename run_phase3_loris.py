@@ -97,6 +97,17 @@ def _run_loris(ds, seed, k, *, selector="router", pattern_select="loris",
             metrics = json.loads(cands[0].read_text())
         except Exception:
             metrics = {}
+    # Reclaim disk: each cell leaves a ~530MB model_pool.pkl + embedding .npy
+    # caches in its exp_dir. Metrics are already parsed above, so purge the heavy
+    # artifacts — 45 cells x 530MB would (and did) fill the 30GB disk → ENOSPC.
+    try:
+        import glob as _glob
+        for big in _glob.glob(str(exp_dir / "**" / "model_pool.pkl"), recursive=True):
+            os.remove(big)
+        for npy in _glob.glob(str(exp_dir / "**" / "*.npy"), recursive=True):
+            os.remove(npy)
+    except Exception:
+        pass
     return {"rc": rc, "wall_sec": sec, "metrics": metrics}
 
 
