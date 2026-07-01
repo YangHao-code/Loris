@@ -346,6 +346,10 @@ def _is_redundant(candidate: RDL, existing_rules: List[RDL]) -> bool:
     for rule in existing_rules:
         if rule.consequence != candidate.consequence:
             continue
+        # An ADD and a REMOVE (or replace) rule on the same label have opposite
+        # effect — they are NOT redundant even with high body overlap.
+        if rule.consequence_op != candidate.consequence_op:
+            continue
         rule_body_set = set(rule.body)
         if not rule_body_set:
             continue

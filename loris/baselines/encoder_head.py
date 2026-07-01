@@ -360,6 +360,11 @@ class EncoderHeadClassifier:
             scores = self.clf.decision_function(emb)
             if scores.ndim == 1:  # single-label OvR edge case
                 scores = scores.reshape(-1, 1)
+            # Squash raw SVM margins into (0,1) with a logistic so the shared
+            # threshold tuner (common.py scans [0.05,0.95]) operates at a
+            # comparable probability-scale operating point. Monotonic ⇒ ranking
+            # and argmax are unchanged; only the threshold semantics are fixed.
+            scores = 1.0 / (1.0 + np.exp(-scores))
             return scores.astype(np.float32)
         if self.head == "logreg":
             # OneVsRestClassifier.predict_proba → (n, n_labels) for multilabel

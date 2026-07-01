@@ -299,15 +299,33 @@ def _build_multi_label_oracle_mask(
     n_models = len(names)
     scores = np.zeros((n_docs, n_models), dtype=np.float32)
 
+    yt = y_true.astype(np.int32)
+    gt_sum = yt.sum(axis=1).astype(np.float32)  # (n_docs,)
     for j, name in enumerate(names):
         clf = pool[name]
         try:
             proba = clf.predict_proba(texts)
-            preds = (proba >= 0.5).astype(int)
-            overlap = (preds & y_true.astype(int)).sum(axis=1).astype(np.float32)
-            scores[:, j] = overlap
+            preds = (proba >= 0.5).astype(np.int32)
+            tp = (preds & yt).sum(axis=1).astype(np.float32)
+            denom = preds.sum(axis=1).astype(np.float32) + gt_sum
+            # Per-doc Dice/F1, NOT raw TP-overlap: models emit predict_proba on
+            # different scales/calibrations, so a fixed-0.5 TP count rewards
+            # whichever model simply predicts more positives (FPs unpenalised),
+            # biasing the top-K. Dice = 2·TP/(pred+gt) is scale-fair — a model
+            # must predict the RIGHT labels (precision AND recall), matching the
+            # downstream macro-F1 objective and the hybrid_llm/caas baselines.
+            scores[:, j] = np.divide(2.0 * tp, denom,
+                                     out=np.zeros_like(tp), where=denom > 0)
         except Exception as exc:
             log.debug("oracle mask: model %s failed — %s", name, exc)
+
+    # Break ties deterministically toward globally-stronger models and push
+    # failed / all-zero (exception-scored) columns last, so the imitation oracle
+    # never prefers an arbitrary or broken model on documents where several
+    # models tie on per-doc Dice-F1.
+    global_quality = scores.mean(axis=0)  # (n_models,)
+    tie = (1e-6 * (global_quality - global_quality.min())).astype(np.float32)
+    scores = scores + tie[None, :]
 
     oracle = np.zeros((n_docs, n_models), dtype=np.float32)
     eff_k = min(k, n_models)
@@ -361,7 +379,13 @@ def _baseline_select_models(
             clf.fit(train_X, train_y, val_X, val_y)
             vp = _np.asarray(clf.predict(val_X), dtype=_np.int32)
             vm = float(_f1(yval, vp, average="macro", zero_division=0))
-        except Exception:
+        except Exception as exc:
+            # Do NOT swallow silently: a failed fit/predict (OOM, HF download,
+            # shape error) otherwise scores as a healthy val-macro-0 model and can
+            # still be swept into the K-set via tie effects, masking the failure.
+            log.warning("Group-A selector '%s': model '%s' failed to fit/predict "
+                        "— scoring 0 (%s: %s)", selector, name,
+                        type(exc).__name__, exc)
             vp = _np.zeros_like(yval)
             vm = 0.0
         val_pred.append(vp)
@@ -382,7 +406,13 @@ def _baseline_select_models(
                                  where=denom > 0)
 
     if selector == "hybrid_llm":
-        wins = _np.bincount(f1_dm.argmax(axis=1), minlength=n).astype(_np.float64)
+        # Only count a "win" on docs where at least one model got partial credit.
+        # On all-zero rows (no model overlaps any label — common in rare-label
+        # multi-label data) argmax returns index 0, which otherwise inflates the
+        # first pool model's win count and systematically biases selection to it.
+        has_signal = f1_dm.max(axis=1) > 0
+        argwin = f1_dm.argmax(axis=1)
+        wins = _np.bincount(argwin[has_signal], minlength=n).astype(_np.float64)
         mass = f1_dm.sum(axis=0)
         key = wins * 1e6 + mass + _np.asarray(val_macro) * 1e-6
         order = _np.argsort(-key)[:k]
@@ -427,6 +457,131 @@ def _baseline_select_models(
     return sorted(int(i) for i in order)
 
 
+def _train_selection_net(
+    pool: Dict[str, object],
+    train_X: List[str], train_y: np.ndarray,
+    hp: HParams,
+    k: int,
+    device,
+    model_names: Optional[List[str]] = None,
+    verbose: bool = True,
+):
+    """Train the SelectionNetwork g_θ on cached pool predictions.
+
+    The shared router-training core: builds document features (TF-IDF + SVD),
+    the per-doc oracle mask, and optimises the hybrid loss. Reused by both
+    :func:`run_dynamic_router` (inference) and the per-dataset hyperparameter
+    tuner (``loris.selection.router_tuning``) so the tuned config transfers
+    exactly. Returns ``(net, tfidf_vec, svd)``.
+    """
+    if model_names is None:
+        model_names = list(pool.keys())
+    n_models = len(model_names)
+
+    tfidf_vec = TfidfVectorizer(max_features=20_000, sublinear_tf=True)
+    X_sp = tfidf_vec.fit_transform(train_X)
+    svd = TruncatedSVD(n_components=hp.router_feat_dim, random_state=42)
+    X_dense = svd.fit_transform(X_sp).astype(np.float32)
+    X_t = torch.from_numpy(X_dense).to(device)
+
+    oracle_np = _build_multi_label_oracle_mask(pool, train_X, train_y, k)
+    oracle_t = torch.from_numpy(oracle_np).to(device)
+
+    net = SelectionNetwork(
+        input_dim=hp.router_feat_dim,
+        hidden_dim=hp.router_hidden_dim,
+        n_models=n_models,
+        k=k,
+        num_samples=hp.router_num_samples,
+        sigma=hp.router_sigma,
+        device=device,
+        backend=getattr(hp, "router_backend", "custom"),
+    ).to(device)
+
+    loss_fn = HybridLoss(lambda_task=0.1, lambda_ent=0.1)
+    optimiser = torch.optim.Adam(net.parameters(), lr=hp.router_lr)
+
+    _model_probs = []
+    for name in model_names:
+        try:
+            p = np.asarray(pool[name].predict_proba(train_X), dtype=np.float32)
+        except Exception as exc:
+            log.debug("router task-loss proba: model %s failed — %s", name, exc)
+            p = np.zeros((len(train_X), train_y.shape[1]), dtype=np.float32)
+        _model_probs.append(torch.from_numpy(p))
+    model_probs_t = torch.stack(_model_probs).to(device)                  # (n, B, L)
+    labels_t = torch.from_numpy(np.asarray(train_y, dtype=np.float32)).to(device)  # (B, L)
+
+    net.train()
+    for epoch in range(1, hp.router_epochs + 1):
+        mask, scores = net(X_t, return_scores=True)
+        l_imit = loss_fn.imitation_loss(scores, oracle_t)
+        l_task = loss_fn.task_loss_multilabel(mask, model_probs_t, labels_t)
+        l_ent = loss_fn.entropy_loss(scores)
+        loss = l_imit + loss_fn.lambda_task * l_task - loss_fn.lambda_ent * l_ent
+
+        optimiser.zero_grad()
+        loss.backward()
+        optimiser.step()
+
+        if verbose and (epoch % 5 == 0 or epoch == hp.router_epochs):
+            log.info(
+                "  [Router epoch %3d/%d]  L_imit=%.4f  L_task=%.4f  L_ent=%.4f  L_total=%.4f",
+                epoch, hp.router_epochs, l_imit.item(), l_task.item(),
+                l_ent.item(), loss.item(),
+            )
+
+    return net, tfidf_vec, svd
+
+
+def router_oracle_metrics(scores_val: np.ndarray, oracle_val: np.ndarray, k: int) -> Dict[str, float]:
+    """Intrinsic router-vs-oracle metrics on a val set (shared by tuner + diagnostic).
+
+    ``scores_val`` (D, n) raw router scores; ``oracle_val`` (D, n) per-doc 0/1
+    oracle (top-k models by label-overlap). Returns oracle-hit@K (fraction of the
+    router's top-K also in the oracle) and MRR (reciprocal rank of the first
+    oracle-correct model in the router's ranking), plus their 0.5/0.5 blend.
+    """
+    D, n = scores_val.shape
+    keff = min(k, n)
+    order = np.argsort(-scores_val, axis=1)  # (D, n) model idx by score desc
+    hits: List[float] = []
+    rrs: List[float] = []
+    for i in range(D):
+        oset = set(np.nonzero(oracle_val[i])[0].tolist())
+        if not oset:
+            continue
+        topk = order[i, :keff]
+        hits.append(sum(1 for j in topk if j in oset) / keff)
+        rr = 0.0
+        for rank, j in enumerate(order[i].tolist(), start=1):
+            if j in oset:
+                rr = 1.0 / rank
+                break
+        rrs.append(rr)
+    hit = float(np.mean(hits)) if hits else 0.0
+    mrr = float(np.mean(rrs)) if rrs else 0.0
+    return {
+        "oracle_hit_at_k": round(hit, 4),
+        "mrr": round(mrr, 4),
+        "combined": round(0.5 * hit + 0.5 * mrr, 4),
+    }
+
+
+def _write_router_diag(exp_dir: Path, diag: Dict) -> None:
+    """Persist the router diagnostic, keeping the one computed on the LARGEST val
+    set (the global call) so per-cluster calls don't clobber the headline number."""
+    path = exp_dir / "router_diag.json"
+    try:
+        if path.exists():
+            prev = json.loads(path.read_text())
+            if int(prev.get("n_val", 0)) >= int(diag.get("n_val", 0)):
+                return
+        path.write_text(json.dumps(diag, indent=2))
+    except Exception as exc:
+        log.debug("router diag write skipped: %s", exc)
+
+
 def run_dynamic_router(
     pool: Dict[str, object],
     train_X: List[str], train_y: np.ndarray,
@@ -468,78 +623,36 @@ def run_dynamic_router(
                  [model_names[i] for i in selected])
         return selected
 
-    log.info("Building document features (TF-IDF + TruncatedSVD) …")
-    tfidf_vec = TfidfVectorizer(max_features=20_000, sublinear_tf=True)
-    X_sp = tfidf_vec.fit_transform(train_X)
-    svd = TruncatedSVD(n_components=hp.router_feat_dim, random_state=42)
-    X_dense = svd.fit_transform(X_sp).astype(np.float32)
-    Xval_dense = svd.transform(
-        tfidf_vec.transform(val_X)
-    ).astype(np.float32)
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    X_t = torch.from_numpy(X_dense).to(device)
+
+    log.info("Building document features + training SelectionNetwork (%d epochs, backend=%s) …",
+             hp.router_epochs, getattr(hp, "router_backend", "custom"))
+    net, tfidf_vec, svd = _train_selection_net(
+        pool, train_X, train_y, hp, k, device, model_names=model_names)
+
+    Xval_dense = svd.transform(tfidf_vec.transform(val_X)).astype(np.float32)
     Xval_t = torch.from_numpy(Xval_dense).to(device)
-
-    log.info("Building oracle masks for %d documents …", len(train_X))
-    oracle_np = _build_multi_label_oracle_mask(pool, train_X, train_y, k)
-    oracle_t = torch.from_numpy(oracle_np).to(device)
-
-    net = SelectionNetwork(
-        input_dim=hp.router_feat_dim,
-        hidden_dim=hp.router_hidden_dim,
-        n_models=n_models,
-        k=k,
-        num_samples=hp.router_num_samples,
-        sigma=hp.router_sigma,
-        device=device,
-        backend="custom",
-    ).to(device)
-
-    loss_fn = HybridLoss(lambda_task=0.1, lambda_ent=0.1)
-    optimiser = torch.optim.Adam(net.parameters(), lr=hp.router_lr)
-
-    # D-10: precompute each candidate model's per-label TRAIN probabilities once
-    # (constants w.r.t. the router). This lets us train on the paper's full hybrid
-    # objective L = L_imit + λ_task·L_task − λ_ent·L_ent, not imitation alone. The
-    # task loss back-propagates through the DifferentiableTopK mask into the
-    # SelectionNetwork, so the router learns to pick the models that maximise
-    # downstream multi-label accuracy (previously it only mimicked an oracle and
-    # could drop the strongest model — e.g. the encoder).
-    log.info("Precomputing per-model train probabilities for router task loss …")
-    _model_probs = []
-    for name in model_names:
-        try:
-            p = np.asarray(pool[name].predict_proba(train_X), dtype=np.float32)
-        except Exception as exc:
-            log.debug("router task-loss proba: model %s failed — %s", name, exc)
-            p = np.zeros((len(train_X), train_y.shape[1]), dtype=np.float32)
-        _model_probs.append(torch.from_numpy(p))
-    model_probs_t = torch.stack(_model_probs).to(device)                  # (n, B, L)
-    labels_t = torch.from_numpy(np.asarray(train_y, dtype=np.float32)).to(device)  # (B, L)
-
-    log.info("Training SelectionNetwork for %d epochs …", hp.router_epochs)
-    net.train()
-    for epoch in range(1, hp.router_epochs + 1):
-        mask, scores = net(X_t, return_scores=True)
-        l_imit = loss_fn.imitation_loss(scores, oracle_t)
-        l_task = loss_fn.task_loss_multilabel(mask, model_probs_t, labels_t)
-        l_ent = loss_fn.entropy_loss(scores)
-        loss = l_imit + loss_fn.lambda_task * l_task - loss_fn.lambda_ent * l_ent
-
-        optimiser.zero_grad()
-        loss.backward()
-        optimiser.step()
-
-        if epoch % 5 == 0 or epoch == hp.router_epochs:
-            log.info(
-                "  [Router epoch %3d/%d]  L_imit=%.4f  L_task=%.4f  L_ent=%.4f  L_total=%.4f",
-                epoch, hp.router_epochs, l_imit.item(), l_task.item(),
-                l_ent.item(), loss.item(),
-            )
 
     selected_indices, frequency = FinalSelector.select(net, Xval_t, k)
     selected_names = [model_names[i] for i in selected_indices]
+
+    # ── Oracle-hit / MRR diagnostic on val (Exp-1 influence metric; also the
+    #    tuning objective). Persist the full-val (global) computation. ──
+    try:
+        with torch.no_grad():
+            scores_val = net.get_scores(Xval_t).cpu().numpy()
+        oracle_val = _build_multi_label_oracle_mask(pool, val_X, val_y, k)
+        diag = router_oracle_metrics(scores_val, oracle_val, k)
+        diag.update({
+            "backend": getattr(hp, "router_backend", "custom"),
+            "k": k, "n_models": n_models, "n_val": len(val_X),
+            "selected_models": selected_names,
+        })
+        _write_router_diag(exp_dir, diag)
+        log.info("Router oracle diagnostic (val, n=%d): hit@%d=%.4f  MRR=%.4f  combined=%.4f",
+                 len(val_X), k, diag["oracle_hit_at_k"], diag["mrr"], diag["combined"])
+    except Exception as exc:
+        log.warning("Router oracle diagnostic failed: %s", exc)
 
     log.info(
         "Router done in %.1fs — selected models: %s  (frequency: %s)",
@@ -934,6 +1047,17 @@ def save_and_print_results(
     }
     if test_metrics_per_model:
         metrics["per_model_test"] = test_metrics_per_model
+    # Fold in the router oracle-hit / MRR diagnostic (Exp-1 influence metric),
+    # if the router wrote one this run.
+    _diag_path = exp_dir / "router_diag.json"
+    if _diag_path.exists():
+        try:
+            _diag = json.loads(_diag_path.read_text())
+            metrics["router_oracle_hit_at_k"] = _diag.get("oracle_hit_at_k")
+            metrics["router_mrr"] = _diag.get("mrr")
+            metrics["router_diag"] = _diag
+        except Exception:
+            pass
     with open(exp_dir / "metrics.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
 

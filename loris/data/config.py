@@ -42,6 +42,7 @@ class HParams:
     router_num_samples: int = 500
     router_epochs: int = 30
     router_lr: float = 1e-3
+    router_backend: str = "custom"  # "custom" (self-authored autograd) | "perturbed" (perturbations.perturbed_special / stochastic smoothing)
 
     # ── RuleLearner ───────────────────────────────────────────────────────────
     max_trials: int = 300

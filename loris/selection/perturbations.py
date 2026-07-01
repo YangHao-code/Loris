@@ -292,10 +292,10 @@ def perturbed_special(func=None,
                 perturbed_input_shape = [num_samples] + list(input_shape)
 
                 additive_noise, noise_gradient = sample_noise_with_gradients_special(noise, perturbed_input_shape, input_type)
-                #additive_noise, noise_gradient = tuple(
-                #    [noise.type(input_tensor.dtype) for noise in noises])   #JK careful of this typecast
-                #additive_noise = additive_noise.to(device)
-                #noise_gradient = noise_gradient.to(device)
+                # Pin noise to the INPUT's device (not the closure's cuda:0
+                # default): otherwise routing on any non-zero GPU mixes devices.
+                additive_noise = additive_noise.to(input_tensor.device)
+                noise_gradient = noise_gradient.to(input_tensor.device)
                 perturbed_input = input_tensor.unsqueeze(0) + sigma * additive_noise
 
                 # [N, B, D1, ..., Dk] -> [NB, D1, ..., Dk].

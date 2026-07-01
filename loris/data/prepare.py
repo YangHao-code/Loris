@@ -837,6 +837,264 @@ def prepare_reuters21578(data_dir: Path) -> Tuple[Path, Path]:
     )
 
 
+# ── Prepare: PubMed MeSH ──────────────────────────────────────────────────────
+
+PUBMED_STOP_WORDS = {
+    # biomedical abstract boilerplate
+    "patients", "patient", "study", "studies", "results", "result",
+    "clinical", "using", "based", "analysis", "used", "cases", "case",
+    "group", "groups", "significant", "associated", "treatment", "methods",
+    "method", "conclusion", "conclusions", "background", "objective", "aim",
+    "showed", "found", "observed", "compared", "including", "may",
+}
+
+# 14 top-level MeSH category roots present in the processed CSV (A..N, Z).
+_PUBMED_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "L", "M", "N", "Z"]
+_PUBMED_HF_REPO = "owaiskha9654/PubMed_MultiLabel_Text_Classification_Dataset_MeSH"
+_PUBMED_HF_FILE = "PubMed Multi Label Text Classification Dataset Processed.csv"
+
+
+def prepare_pubmed(data_dir: Path) -> Tuple[Path, Path]:
+    """PubMed MeSH multi-label — abstracts → 14 top-level MeSH categories.
+
+    Source: HF dataset ``owaiskha9654/PubMed_MultiLabel_Text_Classification_Dataset_MeSH``
+    (columns ``Title`` + ``abstractText`` + 14 MeSH-root 0/1 columns A..N, Z).
+    Text = title + abstract; labels = the MeSH roots. Fetched via
+    ``huggingface_hub`` (honours ``HF_ENDPOINT`` for the mirror).
+    """
+    processed_dir = data_dir / "processed"
+    train_csv = processed_dir / "train.csv"
+    test_csv = processed_dir / "test.csv"
+    if train_csv.exists() and test_csv.exists():
+        log.info("PubMed already prepared at %s", processed_dir)
+        return train_csv, test_csv
+
+    raw_dir = data_dir / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    raw_csv = raw_dir / _PUBMED_HF_FILE
+    if not (raw_csv.exists() and raw_csv.stat().st_size > 0):
+        try:
+            from huggingface_hub import hf_hub_download
+        except Exception as exc:  # pragma: no cover
+            raise RuntimeError(
+                "huggingface_hub is required to fetch the PubMed MeSH dataset"
+            ) from exc
+        got = hf_hub_download(_PUBMED_HF_REPO, _PUBMED_HF_FILE,
+                              repo_type="dataset", local_dir=str(raw_dir))
+        raw_csv = Path(got)
+
+    df = pd.read_csv(raw_csv)
+    labels = [c for c in _PUBMED_LABELS if c in df.columns]
+    if not labels:
+        raise RuntimeError(f"PubMed CSV missing MeSH label columns; got {list(df.columns)}")
+
+    title = (df["Title"].fillna("").astype(str) if "Title" in df.columns
+             else pd.Series([""] * len(df)))
+    abstract = df["abstractText"].fillna("").astype(str)
+    texts = [((t.strip() + ". " + a.strip()).strip() if t.strip() else a.strip())
+             for t, a in zip(title.tolist(), abstract.tolist())]
+
+    Y = (df[labels].apply(pd.to_numeric, errors="coerce").fillna(0) > 0).astype(int).values
+    labels_list = [[labels[j] for j in range(len(labels)) if row[j]] for row in Y]
+
+    # keep only docs with non-empty text AND at least one active label
+    keep = [i for i, (t, ls) in enumerate(zip(texts, labels_list)) if t and ls]
+    texts = [texts[i] for i in keep]
+    labels_list = [labels_list[i] for i in keep]
+
+    tr_txt, te_txt, tr_lab, te_lab = train_test_split(
+        texts, labels_list, test_size=0.15, random_state=42)
+    _save_multi_hot_csv(tr_txt, tr_lab, labels, train_csv)
+    _save_multi_hot_csv(te_txt, te_lab, labels, test_csv)
+    log.info("PubMed prepared: %d train / %d test × %d labels",
+             len(tr_txt), len(te_txt), len(labels))
+    return train_csv, test_csv
+
+
+# ── Prepare: HUPD (patents) ───────────────────────────────────────────────────
+
+HUPD_STOP_WORDS = {
+    # patent boilerplate
+    "device", "method", "system", "apparatus", "present", "invention",
+    "embodiment", "embodiments", "comprising", "including", "wherein",
+    "plurality", "configured", "first", "second", "least", "one",
+    "provided", "may", "said", "according", "portion", "member",
+}
+
+_HUPD_HF_REPO = "HUPD/hupd"
+_HUPD_HF_FILE = "data/sample-jan-2016.tar.gz"  # small slice (Jan 2016), disk-friendly
+_HUPD_TOP_LABELS = 60  # keep the 60 most frequent IPC subclasses as columns
+
+
+def prepare_hupd(data_dir: Path) -> Tuple[Path, Path]:
+    """HUPD (Harvard USPTO Patent Dataset) — patent title+abstract → IPC subclasses.
+
+    Uses the small ``sample-jan-2016.tar.gz`` slice (disk-friendly). Each patent
+    JSON carries ``title``, ``abstract`` and ``ipcr_labels`` (a list of IPC codes);
+    labels are truncated to the 4-char **subclass** level (e.g. ``A61B``) — a
+    standard HUPD multi-label setup. Streamed straight from the tar (no per-file
+    extraction). Fetched via ``huggingface_hub`` (honours ``HF_ENDPOINT``).
+    """
+    import tarfile
+    from collections import Counter
+
+    processed_dir = data_dir / "processed"
+    train_csv = processed_dir / "train.csv"
+    test_csv = processed_dir / "test.csv"
+    if train_csv.exists() and test_csv.exists():
+        log.info("HUPD already prepared at %s", processed_dir)
+        return train_csv, test_csv
+
+    raw_dir = data_dir / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    tar_path = raw_dir / "data" / "sample-jan-2016.tar.gz"
+    if not (tar_path.exists() and tar_path.stat().st_size > 0):
+        try:
+            from huggingface_hub import hf_hub_download
+        except Exception as exc:  # pragma: no cover
+            raise RuntimeError("huggingface_hub is required to fetch HUPD") from exc
+        got = hf_hub_download(_HUPD_HF_REPO, _HUPD_HF_FILE,
+                              repo_type="dataset", local_dir=str(raw_dir))
+        tar_path = Path(got)
+
+    texts: List[str] = []
+    labels_list: List[List[str]] = []
+    log.info("Streaming HUPD patents from %s …", tar_path)
+    with tarfile.open(tar_path, "r:gz") as tf:
+        for m in tf:
+            if not m.name.endswith(".json"):
+                continue
+            fh = tf.extractfile(m)
+            if fh is None:
+                continue
+            try:
+                d = json.load(fh)
+            except Exception:
+                continue
+            title = (d.get("title") or "").strip()
+            abstract = (d.get("abstract") or "").strip()
+            text = (title + ". " + abstract).strip() if title else abstract
+            ipc = d.get("ipcr_labels") or []
+            subs = sorted({c[:4] for c in ipc if c and len(c) >= 4})
+            if not text or not subs:
+                continue
+            texts.append(text)
+            labels_list.append(subs)
+
+    if not texts:
+        raise RuntimeError(f"No usable HUPD patents parsed from {tar_path}")
+
+    # keep the most frequent subclasses as label columns; restrict docs to them
+    freq = Counter(l for ls in labels_list for l in ls)
+    keep_labels = [l for l, _ in freq.most_common(_HUPD_TOP_LABELS)]
+    keepset = set(keep_labels)
+    f_txt: List[str] = []
+    f_lab: List[List[str]] = []
+    for t, ls in zip(texts, labels_list):
+        ls2 = [l for l in ls if l in keepset]
+        if ls2:
+            f_txt.append(t)
+            f_lab.append(ls2)
+
+    tr_txt, te_txt, tr_lab, te_lab = train_test_split(
+        f_txt, f_lab, test_size=0.15, random_state=42)
+    _save_multi_hot_csv(tr_txt, tr_lab, keep_labels, train_csv)
+    _save_multi_hot_csv(te_txt, te_lab, keep_labels, test_csv)
+    log.info("HUPD prepared: %d train / %d test × %d IPC-subclass labels",
+             len(tr_txt), len(te_txt), len(keep_labels))
+    return train_csv, test_csv
+
+
+# ── Prepare: Goodreads book genres ────────────────────────────────────────────
+
+GOODREADS_STOP_WORDS = {
+    # book-blurb boilerplate
+    "book", "story", "novel", "life", "world", "new", "york", "times",
+    "bestseller", "author", "reader", "readers", "series", "edition",
+    "one", "two", "will", "must", "young", "old", "years", "year",
+}
+
+_GOODREADS_HF_REPO = "pszemraj/goodreads-bookgenres"
+_GOODREADS_GENRES = [
+    "History & Politics", "Health & Medicine", "Mystery & Thriller",
+    "Arts & Design", "Self-Help & Wellness", "Sports & Recreation",
+    "Non-Fiction", "Science Fiction & Fantasy", "Countries & Geography",
+    "Other", "Nature & Environment", "Business & Finance", "Romance",
+    "Philosophy & Religion", "Literature & Fiction", "Science & Technology",
+    "Children & Young Adult", "Food & Cooking",
+]
+
+
+def prepare_goodreads(data_dir: Path) -> Tuple[Path, Path]:
+    """Goodreads book genres — book title+description → 18 aggregated genres.
+
+    Source: HF dataset ``pszemraj/goodreads-bookgenres`` (``data/`` config:
+    ``Book`` + ``Description`` + an 18-dim multi-hot ``Genres`` vector). Train and
+    validation splits are merged into train. Needs ``pyarrow`` at prep time
+    (parquet); the produced CSVs are plain and need no extra deps.
+    """
+    processed_dir = data_dir / "processed"
+    train_csv = processed_dir / "train.csv"
+    test_csv = processed_dir / "test.csv"
+    if train_csv.exists() and test_csv.exists():
+        log.info("Goodreads already prepared at %s", processed_dir)
+        return train_csv, test_csv
+
+    raw_dir = data_dir / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        from huggingface_hub import HfApi, hf_hub_download
+    except Exception as exc:  # pragma: no cover
+        raise RuntimeError("huggingface_hub is required to fetch Goodreads") from exc
+
+    api = HfApi()
+    files = [s.rfilename for s in (api.dataset_info(_GOODREADS_HF_REPO).siblings or [])]
+
+    def _pick(split: str) -> str:
+        for f in files:
+            if f.startswith(f"data/{split}") and f.endswith(".parquet"):
+                return f
+        raise RuntimeError(f"Goodreads: no data/{split} parquet found")
+
+    parts: Dict[str, "pd.DataFrame"] = {}
+    for split in ("train", "validation", "test"):
+        got = hf_hub_download(_GOODREADS_HF_REPO, _pick(split),
+                              repo_type="dataset", local_dir=str(raw_dir))
+        parts[split] = pd.read_parquet(got)
+
+    def _s(v) -> str:
+        if v is None:
+            return ""
+        if isinstance(v, float) and np.isnan(v):
+            return ""
+        return str(v).strip()
+
+    def _to_rows(df):
+        texts, labels_list = [], []
+        for _, row in df.iterrows():
+            title = _s(row.get("Book"))
+            desc = _s(row.get("Description"))
+            text = (title + ". " + desc).strip() if title else desc
+            g = row.get("Genres")
+            if g is None:
+                continue
+            g = list(g)
+            labs = [_GOODREADS_GENRES[i] for i in range(min(len(g), len(_GOODREADS_GENRES)))
+                    if g[i]]
+            if text and labs:
+                texts.append(text)
+                labels_list.append(labs)
+        return texts, labels_list
+
+    tr_txt, tr_lab = _to_rows(pd.concat([parts["train"], parts["validation"]], ignore_index=True))
+    te_txt, te_lab = _to_rows(parts["test"])
+    _save_multi_hot_csv(tr_txt, tr_lab, _GOODREADS_GENRES, train_csv)
+    _save_multi_hot_csv(te_txt, te_lab, _GOODREADS_GENRES, test_csv)
+    log.info("Goodreads prepared: %d train / %d test × %d genres",
+             len(tr_txt), len(te_txt), len(_GOODREADS_GENRES))
+    return train_csv, test_csv
+
+
 # ── Dataset config registry ───────────────────────────────────────────────────
 
 @dataclass
@@ -847,6 +1105,16 @@ class DatasetConfig:
     default_top_labels: int
     stop_words: set
     prepare_fn: Callable
+
+
+def _full_prepare_stub(ds_name: str) -> Callable:
+    """Registry prepare_fn for the *_full datasets — these are prepared out-of-band
+    by ``python -m loris.data.prepare_full`` (large downloads), not via load_data."""
+    def _fn(data_dir: Path):
+        raise RuntimeError(
+            f"Full dataset '{ds_name}' is prepared separately (large download):\n"
+            f"  python -m loris.data.prepare_full --dataset {ds_name}")
+    return _fn
 
 
 def _build_dataset_registry() -> Dict[str, DatasetConfig]:
@@ -903,6 +1171,51 @@ def _build_dataset_registry() -> Dict[str, DatasetConfig]:
             stop_words=AAPD_STOP_WORDS,
             prepare_fn=prepare_aapd,
         ),
+        # PubMed MeSH — biomedical abstracts → 14 top-level MeSH categories.
+        # Fetched from HuggingFace (owaiskha9654/…MeSH) via prepare_pubmed.
+        "pubmed": DatasetConfig(
+            name="pubmed",
+            display_name="PubMed MeSH (Biomedical Abstracts, multi-label)",
+            data_dir=_ROOT / "data" / "pubmed",
+            default_top_labels=14,
+            stop_words=PUBMED_STOP_WORDS,
+            prepare_fn=prepare_pubmed,
+        ),
+        # HUPD patents (Jan-2016 sample) → IPC subclass multi-label.
+        "hupd": DatasetConfig(
+            name="hupd",
+            display_name="HUPD (USPTO Patents, IPC subclasses)",
+            data_dir=_ROOT / "data" / "hupd",
+            default_top_labels=30,
+            stop_words=HUPD_STOP_WORDS,
+            prepare_fn=prepare_hupd,
+        ),
+        # Goodreads book blurbs → 18 aggregated genres.
+        "goodreads": DatasetConfig(
+            name="goodreads",
+            display_name="Goodreads (Book Blurbs, genres)",
+            data_dir=_ROOT / "data" / "goodreads",
+            default_top_labels=18,
+            stop_words=GOODREADS_STOP_WORDS,
+            prepare_fn=prepare_goodreads,
+        ),
+        # ── Full / million-scale variants (prepared via loris.data.prepare_full) ──
+        "arxiv_full": DatasetConfig(
+            name="arxiv_full", display_name="arXiv (FULL metadata, ~2.7M)",
+            data_dir=_ROOT / "data" / "arxiv_full", default_top_labels=100,
+            stop_words=AAPD_STOP_WORDS, prepare_fn=_full_prepare_stub("arxiv_full")),
+        "hupd_full": DatasetConfig(
+            name="hupd_full", display_name="HUPD (FULL, all years, ~4.5M patents)",
+            data_dir=_ROOT / "data" / "hupd_full", default_top_labels=100,
+            stop_words=HUPD_STOP_WORDS, prepare_fn=_full_prepare_stub("hupd_full")),
+        "pubmed_full": DatasetConfig(
+            name="pubmed_full", display_name="PubMed MeSH (FULL, Tellurio)",
+            data_dir=_ROOT / "data" / "pubmed_full", default_top_labels=14,
+            stop_words=PUBMED_STOP_WORDS, prepare_fn=_full_prepare_stub("pubmed_full")),
+        "goodreads_full": DatasetConfig(
+            name="goodreads_full", display_name="Goodreads (FULL, ~2.3M books)",
+            data_dir=_ROOT / "data" / "goodreads_full", default_top_labels=20,
+            stop_words=GOODREADS_STOP_WORDS, prepare_fn=_full_prepare_stub("goodreads_full")),
     }
 
 

@@ -46,6 +46,19 @@ DATASET_DEFAULTS: Dict[str, DSConfig] = {
     "aapd": DSConfig(subset_size=15000, max_test_docs=0, top_labels=30, has_text=True),
     "bgc": DSConfig(subset_size=12000, max_test_docs=8000, top_labels=30, has_text=True),
     "arxiv": DSConfig(subset_size=20000, max_test_docs=8000, top_labels=30, has_text=True),
+    # PubMed MeSH: biomedical abstracts, 14 top-level MeSH categories (coarse,
+    # dense multi-label). Real raw text ⇒ text predicates apply.
+    "pubmed": DSConfig(subset_size=15000, max_test_docs=8000, top_labels=14, has_text=True),
+    # HUPD patents (Jan-2016 sample): title+abstract, IPC subclass labels.
+    "hupd": DSConfig(subset_size=15000, max_test_docs=8000, top_labels=30, has_text=True),
+    # Goodreads book blurbs → 18 aggregated genres.
+    "goodreads": DSConfig(subset_size=0, max_test_docs=0, top_labels=18, has_text=True),
+    # Full / million-scale variants. subset_size=0 = no cap (override --subset_size
+    # for a tractable single chase); test capped for eval-time tractability.
+    "arxiv_full": DSConfig(subset_size=0, max_test_docs=8000, top_labels=100, has_text=True),
+    "hupd_full": DSConfig(subset_size=0, max_test_docs=8000, top_labels=100, has_text=True),
+    "pubmed_full": DSConfig(subset_size=0, max_test_docs=8000, top_labels=14, has_text=True),
+    "goodreads_full": DSConfig(subset_size=0, max_test_docs=8000, top_labels=20, has_text=True),
 }
 
 

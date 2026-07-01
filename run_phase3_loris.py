@@ -58,8 +58,33 @@ def _caps(ds: str):
     return extra
 
 
+def _router_flags(ds, seed, use_tuned, default_k):
+    """Per-cluster + perturbed backend for the LORIS router cell, plus (optionally)
+    the per-dataset oracle-tuned hyperparameters. Returns (extra_flags, k_used)."""
+    flags = ["--cluster_model_selection", "router", "--router_backend", "perturbed"]
+    k_used = default_k
+    if use_tuned:
+        tp = _ROOT / "experiments" / "router_tuning" / f"router_tuned_{ds}_s{seed}.json"
+        if tp.exists():
+            try:
+                best = json.loads(tp.read_text()).get("best", {})
+                k_used = int(best.get("k_models", default_k))
+                if "router_sigma" in best:
+                    flags += ["--router_sigma", str(best["router_sigma"])]
+                if "router_lr" in best:
+                    flags += ["--router_lr", str(best["router_lr"])]
+                if "router_epochs" in best:
+                    flags += ["--router_epochs", str(int(best["router_epochs"]))]
+                print(f"[tuned] {ds} s{seed}: {best}", flush=True)
+            except Exception as e:
+                print(f"[tuned] {ds} s{seed} read failed ({e}); using defaults", flush=True)
+        else:
+            print(f"[tuned] {ds} s{seed}: no tuned file; using default router hp", flush=True)
+    return flags, k_used
+
+
 def _run_loris(ds, seed, k, *, selector="router", pattern_select="loris",
-               exp_dir: Path) -> dict:
+               exp_dir: Path, extra_flags=None) -> dict:
     """Run one LORIS cell, return parsed metrics dict (or {} on failure)."""
     exp_dir.mkdir(parents=True, exist_ok=True)
     cmd = [sys.executable, "-m", "loris", "--dataset", ds,
@@ -67,6 +92,10 @@ def _run_loris(ds, seed, k, *, selector="router", pattern_select="loris",
            "--selector", selector, "--pattern_select", pattern_select,
            "--k_models", str(k), "--seed", str(seed),
            "--exp_dir", str(exp_dir)]
+    if extra_flags:
+        # Appended AFTER CANON_FLAGS → argparse last-wins overrides (e.g. the
+        # router cell flips --cluster_model_selection global → router).
+        cmd += list(extra_flags)
     env = dict(os.environ,
                HF_HOME="/root/autodl-tmp/hf_cache", HF_HUB_OFFLINE="1",
                TOKENIZERS_PARALLELISM="false", PYTHONUNBUFFERED="1")
@@ -135,22 +164,43 @@ def main():
     ap.add_argument("--datasets", default="reuters21578,aapd,arxiv,bgc,rcv1")
     ap.add_argument("--seeds", default="0")
     ap.add_argument("--k", type=int, default=3)
+    ap.add_argument("--out_root", default=None,
+                    help="output root (default experiments/baselines_loris). Use a "
+                         "fresh dir e.g. experiments/baselines_loris_rework to preserve old runs.")
+    ap.add_argument("--only_selectors", default=None,
+                    help="comma list to restrict Group A selectors (e.g. 'router').")
+    ap.add_argument("--use_tuned_router", action="store_true",
+                    help="load per-dataset oracle-tuned router config for the router cell.")
     args = ap.parse_args()
+
+    global OUT
+    if args.out_root:
+        OUT = Path(args.out_root) if os.path.isabs(args.out_root) else (_ROOT / args.out_root)
 
     datasets = [d.strip() for d in args.datasets.split(",") if d.strip()]
     seeds = [int(s) for s in args.seeds.split(",") if s.strip() != ""]
+    only = ({s.strip() for s in args.only_selectors.split(",") if s.strip()}
+            if args.only_selectors else None)
+    sel_list = [s for s in SELECTORS if (only is None or s in only)]
     ok = fail = 0
 
     for seed in seeds:
         for ds in datasets:
             # Group A: vary --selector (pattern_select fixed 'loris')
             if args.group in ("A", "both"):
-                for sel in SELECTORS:
+                for sel in sel_list:
                     name = f"A_{sel}"
                     ed = OUT / "_runs" / f"{name}_{ds}_s{seed}"
-                    res = _run_loris(ds, seed, args.k, selector=sel,
-                                     exp_dir=ed)
-                    p, pl = _write(name, ds, seed, args.k, res, "A:model-select")
+                    if sel == "router":
+                        xflags, k_used = _router_flags(
+                            ds, seed, args.use_tuned_router, args.k)
+                        res = _run_loris(ds, seed, k_used, selector=sel,
+                                         exp_dir=ed, extra_flags=xflags)
+                    else:
+                        k_used = args.k
+                        res = _run_loris(ds, seed, args.k, selector=sel,
+                                         exp_dir=ed)
+                    p, pl = _write(name, ds, seed, k_used, res, "A:model-select")
                     status = "OK" if (res["rc"] == 0 and pl["macro_f1"] is not None) else "FAIL"
                     if status == "OK": ok += 1
                     else: fail += 1

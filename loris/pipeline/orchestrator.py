@@ -95,6 +95,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--k_models", type=int, default=None,
                    help="K models the router/selector keeps (default: config 3). "
                         "Used for the model-selection experiment (router ON at K).")
+    p.add_argument("--router_backend", default="custom", choices=["custom", "perturbed"],
+                   help="Differentiable Top-K backend for the dynamic router: 'custom' "
+                        "(self-authored autograd) | 'perturbed' (perturbations.py stochastic smoothing).")
+    p.add_argument("--router_sigma", type=float, default=0.1,
+                   help="Router smoothing temperature σ (stochastic-smoothing noise scale).")
+    p.add_argument("--router_lr", type=float, default=1e-3, help="Router Adam learning rate.")
+    p.add_argument("--router_epochs", type=int, default=30, help="Router training epochs.")
     p.add_argument("--selector", default="router",
                    choices=["router", "random_ms", "indiv_ms", "hybrid_llm", "caas"],
                    help="Model-selection method (Group A). 'router' = LORIS dynamic "
@@ -465,6 +472,10 @@ def main() -> None:
         two_val=args.two_val,
         glove_path=args.glove_path,
         seed=args.seed,
+        router_backend=args.router_backend,
+        router_sigma=args.router_sigma,
+        router_lr=args.router_lr,
+        router_epochs=args.router_epochs,
     )
     if args.k_models is not None:
         hp.k_models = int(args.k_models)
