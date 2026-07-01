@@ -157,11 +157,42 @@ def prepare_hupd_full(years: str = "all", limit: int = 0, top_n: int = 200) -> N
     print(f"[hupd_full] {len(texts)} docs × {len(keep)} IPC-subclass labels", flush=True)
 
 
-# ── PubMed full (Tellurio MeSH) ─────────────────────────────────────────────────
+# ── PubMed full ─────────────────────────────────────────────────────────────────
 _MESH_ROOTS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "L", "M", "N", "Z"]
+_MESH_ROOT_SET = set(_MESH_ROOTS)
+_NCBI_BASELINE = "https://ftp.ncbi.nlm.nih.gov/pubmed/baseline/"
+_MTREES_URL = "https://nlmpubs.nlm.nih.gov/projects/mesh/MESH_FILES/meshtrees/mtrees2026.bin"
 
 
-def prepare_pubmed_full(limit: int = 0) -> None:
+def _mesh_root_map(raw: Path) -> dict:
+    """descriptor-name (lower) -> set of MeSH root letters, from the NLM tree file."""
+    dst = raw / "mtrees2026.bin"
+    try:
+        _curl(_MTREES_URL, dst)
+    except Exception as e:
+        raise RuntimeError(f"could not fetch MeSH tree file: {e}")
+    m: dict = {}
+    with open(dst, encoding="utf-8", errors="ignore") as f:
+        for line in f:
+            if ";" not in line:
+                continue
+            name, tree = line.rsplit(";", 1)
+            root = tree.strip()[:1].upper()
+            if root in _MESH_ROOT_SET:
+                m.setdefault(name.strip().lower(), set()).add(root)
+    return m
+
+
+def prepare_pubmed_full(limit: int = 0, source: str = "ncbi") -> None:
+    """Complete PubMed with MeSH-root labels.
+
+    source='ncbi'  → full NCBI baseline (~37M citations, ~26M with abstracts),
+                     streamed + parsed file-by-file (resumable, disk-bounded).
+    source='tellurio' → the small (~50k) HF mirror.
+    """
+    if source == "ncbi":
+        return _prepare_pubmed_ncbi(limit=limit)
+
     from huggingface_hub import HfApi, hf_hub_download
     repo = "Tellurio/PubMed-MultiLabel-MeSH"
     raw = _ROOT / "data" / "pubmed_full" / "raw"
@@ -198,6 +229,105 @@ def prepare_pubmed_full(limit: int = 0) -> None:
             lb += b
         _save_multi_hot_csv(tx, lb, _MESH_ROOTS, out_dir / f"{split}.csv")
         print(f"[pubmed_full] {split}: {len(tx)} docs", flush=True)
+
+
+def _prepare_pubmed_ncbi(limit: int = 0) -> None:
+    import csv as _csv
+    import gzip as _gzip
+    import re
+    import subprocess
+    import xml.etree.ElementTree as ET
+
+    raw = _ROOT / "data" / "pubmed_full" / "raw"
+    raw.mkdir(parents=True, exist_ok=True)
+    out_dir = _ROOT / "data" / "pubmed_full" / "processed"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    root_map = _mesh_root_map(raw)
+    print(f"[pubmed_full/ncbi] MeSH tree: {len(root_map)} descriptors mapped", flush=True)
+
+    listing = subprocess.run(["curl", "-sL", _NCBI_BASELINE],
+                             capture_output=True, text=True, timeout=180).stdout
+    files = sorted(set(re.findall(r"pubmed\d+n\d+\.xml\.gz", listing)))
+    if not files:
+        raise RuntimeError("could not list the NCBI baseline directory")
+    print(f"[pubmed_full/ncbi] {len(files)} baseline files", flush=True)
+
+    done_path = out_dir / "_done_files.txt"
+    done = set(done_path.read_text().split()) if done_path.exists() else set()
+    train_csv, test_csv = out_dir / "train.csv", out_dir / "test.csv"
+    fresh = not train_csv.exists()
+    tf = open(train_csv, "a", newline="", encoding="utf-8")
+    ef = open(test_csv, "a", newline="", encoding="utf-8")
+    tw, ew = _csv.writer(tf), _csv.writer(ef)
+    if fresh:
+        hdr = ["text"] + _MESH_ROOTS
+        tw.writerow(hdr)
+        ew.writerow(hdr)
+
+    n_total = 0
+    for fn in files:
+        if fn in done:
+            continue
+        gz = raw / fn
+        if not (gz.exists() and gz.stat().st_size > 0):
+            # NCBI is slow from some networks — pre-place files in raw/ (any
+            # mirror/transfer) and they'll be parsed directly, skipping download.
+            try:
+                _curl(_NCBI_BASELINE + fn, gz)
+            except Exception as e:
+                print(f"  {fn} download failed: {e}", flush=True)
+                continue
+        n_file = 0
+        try:
+            with _gzip.open(gz, "rb") as fh:
+                ctx = ET.iterparse(fh, events=("start", "end"))
+                _, root = next(ctx)
+                for ev, elem in ctx:
+                    if ev != "end" or elem.tag != "PubmedArticle":
+                        continue
+                    t_el = elem.find(".//ArticleTitle")
+                    title = "".join(t_el.itertext()).strip() if t_el is not None else ""
+                    ab = " ".join("".join(a.itertext()).strip()
+                                  for a in elem.findall(".//Abstract/AbstractText"))
+                    ab = ab.strip()
+                    roots = set()
+                    for d in elem.findall(".//MeshHeadingList/MeshHeading/DescriptorName"):
+                        roots |= root_map.get((d.text or "").strip().lower(), set())
+                    pmid_el = elem.find(".//PMID")
+                    pmid = (pmid_el.text or "").strip() if pmid_el is not None else ""
+                    elem.clear()
+                    root.clear()
+                    text = (title + ". " + ab).strip() if title else ab
+                    if not text or not roots:
+                        continue
+                    row = [text] + [1 if r in roots else 0 for r in _MESH_ROOTS]
+                    try:
+                        is_test = (int(pmid) % 100) < 8
+                    except ValueError:
+                        is_test = False
+                    (ew if is_test else tw).writerow(row)
+                    n_file += 1
+                    n_total += 1
+                    if limit and n_total >= limit:
+                        break
+        except Exception as e:
+            print(f"  {fn} parse error: {e}", flush=True)
+        finally:
+            try:
+                os.remove(gz)
+            except OSError:
+                pass
+        done.add(fn)
+        done_path.write_text("\n".join(sorted(done)))
+        tf.flush()
+        ef.flush()
+        print(f"  {fn}: +{n_file} (total {n_total})", flush=True)
+        if limit and n_total >= limit:
+            break
+    tf.close()
+    ef.close()
+    print(f"[pubmed_full/ncbi] {n_total} articles written to {out_dir}", flush=True)
 
 
 # ── Goodreads full (UCSD) ───────────────────────────────────────────────────────
@@ -259,11 +389,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--dataset", required=True, choices=sorted(_PREPARERS))
     ap.add_argument("--limit", type=int, default=0, help="cap docs (0=all; for smoke tests)")
     ap.add_argument("--years", default="all", help="hupd_full only: 'all' or CSV of years")
+    ap.add_argument("--source", default="ncbi", choices=["ncbi", "tellurio"],
+                    help="pubmed_full only: 'ncbi' (full baseline, ~37M) | 'tellurio' (~50k)")
     args = ap.parse_args(argv)
     t0 = time.time()
     fn = _PREPARERS[args.dataset]
     if args.dataset == "hupd_full":
         fn(years=args.years, limit=args.limit)
+    elif args.dataset == "pubmed_full":
+        fn(limit=args.limit, source=args.source)
     else:
         fn(limit=args.limit)
     print(f"[{args.dataset}] done in {time.time()-t0:.0f}s", flush=True)

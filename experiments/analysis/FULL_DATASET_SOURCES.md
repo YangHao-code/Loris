@@ -21,3 +21,9 @@ Notes:
 - For million-scale, also raise the per-dataset caps in
   `loris/baselines/common.py::DATASET_DEFAULTS` (currently `subset_size` ≈ 12–20k
   for tractability).
+
+## Runtime status (this session)
+- pubmed_full ✅ done (~50k; auth-free MeSH ceiling — true 15M needs BioASQ).
+- arxiv_full ✅ done (~2.7M, 2.6 GB CSV).
+- hupd_full ⏳ downloading all years via HF (fast).
+- goodreads_full ⛔ DEFERRED: UCSD host throttled to ~20 KB/s (~34 h). Use an overnight `curl -C -` pull, or find an HF mirror that carries the genre labels. 8.9k sample remains usable.
