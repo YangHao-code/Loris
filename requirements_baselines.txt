@@ -1,0 +1,27 @@
+# Extra dependencies for the LORIS paper baselines (loris/baselines/).
+# Install ON TOP of the base repo requirements.txt, into the same env.
+#
+#   pip install -r requirements_baselines.txt
+#
+# Already satisfied by the base env on the dev box (listed for the new server):
+#   numpy scikit-learn scipy torch transformers tokenizers accelerate peft
+
+# DeBERTa_XGBoost / RoBERTa_XGBoost heads (encoder_head.py)
+xgboost>=1.7.0
+
+# DeBERTa-v3 tokenizer (microsoft/deberta-v3-base uses a SentencePiece tokenizer)
+sentencepiece>=0.1.99
+
+# GPT4 + RulePrompt baselines (llm_client.py) — needs OPENAI_API_KEY at runtime
+openai>=1.0.0
+
+# Group A selectors (random_ms/indiv_ms/hybrid_llm/caas) import the LORIS orchestrator,
+# which pulls in optuna via loris.rules.discovery — required or those 4 baselines crash.
+optuna>=3.0.0
+
+# Optional: 4-bit LoRA if the target torch/CUDA supports it (bf16 fallback otherwise)
+# bitsandbytes>=0.43.0
+
+# LORIS chase virtual/text attributes (group rules) need spaCy + en_core_web_sm
+spacy>=3.7,<3.9
+# en_core_web_sm model: pip install the 3.7.1 wheel from hf-mirror.com/spacy/en_core_web_sm

@@ -1,0 +1,448 @@
+{
+  "version": "0.1.0",
+  "n_classes": 30,
+  "label_names": null,
+  "n_patterns": 36,
+  "patterns": [
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "networks"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:nodses|nodes|nodss|nods|nod)\\b",
+        "flags": 2,
+        "sim_text": "nodes"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:educationals|educational|educations|politicals|culturals|education|political|sociables|cultural|sociable|welfares|welfare|mixers|social|mixer)\\b\\s+\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "social network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:clusterings|clustering|clusterses|clustered|clusterss|clusters|bunches|cluster|bunchs|clumps|bunch|clump)\\b",
+        "flags": 2,
+        "sim_text": "clustering"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:educationals|educational|educations|politicals|culturals|education|political|sociables|cultural|sociable|welfares|welfare|mixers|social|mixer)\\b\\s+\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "social networks"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:clusterings|clustering|clusterses|clustered|clusterss|clusters|bunches|cluster|bunchs|clumps|bunch|clump)\\b",
+        "flags": 2,
+        "sim_text": "clusters"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:allocationses|allocationss|allocations|allocateds|allocation|allotments|allocated|allotment)\\b",
+        "flags": 2,
+        "sim_text": "allocation"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:computationals|computational|optimisations|algorithmses|computations|optimisation|optimization|algorithmss|computation|algorithms|algorithm)\\b",
+        "flags": 2,
+        "sim_text": "optimization"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:communitieses|communitiess|educationals|communities|educational|community|schoolses|societies|schoolss|societys|publics|schools|society|public)\\b",
+        "flags": 2,
+        "sim_text": "communities"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:privatenesses|protectionses|privatenesss|protectionss|libertieses|privateness|protections|libertiess|seclusions|liberties|seclusion|privacy)\\b",
+        "flags": 2,
+        "sim_text": "privacy"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:commendations|commendation|citationses|citationss|citations|citation)\\b",
+        "flags": 2,
+        "sim_text": "citation"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:clusterings|clustering|clusterses|clustered|clusterss|clusters|bunches|cluster|bunchs|clumps|bunch|clump)\\b",
+        "flags": 2,
+        "sim_text": "cluster"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:graphses|graphss|planars|graphs|planar|graph)\\b",
+        "flags": 2,
+        "sim_text": "graphs"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:queueses|queuess|queuing|queues|queue)\\b",
+        "flags": 2,
+        "sim_text": "queue"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:approximates|parameterses|approximate|parameterss|optimality|parameters|optimums|optimal|optimum)\\b\\s+\\b(?:strategieses|strategiess|strategies|focuseds|policies|strategy|focused|focuses|policys|schemes|focuss|policy|scheme|focus|plans|plan)\\b",
+        "flags": 2,
+        "sim_text": "optimal strategy"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b\\s+\\b(?:constructions|constructeds|construction|structureses|constructed|structuress|structural|structured|structures|buildings|complexes|structure|building|complexs|complex|shapes|shape)\\b",
+        "flags": 2,
+        "sim_text": "network structure"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:incompleteness|fragmentaries|inconsistents|fragmentarys|inconsistent|fragmentary|inaccurates|uncompletes|inaccurate|incomplete|incorrects|uncomplete|incorrect)\\b\\s+\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "incomplete network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:communitieses|communitiess|educationals|communities|educational|community|schoolses|societies|schoolss|societys|publics|schools|society|public)\\b\\s+\\b(?:constructions|constructeds|construction|structureses|constructed|structuress|structural|structured|structures|buildings|complexes|structure|building|complexs|complex|shapes|shape)\\b",
+        "flags": 2,
+        "sim_text": "community structure"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:educationals|educational|educations|politicals|culturals|education|political|sociables|cultural|sociable|welfares|welfare|mixers|social|mixer)\\b\\s+\\b(?:medium)\\b",
+        "flags": 2,
+        "sim_text": "social medium"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:complicateds|structureses|complicated|structuress|composites|structures|buildings|composite|structure|building|complex)\\b\\s+\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "complex network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:collaborativelies|collaborativelys|collaboratively|collaborating|collaboration|collaborate|cooperates|integrates|cooperate|integrate)\\b",
+        "flags": 2,
+        "sim_text": "collaborate"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:epidemicses|epidemicss|epidemics|outbreaks|pandemics|choleras|diseases|epidemic|outbreak|pandemic|cholera|disease)\\b",
+        "flags": 2,
+        "sim_text": "epidemic"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:large)\\b\\s+\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "large network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:cloudses|cloudss|clouds|ashes|cloud|dusts|ashs|dust|ash)\\b",
+        "flags": 2,
+        "sim_text": "cloud"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:communicationses|communicationss|communicatings|communications|communicating|communication|technologies|technologys|knowledges|serviceses|technology|knowledge|servicess|systemses|services|systemss|systems)\\b\\s+\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "communication network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:interactives|interactive|websiteses|internets|websitess|internet|websites|userses|online|userss|users|webs|web)\\b\\s+\\b(?:educationals|educational|educations|politicals|culturals|education|political|sociables|cultural|sociable|welfares|welfare|mixers|social|mixer)\\b\\s+\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "online social network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:undirecteds|undirected|bipartite|graphses|graphss|graphs)\\b\\s+\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "bipartite network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:finleys|finley|kidds|kidd|nash)\\b\\s+\\b(?:thermodynamics|thermodynamic|equilibriums|equilibrium|equations|equation)\\b",
+        "flags": 2,
+        "sim_text": "nash equilibrium"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:facebooks|chirrups|facebook|myspaces|tweetses|youtubes|chirrup|myspace|tweetss|twitter|youtube|tweets|blogs|blog)\\b",
+        "flags": 2,
+        "sim_text": "twitter"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:influenceses|influenceds|influencess|particulars|influenced|influences|particular|politicals|influence|political|roles|role)\\b\\s+\\b(?:minimizations|maximization|minimization)\\b",
+        "flags": 2,
+        "sim_text": "influence maximization"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b\\s+\\b(?:nodeses|nodess|nodes|node)\\b",
+        "flags": 2,
+        "sim_text": "network node"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b\\s+\\b(?:topologicals|topological|algebraics|euclideans|geometries|topologies|algebraic|euclidean|geometrys|geometry|topology|finites|finite)\\b",
+        "flags": 2,
+        "sim_text": "network topology"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:really|facts|goods|kinds|trues|fact|good|kind|real|sees|true|see)\\b\\s+\\b(?:existences|countries|creations|existence|universes|americas|cosmoses|countrys|creation|universe|america|cosmoss|country|europes|cosmos|europe|events|event|evers|world|ever)\\b\\s+\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "real world network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "network"
+      },
+      "r2": {
+        "raw": "\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "networks"
+      },
+      "sim": true,
+      "threshold": 0.45
+    },
+    {
+      "type": "CooccurPredicate",
+      "attr": "cnt",
+      "r1": {
+        "raw": "\\b(?:broadcasts|channelses|networking|networkses|broadcast|channelss|networked|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "networks"
+      },
+      "r2": {
+        "raw": "\\b(?:nodses|nodes|nodss|nods|nod)\\b",
+        "flags": 2,
+        "sim_text": "nodes"
+      },
+      "sim": true,
+      "threshold": 0.45
+    }
+  ]
+}

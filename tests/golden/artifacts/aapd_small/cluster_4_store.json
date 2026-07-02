@@ -1,0 +1,428 @@
+{
+  "version": "0.1.0",
+  "n_classes": 30,
+  "label_names": null,
+  "n_patterns": 35,
+  "patterns": [
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:compartmentalisations|compartmentalizations|compartmentalisation|compartmentalization|classificationses|classificationss|categorisations|categorizations|classifications|categorisation|categorization|classification)\\b",
+        "flags": 2,
+        "sim_text": "classification"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:plasticities|plasticitys|pathwayses|plasticity|corticals|nervouses|neuronals|pathwayss|cortical|nervouss|neuronal|pathways|nervous|neural)\\b",
+        "flags": 2,
+        "sim_text": "neural"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:machineses|machiness|machines|devices|machine|device)\\b\\s+\\b(?:understands|understand|acquires|learneds|learning|realizes|acquire|learned|learner|realize|teaches|learns|teachs|knows|larns|learn|teach|know|larn)\\b",
+        "flags": 2,
+        "sim_text": "machine learning"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:denses|sparse|dense|thins|thin)\\b",
+        "flags": 2,
+        "sim_text": "sparse"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:plasticities|plasticitys|pathwayses|plasticity|corticals|nervouses|neuronals|pathwayss|cortical|nervouss|neuronal|pathways|nervous|neural)\\b\\s+\\b(?:broadcasts|channelses|networkses|broadcast|channelss|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "neural networks"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:plasticities|plasticitys|pathwayses|plasticity|corticals|nervouses|neuronals|pathwayss|cortical|nervouss|neuronal|pathways|nervous|neural)\\b\\s+\\b(?:broadcasts|channelses|networkses|broadcast|channelss|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "neural network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:classifierses|classifierss|classifiers|classifier)\\b",
+        "flags": 2,
+        "sim_text": "classifier"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:classifierses|classifierss|classifiers|classifier)\\b",
+        "flags": 2,
+        "sim_text": "classifiers"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:understands|understand|acquires|learneds|learning|realizes|acquire|learned|learner|realize|teaches|learns|teachs|knows|larns|learn|teach|know|larn)\\b\\s+\\b(?:approximations|approximation|optimizations|algorithmses|computations|optimization|algorithmss|computation|algorithms|iteratives|algorithm|iterative)\\b",
+        "flags": 2,
+        "sim_text": "learning algorithms"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:clusterings|clustering|clusterses|clustered|clusterss|clusters|bunches|cluster|bunchs|clumps|bunch|clump)\\b",
+        "flags": 2,
+        "sim_text": "clustering"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:principals|principal|christis|habeases|christi|habeass|corpus|habeas)\\b",
+        "flags": 2,
+        "sim_text": "corpus"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:superintends|supervisings|overseeings|superintend|supervising|supervision|overseeing|supervised|supervise|inspects|oversees|inspect|manages|oversee|manage)\\b",
+        "flags": 2,
+        "sim_text": "supervised"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:shallows|deepers|shallow|deeper|wides|deep|wide)\\b\\s+\\b(?:understands|understand|acquires|learneds|learning|realizes|acquire|learned|learner|realize|teaches|learns|teachs|knows|larns|learn|teach|know|larn)\\b",
+        "flags": 2,
+        "sim_text": "deep learning"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:facial|skins|skin)\\b\\s+\\b(?:expressionses|expressionss|expressions|expression|emotions|aspects|emotion|aspect|senses|faces|looks|sense|face|look)\\b",
+        "flags": 2,
+        "sim_text": "facial expression"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:long)\\b\\s+\\b(?:shorters|longers|shorter|thoughs|longer|though|short|times|wells|time|well)\\b\\s+\\b(?:currents|likelies|current|likelys|meanses|termses|givens|likely|meanss|termed|termss|given|means|terms|term)\\b\\s+\\b(?:memorieses|memoryless|memoriess|memories|memory)\\b",
+        "flags": 2,
+        "sim_text": "long short term memory"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:perennials|recurrings|perennial|recurrent|recurring|repeateds|chronics|repeated|chronic)\\b\\s+\\b(?:plasticities|plasticitys|pathwayses|plasticity|corticals|nervouses|neuronals|pathwayss|cortical|nervouss|neuronal|pathways|nervous|neural)\\b\\s+\\b(?:broadcasts|channelses|networkses|broadcast|channelss|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "recurrent neural network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:shallows|deepers|shallow|deeper|wides|deep|wide)\\b\\s+\\b(?:plasticities|plasticitys|pathwayses|plasticity|corticals|nervouses|neuronals|pathwayss|cortical|nervouss|neuronal|pathways|nervous|neural)\\b\\s+\\b(?:broadcasts|channelses|networkses|broadcast|channelss|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "deep neural network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:deterministics|probabilistics|deterministic|probabilistic|dynamicals|nonlinears|stochastic|dynamical|nonlinear)\\b\\s+\\b(?:gradientses|gradientss|velocities|gradients|velocitys|gradient|velocity)\\b\\s+\\b(?:ancestries|ancestrys|ancestry|descent|origins|origin)\\b",
+        "flags": 2,
+        "sim_text": "stochastic gradient descent"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:classification|differentiates|characterizes|differentiate|distinguishes|characterize|classifyings|distinguishs|categorizes|classifying|distinguish|categorize|classified|classifies|separates|classify|separate|assorts|classes|assort|classs|class|sorts|sort)\\b",
+        "flags": 2,
+        "sim_text": "classify"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:dimensionality)\\b\\s+\\b(?:reductionses|diminutions|increaseses|reductionss|diminution|increasess|reductions|decreases|increases|reducings|reduction|decrease|increase|reducing|reduces|reduce)\\b",
+        "flags": 2,
+        "sim_text": "dimensionality reduction"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:convolutional)\\b\\s+\\b(?:plasticities|plasticitys|pathwayses|plasticity|corticals|nervouses|neuronals|pathwayss|cortical|nervouss|neuronal|pathways|nervous|neural)\\b\\s+\\b(?:broadcasts|channelses|networkses|broadcast|channelss|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "convolutional neural network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:msnbcs|cbses|cnbcs|msnbc|abcs|cbss|cnbc|nbcs|abc|cbs|cnn|nbc)\\b",
+        "flags": 2,
+        "sim_text": "cnn"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:shallows|deepers|shallow|deeper|wides|deep|wide)\\b\\s+\\b(?:convolutional)\\b\\s+\\b(?:plasticities|plasticitys|pathwayses|plasticity|corticals|nervouses|neuronals|pathwayss|cortical|nervouss|neuronal|pathways|nervous|neural)\\b\\s+\\b(?:broadcasts|channelses|networkses|broadcast|channelss|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "deep convolutional neural network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:technologies|computerses|technologys|computerss|technology|computers|hardwares|internets|softwares|computer|hardware|internet|software)\\b\\s+\\b(?:vision)\\b",
+        "flags": 2,
+        "sim_text": "computer vision"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:anomalousnesses|anomalousnesss|anomalousness|aberrations|aberration|oddities|anomaly|odditys|oddity)\\b\\s+\\b(?:detectorses|detectings|detectorss|detecting|detection|detectors|sensorses|detector|sensings|sensorss|detects|sensing|sensors|detect)\\b",
+        "flags": 2,
+        "sim_text": "anomaly detection"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:artificially|artificial|unreals|unreal)\\b\\s+\\b(?:plasticities|plasticitys|pathwayses|plasticity|corticals|nervouses|neuronals|pathwayss|cortical|nervouss|neuronal|pathways|nervous|neural)\\b\\s+\\b(?:broadcasts|channelses|networkses|broadcast|channelss|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "artificial neural network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:probabilistics|probabilistic|frequentists|frequentist|bayesian)\\b\\s+\\b(?:broadcasts|channelses|networkses|broadcast|channelss|networkss|channels|networks|channel|network|cables|cable|webs|web)\\b",
+        "flags": 2,
+        "sim_text": "bayesian network"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:clusterings|clustering|clusterses|clustered|clusterss|clusters|bunches|cluster|bunchs|clumps|bunch|clump)\\b",
+        "flags": 2,
+        "sim_text": "cluster"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:backpropagation|feedforwards|feedforward)\\b",
+        "flags": 2,
+        "sim_text": "backpropagation"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:interdisciplinaries|interdisciplinarys|interdisciplinary|collaborations|collaboration|collaborative|innovatives|innovative)\\b\\s+\\b(?:filterings|filtering|filterses|filterss|filters|filter)\\b",
+        "flags": 2,
+        "sim_text": "collaborative filtering"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:constructions|constructeds|construction|structureses|constructed|structuress|structured|structures|buildings|complexes|structure|building|complexs|complex|shapes|shape)\\b\\s+\\b(?:anticipations|predictionses|projectionses|anticipation|forecastings|predictionss|projectionss|forecasting|forecastses|predictions|projections|forecastss|prediction|predictive|previsions|forecasts|prevision|forecast)\\b",
+        "flags": 2,
+        "sim_text": "structured prediction"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:machineses|machiness|machines|devices|machine|device)\\b\\s+\\b(?:understands|understand|acquires|learneds|learning|realizes|acquire|learned|learner|realize|teaches|learns|teachs|knows|larns|learn|teach|know|larn)\\b\\s+\\b(?:approximations|approximation|optimizations|algorithmses|computations|optimization|algorithmss|computation|algorithms|iteratives|algorithm|iterative)\\b",
+        "flags": 2,
+        "sim_text": "machine learn algorithm"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:compartmentalisations|compartmentalizations|compartmentalisation|compartmentalization|classificationses|classificationss|categorisations|categorizations|classifications|categorisation|categorization|classification)\\b\\s+\\b(?:performanceses|performancess|performances|performance|qualities|successes|qualitys|successs|quality|success|bests|wells|best|well)\\b",
+        "flags": 2,
+        "sim_text": "classification performance"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:lstm)\\b",
+        "flags": 2,
+        "sim_text": "lstm"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:reenforcements|reenforcement|reinforcement|supports|support)\\b\\s+\\b(?:understands|understand|acquires|learneds|learning|realizes|acquire|learned|learner|realize|teaches|learns|teachs|knows|larns|learn|teach|know|larn)\\b",
+        "flags": 2,
+        "sim_text": "reinforcement learning"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    }
+  ]
+}

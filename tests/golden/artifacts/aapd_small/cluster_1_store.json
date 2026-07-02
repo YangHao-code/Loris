@@ -1,0 +1,428 @@
+{
+  "version": "0.1.0",
+  "n_classes": 30,
+  "label_names": null,
+  "n_patterns": 35,
+  "patterns": [
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:graphses|graphss|planars|graphs|planar|graph)\\b",
+        "flags": 2,
+        "sim_text": "graphs"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:approximations|approximation|optimizations|algorithmses|computations|optimization|algorithmss|computation|algorithms|iteratives|algorithm|iterative)\\b",
+        "flags": 2,
+        "sim_text": "algorithms"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:sophistications|complexitieses|computationals|sophistication|complexitiess|complexnesses|computational|complexities|complexnesss|dimensionses|complexness|dimensionss|complexity|dimensions|inherents|inherent)\\b",
+        "flags": 2,
+        "sim_text": "complexity"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:electrodynamicses|electrodynamicss|electrodynamics|mathematicals|mathematical|relativities|relativitys|relativity|gravities|gravitys|theories|gravity|quantum|theorys|theory)\\b",
+        "flags": 2,
+        "sim_text": "quantum"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:vertices|vertice)\\b",
+        "flags": 2,
+        "sim_text": "vertices"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:combinatoricses|combinatoricss|combinatorial|combinatorics|combinatories|combinatives|combinatorys|combinative|combinatory)\\b",
+        "flags": 2,
+        "sim_text": "combinatorial"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:verticeses|verticess|vertices|vertex)\\b",
+        "flags": 2,
+        "sim_text": "vertex"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:constraintses|constraintss|constraints|constraint|restraints|restraint)\\b",
+        "flags": 2,
+        "sim_text": "constraints"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:coefficientses|coefficientss|polynomialses|coefficients|multinomials|polynomially|polynomialss|multinomial|polynomials|polynomial|quadratics|quadratic|integers|finites|integer|finite)\\b\\s+\\b(?:dayses|timing|clips|dayss|timed|times|clip|days|time)\\b",
+        "flags": 2,
+        "sim_text": "polynomial time"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:highers|rateses|belows|higher|ratess|uppers|below|lower|rates|upper|lows|low)\\b\\s+\\b(?:proteinses|proteinss|proteins|bindses|bindss|binds|bound|bind)\\b",
+        "flags": 2,
+        "sim_text": "lower bound"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:denses|sparse|dense|thins|thin)\\b",
+        "flags": 2,
+        "sim_text": "sparse"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:processings|equipments|processing|warehouses|equipment|warehouse|supplies|storage|storeds|supplys|stored|supply)\\b",
+        "flags": 2,
+        "sim_text": "storage"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:backgrounds|background|colourings|colorings|colouring|coloreds|coloring|colorses|shadeses|colored|colorss|colours|shadess|colors|colour|shades|color)\\b",
+        "flags": 2,
+        "sim_text": "coloring"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:topologicals|topological|symmetrics|symmetric|graphses|graphss|graphs|planar|graph)\\b\\s+\\b(?:graphses|graphss|planars|graphs|planar|graph)\\b",
+        "flags": 2,
+        "sim_text": "planar graph"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:direction|indirects|possibles|directed|indirect|possible|provides|provide|allows|direct|allow|uses|use)\\b\\s+\\b(?:graphses|graphss|planars|graphs|planar|graph)\\b",
+        "flags": 2,
+        "sim_text": "direct graph"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:chromatic|diatonics|harmonics|diatonic|harmonic)\\b\\s+\\b(?:numberses|numberss|figures|numbers|amongs|figure|manies|number|threes|among|manys|three|many|tens|ten)\\b",
+        "flags": 2,
+        "sim_text": "chromatic number"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:subgraphses|undirecteds|subgraphss|undirected|subgraphs|subgraph)\\b",
+        "flags": 2,
+        "sim_text": "subgraph"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:equationses|equationss|nonlinears|additives|discretes|equations|nonlinear|additive|discrete|finites|vectors|finite|linear|vector)\\b\\s+\\b(?:codifications|regulationses|codification|regulationss|regulations|codeses|ruleses|codess|coding|ruless|coded|codes|rules|code)\\b",
+        "flags": 2,
+        "sim_text": "linear code"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:interrogations|interrogation|enquiries|inquiries|querieses|questions|enquirys|inquirys|queriess|question|enquiry|inquiry|queries|query)\\b\\s+\\b(?:sophistications|complexitieses|computationals|sophistication|complexitiess|complexnesses|computational|complexities|complexnesss|dimensionses|complexness|dimensionss|complexity|dimensions|inherents|inherent)\\b",
+        "flags": 2,
+        "sim_text": "query complexity"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:permutationses|transpositions|permutationss|substitutions|transposition|permutations|replacements|substitution|permutation|replacement|matriceses|matricess|matrices|switches|switchs|switch)\\b",
+        "flags": 2,
+        "sim_text": "permutation"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:clusterings|clustering|clusterses|clusterss|clusters|bunches|cluster|bunchs|clumps|bunch|clump)\\b",
+        "flags": 2,
+        "sim_text": "cluster"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:efficiencies|inefficients|inexpensives|efficiencys|efficiently|inefficient|inexpensive|effectives|efficiency|effective|efficient|reliables|reliable)\\b\\s+\\b(?:approximations|approximation|optimizations|algorithmses|computations|optimization|algorithmss|computation|algorithms|iteratives|algorithm|iterative)\\b",
+        "flags": 2,
+        "sim_text": "efficient algorithm"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:graphses|graphss|planars|graphs|planar|graph)\\b\\s+\\b(?:grammes|impoils|gramme|impoil|grams|gram|g)\\b",
+        "flags": 2,
+        "sim_text": "graph g"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:computationally|computational|mathematicals|algorithmses|computations|mathematical|theoreticals|algorithmss|computation|theoretical|algorithms|computings|computing)\\b\\s+\\b(?:sophistications|complexitieses|computationals|sophistication|complexitiess|complexnesses|computational|complexities|complexnesss|dimensionses|complexness|dimensionss|complexity|dimensions|inherents|inherent)\\b",
+        "flags": 2,
+        "sim_text": "computational complexity"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:approximates|approximate|determines|determine|exactlies|exactlys|precises|actuals|demands|exactly|precise|actual|demand|exact)\\b\\s+\\b(?:approximations|approximation|optimizations|algorithmses|computations|optimization|algorithmss|computation|algorithms|iteratives|algorithm|iterative)\\b",
+        "flags": 2,
+        "sim_text": "exact algorithm"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:approximationses|approximationss|approximations|approximation|equationses|estimations|algorithms|equationss|estimation|algorithm|equations|estimates|equation|estimate|ideas|idea)\\b\\s+\\b(?:approximations|approximation|optimizations|algorithmses|computations|optimization|algorithmss|computation|algorithms|iteratives|algorithm|iterative)\\b",
+        "flags": 2,
+        "sim_text": "approximation algorithm"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:graphses|graphss|planars|graphs|planar|graph)\\b\\s+\\b(?:hypothesises|hypothesiss|conceptses|evolutions|hypothesis|theorieses|conceptss|evolution|theoriess|concepts|theories|concept|theory)\\b",
+        "flags": 2,
+        "sim_text": "graph theory"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:constraintses|constraintss|constraints|constraint|restraints|restraint)\\b",
+        "flags": 2,
+        "sim_text": "constraint"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:really|facts|goods|kinds|trues|fact|good|kind|real|sees|true|see)\\b\\s+\\b(?:existences|countries|creations|existence|universes|americas|cosmoses|countrys|creation|universe|america|cosmoss|country|europes|cosmos|europe|events|event|evers|world|ever)\\b\\s+\\b(?:graphses|graphss|planars|graphs|planar|graph)\\b",
+        "flags": 2,
+        "sim_text": "real world graph"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:submodular)\\b\\s+\\b(?:functionals|functionses|functional|functionss|functions|integrals|defineds|function|integral|mappings|defined|mapping|hences|hence|maps|map)\\b",
+        "flags": 2,
+        "sim_text": "submodular function"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:permutation|transposes|permuting|transpose|commutes|commute|permute)\\b",
+        "flags": 2,
+        "sim_text": "permute"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:pathwidths|pathwidth|treewidth)\\b",
+        "flags": 2,
+        "sim_text": "treewidth"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:randomness|randomly|random)\\b\\s+\\b(?:graphses|graphss|planars|graphs|planar|graph)\\b",
+        "flags": 2,
+        "sim_text": "random graph"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:electrodynamicses|electrodynamicss|electrodynamics|mathematicals|mathematical|relativities|relativitys|relativity|gravities|gravitys|theories|gravity|quantum|theorys|theory)\\b\\s+\\b(?:technologies|computerses|technologys|computerss|technology|computers|hardwares|internets|softwares|computer|hardware|internet|software)\\b",
+        "flags": 2,
+        "sim_text": "quantum computer"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    },
+    {
+      "type": "MatchPredicate",
+      "attr": "cnt",
+      "r": {
+        "raw": "\\b(?:parity|paras|para)\\b\\s+\\b(?:playerses|playerss|gameses|players|seasons|gamess|player|season|games|plays|game|play)\\b",
+        "flags": 2,
+        "sim_text": "parity game"
+      },
+      "sim": true,
+      "threshold": 0.45,
+      "negate": false
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+# Generated experiment outputs (large, not source)
+experiments/
+results/
+tests/golden/_run/
+tests/golden/_run_check/
+tests/golden/*.log
+
+# Python caches / build
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# Data artifacts (kept out of git; regenerate via scripts)
+*.npy
+embeddings_*.npy
+
+# Datasets (transferred out-of-band, not in git) — root-level only, NOT loris/data/
+/data/
+# Run logs
+/logs/
+# The paper PDF (not source)
+*.pdf
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
