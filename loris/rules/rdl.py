@@ -220,6 +220,7 @@ class RDLSet:
         sim_decay: float = 1.0,
         sim_conf_threshold: float = 0.0,
         virtual_attrs: Optional[Dict] = None,
+        disable_incremental: bool = False,
     ) -> "ChaseResult":
         """Apply rules using multi-label chase semantics.
 
@@ -262,6 +263,7 @@ class RDLSet:
             sim_decay=sim_decay,
             sim_conf_threshold=sim_conf_threshold,
             virtual_attrs=virtual_attrs,
+            disable_incremental=disable_incremental,
         )
         return chase.run(docs, base_predictions=base_predictions)
 

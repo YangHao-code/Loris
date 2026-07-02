@@ -262,6 +262,27 @@ class LoRASLMClassifier(BaseDocumentClassifier):
                 param.requires_grad_(True)
 
         model.print_trainable_parameters()
+        # Guard against silently degrading to full-parameter FT / zero-shot: with
+        # LoRA only the adapters + classification head should be trainable
+        # (typically ~0.05-2%). Record the fraction and assert it stays small.
+        _n_train = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        _n_total = sum(p.numel() for p in model.parameters())
+        self.trainable_pct = 100.0 * _n_train / max(1, _n_total)
+        self.peft_config_used = {
+            "peft_method": self.peft_method, "lora_r": self.lora_r,
+            "lora_alpha": self.lora_alpha, "lora_dropout": self.lora_dropout,
+            "lora_target_modules": list(self.lora_target_modules),
+            "use_4bit": self.use_4bit, "trainable_pct": round(self.trainable_pct, 4),
+        }
+        logger.info("LoRA trainable params: %d / %d = %.4f%%  config=%s",
+                    _n_train, _n_total, self.trainable_pct, self.peft_config_used)
+        if self.peft_method == "lora" and self.trainable_pct > 10.0:
+            raise RuntimeError(
+                f"LoRA adapter did not attach as expected: {self.trainable_pct:.2f}% "
+                f"of params are trainable (>10%) — this looks like full-parameter "
+                f"fine-tuning, not LoRA. Check peft install / target_modules "
+                f"{self.lora_target_modules} for {self.model_name}."
+            )
         return model
 
     def _build_peft_config(self):

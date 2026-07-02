@@ -570,6 +570,7 @@ class RILLController:
         sim_conf_threshold: float = 0.0,
         virtual_attrs: Optional[Dict[str, "np.ndarray"]] = None,
         seed: int = 42,
+        active_relabel: bool = False,
     ) -> None:
         self.rules = list(rules)
         self.label_names = list(label_names)
@@ -585,6 +586,10 @@ class RILLController:
         self.sim_decay = sim_decay
         self.sim_conf_threshold = sim_conf_threshold
         self.virtual_attrs = virtual_attrs
+        # active_relabel: query the most-influential docs regardless of whether
+        # they already carry base+rules labels (the human-cost budget sweep needs
+        # to reach any budget B; otherwise U collapses to the few all-zero docs).
+        self.active_relabel = active_relabel
         # bug#19/opt#9: seeded RNG so large-U sampling (and thus query order) is
         # reproducible across runs instead of using the global unseeded np.random.
         self.rng = np.random.RandomState(seed)
@@ -661,10 +666,16 @@ class RILLController:
         )
 
         # Step 8: Identify unlabeled documents
-        # U = docs with no positive labels AND whose neg hasn't exhausted all labels
-        U = np.where(
-            (lbl.pos.sum(axis=1) == 0) & (lbl.neg.sum(axis=1) < self.n_labels)
-        )[0]
+        # U = docs with no positive labels AND whose neg hasn't exhausted all labels.
+        # active_relabel: candidates = ALL docs not yet queried (so the human-cost
+        # sweep can query up to any budget B, even on base+rules-labeled docs).
+        queried: set = set()
+        if self.active_relabel:
+            U = np.arange(n_docs)
+        else:
+            U = np.where(
+                (lbl.pos.sum(axis=1) == 0) & (lbl.neg.sum(axis=1) < self.n_labels)
+            )[0]
 
         # Skip set: docs where trust check failed and fallback returned None
         skip_set: set = set()
@@ -771,12 +782,18 @@ class RILLController:
                     skip_set.add(x_star)
 
             # Step 27–29: Update U
-            U = np.where(
-                (lbl.pos.sum(axis=1) == 0) & (lbl.neg.sum(axis=1) < self.n_labels)
-            )[0]
-            # Exclude skipped docs
-            if skip_set:
-                U = np.array([x for x in U if x not in skip_set])
+            queried.add(x_star)
+            if self.active_relabel:
+                # candidates = all docs not yet queried (relabel-any mode)
+                U = np.array([i for i in range(n_docs)
+                              if i not in queried and i not in skip_set])
+            else:
+                U = np.where(
+                    (lbl.pos.sum(axis=1) == 0) & (lbl.neg.sum(axis=1) < self.n_labels)
+                )[0]
+                # Exclude skipped docs
+                if skip_set:
+                    U = np.array([x for x in U if x not in skip_set])
 
             # Log
             query_log.append({

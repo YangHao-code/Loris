@@ -34,7 +34,7 @@ SELECTORS = ["router", "random_ms", "indiv_ms", "hybrid_llm", "caas"]
 PATTERN_SELECTORS = ["loris", "filter_mi", "filter_chi2", "weshap", "localboost"]
 
 CANON_FLAGS = [
-    "--top_labels", "30", "--two_val", "--rule_strategy", "batch",
+    "--two_val", "--rule_strategy", "batch",
     "--cluster_model_selection", "global", "--batch_metric_mode", "global_macro",
     "--track1_baseline", "blank", "--pattern_mode", "full",
     # pattern_mode 'full' (regex matching), NOT 'sim': sim-mode screening embeds
@@ -50,7 +50,8 @@ CANON_FLAGS = [
 
 def _caps(ds: str):
     d = DATASET_DEFAULTS[ds]
-    extra = []
+    # Per-dataset top_labels (pubmed 14, hupd 30, …), NOT a hardcoded 30.
+    extra = ["--top_labels", str(d.top_labels)]
     if d.subset_size:
         extra += ["--subset_size", str(d.subset_size)]
     if d.max_test_docs:

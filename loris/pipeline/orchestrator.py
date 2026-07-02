@@ -39,7 +39,7 @@ from loris.rules.discovery import (
 )
 from loris.pipeline.shared import (
     HParams, DATASET_REGISTRY, load_data, configure_logging,
-    init_models, train_models, evaluate_models_on_test,
+    init_models, train_models, evaluate_models_on_test, apply_label_budget,
     run_pattern_abstraction, run_dynamic_router, register_selected_models,
     _select_top_predicates, _select_cluster_models, save_and_print_results,
     analyze_rule_corrections, _setup_experiment, _PredictWrapper,
@@ -50,6 +50,24 @@ from loris.pipeline.steps import (
 )
 
 log = logging.getLogger("loris_chase_pipeline")
+
+
+def _make_rill_oracle(hp, test_y, label_names):
+    """Build the RILL active-loop oracle + trust-check flag for the noLLM ablation.
+
+    use_llm_annotator=True  → LLMOracle (LLM pre-annotator; trust-check ON;
+                              falls back to the human/GT on failure).
+    else (default / --no_llm) → GroundTruthOracle (human-only; trust-check OFF).
+    Returns (oracle, trust_check).
+    """
+    from chase_inference.oracle import GroundTruthOracle
+    if getattr(hp, "use_llm_annotator", False):
+        from chase_inference.oracle import LLMOracle
+        oracle = LLMOracle(label_names=label_names, ground_truth=test_y)
+        log.info("RILL oracle = LLMOracle (model=%s); trust-check ON, human fallback.",
+                 getattr(oracle, "model_name", "?"))
+        return oracle, True
+    return GroundTruthOracle(ground_truth=test_y, label_names=label_names), False
 
 
 def parse_args() -> argparse.Namespace:
@@ -95,9 +113,22 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--k_models", type=int, default=None,
                    help="K models the router/selector keeps (default: config 3). "
                         "Used for the model-selection experiment (router ON at K).")
-    p.add_argument("--router_backend", default="custom", choices=["custom", "perturbed"],
+    p.add_argument("--router_backend", default="custom", choices=["custom", "perturbed", "gumbel"],
                    help="Differentiable Top-K backend for the dynamic router: 'custom' "
-                        "(self-authored autograd) | 'perturbed' (perturbations.py stochastic smoothing).")
+                        "(self-authored autograd) | 'perturbed' (perturbations.py stochastic "
+                        "smoothing) | 'gumbel' (standard Gumbel-Softmax relaxation — the noS "
+                        "ablation that removes stochastic smoothing).")
+    p.add_argument("--no_smoothing", action="store_true", default=False,
+                   help="noS ablation shorthand: use the standard Gumbel-Softmax Top-K backend "
+                        "instead of stochastic smoothing (equivalent to --router_backend gumbel).")
+    p.add_argument("--task_loss_only", action="store_true", default=False,
+                   help="noL ablation: train the router on the downstream task loss ONLY "
+                        "(zero the joint imitation term in HybridLoss).")
+    p.add_argument("--pool_size", type=int, default=0,
+                   help="Varying-|M|: restrict the model pool to the top-N models by val "
+                        "macro-F1 before selection/chase (0 = full pool).")
+    p.add_argument("--pool_models", default="",
+                   help="Explicit CSV of model names to keep in the pool (overrides --pool_size).")
     p.add_argument("--router_sigma", type=float, default=0.1,
                    help="Router smoothing temperature σ (stochastic-smoothing noise scale).")
     p.add_argument("--router_lr", type=float, default=1e-3, help="Router Adam learning rate.")
@@ -131,7 +162,27 @@ def parse_args() -> argparse.Namespace:
                         "drop tfidf bag-of-words models (textcnn/bilstm/encoder only) so "
                         "lexical RULES add orthogonal signal vs a semantic base.")
     p.add_argument("--lora_model", default=None,
-                   help="HF model name for LoRASLMClassifier (requires 20 GB VRAM)")
+                   help="HF model name for LoRASLMClassifier (requires 20 GB VRAM). Accepts a "
+                        "CSV to add MULTIPLE LoRA SLMs to the pool, e.g. "
+                        "'mistralai/Mistral-7B-v0.1,meta-llama/Meta-Llama-3-8B'.")
+    p.add_argument("--lora_r", type=int, default=16, help="LoRA rank (PEFT).")
+    p.add_argument("--lora_alpha", type=int, default=32, help="LoRA scaling α (PEFT).")
+    p.add_argument("--lora_dropout", type=float, default=0.05, help="LoRA dropout (PEFT).")
+    p.add_argument("--lora_target_modules", default="q_proj,v_proj",
+                   help="CSV of attention modules LoRA adapts (both Llama-3 & Mistral use q_proj,v_proj).")
+    p.add_argument("--use_llm_annotator", action="store_true", default=False,
+                   help="noLLM standard arm: in the RILL active loop, query an LLMOracle "
+                        "(LLM pre-annotator + trust check) before falling back to the human "
+                        "oracle. Requires OPENAI_API_KEY (+ OPENAI_BASE_URL / LORIS_LLM_MODEL "
+                        "for SiliconFlow). Default OFF ⇒ human (ground-truth) only.")
+    p.add_argument("--no_llm", action="store_true", default=False,
+                   help="Explicit noLLM ablation: force human-only annotation in the active "
+                        "loop (overrides --use_llm_annotator). RDG selects the doc → straight "
+                        "to the human oracle, no LLM, no trust check.")
+    p.add_argument("--disable_incremental", action="store_true", default=False,
+                   help="noInc ablation: force the chase to re-evaluate ALL rules over ALL "
+                        "docs every round (bypass the affected-docs/evaluated-set optimisation). "
+                        "Same labels, higher runtime — isolates the incremental win.")
     p.add_argument("--debug", action="store_true",
                    help="Enable verbose logging")
     p.add_argument("--max_trials", type=int, default=200)
@@ -384,6 +435,7 @@ def _apply_diagnostic_overrides(args, hp) -> None:
 
 def main() -> None:
     args = parse_args()
+    _run_start = time.time()  # total wall-clock (Exp-3 scalability)
 
     # ── --big preset: 大数据集推荐值 ─────────────────────────────────────────
     _BIG_PRESET = {
@@ -472,10 +524,15 @@ def main() -> None:
         two_val=args.two_val,
         glove_path=args.glove_path,
         seed=args.seed,
-        router_backend=args.router_backend,
+        router_backend=("gumbel" if args.no_smoothing else args.router_backend),
         router_sigma=args.router_sigma,
         router_lr=args.router_lr,
         router_epochs=args.router_epochs,
+        task_loss_only=args.task_loss_only,
+        pool_size=args.pool_size,
+        pool_models=args.pool_models,
+        use_llm_annotator=(args.use_llm_annotator and not args.no_llm),
+        disable_incremental=args.disable_incremental,
     )
     if args.k_models is not None:
         hp.k_models = int(args.k_models)
@@ -526,6 +583,7 @@ def main() -> None:
     hp.prop_require_text = not args.no_prop_require_text
     hp.prop_label_source = args.prop_label_source
     hp.rill_budget_sweep = args.rill_budget_sweep
+    hp._extra_metrics = {}  # timing/counts folded into metrics.json by save_and_print_results
     hp.stage1_max_rules_per_label = args.stage1_max_rules_per_label
     hp.stage2_max_rules_per_label = args.stage2_max_rules_per_label
     hp.stage3_max_rules_per_label = args.stage3_max_rules_per_label
@@ -561,6 +619,20 @@ def main() -> None:
         val_select_docs = None
         test_titles = _data[9] if len(_data) > 9 else None
 
+    # ── Weak-supervision label budget Γ (Exp-2 human cost) ────────────────────
+    # >0 ⇒ base model + rule discovery see only Γ human-labeled train docs; the
+    # rest is the unlabeled pool that rules/RILL label. Records the annotation cost.
+    hp._n_human_annotations = 0
+    if getattr(hp, "label_budget", 0) and hp.label_budget > 0:
+        _n_before = len(train_X)
+        train_X, train_y, train_docs, _lb_idx = apply_label_budget(
+            train_X, train_y, train_docs, hp.label_budget,
+            getattr(hp, "label_budget_seeding", "coverage"), hp.seed)
+        hp._n_human_annotations = len(train_X)
+        log.info("label_budget Γ=%d (%s): training on %d/%d labeled docs (rest = unlabeled pool)",
+                 hp.label_budget, getattr(hp, "label_budget_seeding", "coverage"),
+                 len(train_X), _n_before)
+
     # ── 初始化模型池（支持从缓存恢复） ─────────────────────────────────────
     import pickle as _pkl_model
     _model_cache_path = exp_dir / "model_pool.pkl"
@@ -577,7 +649,11 @@ def main() -> None:
                  len(pool), max(val_f1_per_model.values()) if val_f1_per_model else 0)
     else:
         pool = init_models(len(label_names), lora_model_name=args.lora_model,
-                           drop_tfidf=(args.model_pool == "embedding"))
+                           drop_tfidf=(args.model_pool == "embedding"),
+                           lora_r=args.lora_r, lora_alpha=args.lora_alpha,
+                           lora_dropout=args.lora_dropout,
+                           lora_target_modules=args.lora_target_modules,
+                           pool_size=args.pool_size, pool_models=args.pool_models)
         if args.no_encoder and "encoder_mlp" in pool:
             del pool["encoder_mlp"]
             log.info("Excluded encoder_mlp from model pool (--no_encoder)")
@@ -595,6 +671,13 @@ def main() -> None:
                        if val_f1_per_model else None)
     log.info("Best single-model val micro-F1 (baseline): %.4f (%s)",
              baseline_micro_f1, best_model_name)
+    # Record pool composition + LoRA PEFT config (reviewer pt 1) into metrics.
+    hp._extra_metrics["pool_models_used"] = list(pool.keys())
+    _peft = {name: getattr(clf, "peft_config_used", None)
+             for name, clf in pool.items()
+             if getattr(clf, "peft_config_used", None) is not None}
+    if _peft:
+        hp._extra_metrics["lora_peft_config"] = _peft
 
     # ── --baseline_model: 强制指定基线（方案三：弱基线）─────────────────────
     if args.baseline_model is not None:
@@ -787,10 +870,12 @@ def main() -> None:
         final_rdl_set = RDLSet(rules=[], label_names=label_names)
     else:
         # ── 3.2 dynamic router ──────────────────────────────────────────
+        _sel_t0 = time.time()
         selected_idx = run_dynamic_router(
             pool, train_X, train_y, rule_eval_X, rule_eval_y, hp, exp_dir,
             skip_router=args.no_router, selector=args.selector,
         )
+        hp._extra_metrics["selection_wall_sec"] = round(time.time() - _sel_t0, 3)
         registered_names = register_selected_models(pool, selected_idx, label_names)
 
         # ── Register intermediate feature models (optional) ─────────────
@@ -1299,6 +1384,7 @@ def main() -> None:
                     log.info("Full chase with 0 sim rules (label-dependent path) "
                              "— no sim_graphs built")
 
+                _chase_t0 = time.time()
                 chase_result = final_rdl_set.chase_predict(
                     test_docs,
                     base_predictions=base_test_preds,
@@ -1306,7 +1392,15 @@ def main() -> None:
                     sim_decay=getattr(hp, 'sim_decay', 1.0),
                     sim_conf_threshold=getattr(hp, 'sim_conf_threshold', 0.0),
                     virtual_attrs=_test_virtual_attrs,
+                    disable_incremental=getattr(hp, 'disable_incremental', False),
                 )
+                _chase_wall_sec = time.time() - _chase_t0
+                hp._extra_metrics["chase_wall_sec"] = round(_chase_wall_sec, 3)
+                hp._extra_metrics["chase_n_rounds"] = getattr(chase_result, 'n_rounds', None)
+                hp._extra_metrics["chase_incremental"] = not getattr(hp, 'disable_incremental', False)
+                log.info("Test chase wall-clock: %.2fs (disable_incremental=%s, rounds=%s)",
+                         _chase_wall_sec, getattr(hp, 'disable_incremental', False),
+                         getattr(chase_result, 'n_rounds', None))
                 combined = chase_result.predictions
                 # RILL (paper §6) — ALSO applied on the FULL-CHASE path (mirrors the
                 # fast-path block at ~915), so rule sets with sim / label-dependent
@@ -1317,21 +1411,26 @@ def main() -> None:
                 if getattr(args, 'use_rill', False) and len(final_rdl_set.rules) > 0:
                     try:
                         from chase_inference.rill import RILLController
-                        from chase_inference.oracle import GroundTruthOracle
-                        _rill_oracle = GroundTruthOracle(ground_truth=test_y, label_names=label_names)
+                        _rill_oracle, _tc = _make_rill_oracle(hp, test_y, label_names)
                         _rill = RILLController(
                             rules=final_rdl_set.rules, label_names=label_names,
                             oracle=_rill_oracle,
                             max_iterations=getattr(args, 'rill_max_iterations', 3),
-                            trust_check=False, conflict_mode="negative_wins",
+                            trust_check=_tc, conflict_mode="negative_wins",
                             sim_graphs=(_test_sim_graphs or None), verbose=False,
                         )
                         _nb = int((combined > 0).sum())
                         _rr = _rill.run(test_docs, base_predictions=combined)
                         combined = _rr.predictions
-                        log.info("RILL(full-chase): status=%s, %d iter, %d queries (human labels), "
+                        _n_llm = int(getattr(_rill_oracle, "n_llm_calls", 0))
+                        _n_hum = int(getattr(_rill_oracle, "n_human_queries", _rr.n_queries))
+                        hp._extra_metrics["rill_n_queries"] = int(_rr.n_queries)
+                        hp._extra_metrics["n_llm_calls"] = _n_llm
+                        hp._extra_metrics["n_human_queries"] = _n_hum
+                        hp._extra_metrics["llm_annotator"] = bool(getattr(hp, "use_llm_annotator", False))
+                        log.info("RILL(full-chase): status=%s, %d iter, %d docs (llm=%d, human=%d), "
                                  "labels %d→%d, micro=%.4f macro=%.4f",
-                                 _rr.status, _rr.n_iterations, _rr.n_queries, _nb,
+                                 _rr.status, _rr.n_iterations, _rr.n_queries, _n_llm, _n_hum, _nb,
                                  int((combined > 0).sum()),
                                  float(_f1(test_y, combined, average="micro", zero_division=0)),
                                  float(_f1(test_y, combined, average="macro", zero_division=0)))
@@ -1349,6 +1448,7 @@ def main() -> None:
         final_micro_f1 = baseline_test_micro_f1
         final_macro_f1 = baseline_test_macro_f1
 
+    hp._extra_metrics["total_wall_sec"] = round(time.time() - _run_start, 2)
     save_and_print_results(
         final_rdl_set or RDLSet([], label_names),
         baseline_test_micro_f1,
@@ -1476,9 +1576,11 @@ def main() -> None:
                                 "(degenerate base predictions)")
             sweep_rows = []
             for b in budgets:
-                _oracle = GroundTruthOracle(ground_truth=_sweep_y, label_names=label_names)
+                # noLLM ablation: LLMOracle (LLM pre-annotator + trust-check + human
+                # fallback) when --use_llm_annotator, else human-only GroundTruthOracle.
+                _oracle, _tc = _make_rill_oracle(hp, _sweep_y, label_names)
                 _ctrl = RILLController(rules=final_rdl_set.rules, label_names=label_names,
-                                       oracle=_oracle, max_iterations=b, trust_check=False,
+                                       oracle=_oracle, max_iterations=b, trust_check=_tc,
                                        conflict_mode="negative_wins",
                                        sim_graphs=_sweep_graphs, verbose=False,
                                        active_relabel=True)
@@ -1486,6 +1588,8 @@ def main() -> None:
                 _mi = float(f1_score(_sweep_y, _res.predictions, average="micro", zero_division=0))
                 _ma = float(f1_score(_sweep_y, _res.predictions, average="macro", zero_division=0))
                 _nq = int(getattr(_res, 'n_queries', 0))
+                _n_llm = int(getattr(_oracle, "n_llm_calls", 0))
+                _n_hum = int(getattr(_oracle, "n_human_queries", _nq))
                 # CONTROL (isolates neighbour-propagation): identical to LORIS on
                 # the queried docs themselves, but with propagation to NON-queried
                 # docs disabled (they keep the base+rules prediction). So
@@ -1500,6 +1604,8 @@ def main() -> None:
                 _dmi = float(f1_score(_sweep_y, (_direct > 0).astype(int), average="micro", zero_division=0))
                 _dma = float(f1_score(_sweep_y, (_direct > 0).astype(int), average="macro", zero_division=0))
                 _row = {"budget": b, "n_queries": _nq,
+                        "n_llm_calls": _n_llm, "n_human_queries": _n_hum,
+                        "llm_annotator": bool(getattr(hp, "use_llm_annotator", False)),
                         "micro_f1": _mi, "macro_f1": _ma,
                         "direct_micro_f1": _dmi, "direct_macro_f1": _dma,
                         "prop_gain_micro": _mi - _dmi,

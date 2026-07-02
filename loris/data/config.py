@@ -42,7 +42,10 @@ class HParams:
     router_num_samples: int = 500
     router_epochs: int = 30
     router_lr: float = 1e-3
-    router_backend: str = "custom"  # "custom" (self-authored autograd) | "perturbed" (perturbations.perturbed_special / stochastic smoothing)
+    router_backend: str = "custom"  # "custom" (self-authored autograd) | "perturbed" (perturbations.perturbed_special / stochastic smoothing) | "gumbel" (standard Gumbel-Softmax relaxation — the noS ablation: removes stochastic smoothing)
+    task_loss_only: bool = False     # noL ablation: train the router on the downstream TASK loss only (zero the imitation term in HybridLoss)
+    pool_size: int = 0               # Varying-|M|: restrict the model pool to the top-N models by val-macro-F1 before selection/chase (0 ⇒ full pool). Overridden by pool_models if set.
+    pool_models: str = ""            # explicit CSV of model names to keep in the pool (overrides pool_size). Empty ⇒ use pool_size.
 
     # ── RuleLearner ───────────────────────────────────────────────────────────
     max_trials: int = 300
@@ -83,6 +86,8 @@ class HParams:
     #   the fire-mask so rules that look good on GT neighbours don't fire at test.
     #   Scoring (F1 gain) still uses val_y; only the neighbour fire-mask changes.
     rill_budget_sweep: str = ""         # e.g. "0,10,25,50,100,200"; empty ⇒ no sweep
+    use_llm_annotator: bool = False     # noLLM (standard arm): in the RILL active loop, query an LLMOracle (LLM pre-annotator + trust check) before falling back to the human. Default off ⇒ human (GroundTruthOracle) only.
+    disable_incremental: bool = False   # noInc ablation: force the chase to re-evaluate ALL rules over ALL docs every round (bypass the affected-docs / evaluated-set optimisation). Identical labels, no speedup — isolates the incremental runtime win.
     # ── Count allocation (per stage / per type / per label) ──────────────────────
     stage1_max_rules_per_label: int = 0   # 0 = uncapped (redundancy elimination only)
     stage2_max_rules_per_label: int = 0

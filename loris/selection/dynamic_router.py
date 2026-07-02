@@ -176,9 +176,32 @@ def _make_topk_layer(
         )
         return topk_layer
 
+    elif backend == "gumbel":
+        # ------ noS ablation: standard Gumbel-Softmax Top-K (straight-through) ------
+        # Replaces stochastic smoothing with the canonical Gumbel-Softmax relaxation:
+        # forward = hard k-hot top-K; backward = gradient of a temperature-scaled
+        # softmax surrogate (straight-through). Gumbel noise added only when a
+        # gradient is needed (training); inference stays deterministic.
+        tau = max(float(sigma), 1e-3)  # reuse σ as the softmax temperature
+
+        def gumbel_topk_layer(scores: torch.Tensor) -> torch.Tensor:
+            if scores.requires_grad:
+                u = torch.rand_like(scores).clamp_(1e-9, 1.0 - 1e-9)
+                g = -torch.log(-torch.log(u))          # Gumbel(0,1)
+                y = (scores + g) / tau
+            else:
+                y = scores / tau
+            soft = torch.softmax(y, dim=-1)
+            idx = torch.topk(y, k, dim=-1).indices
+            hard = torch.zeros_like(scores).scatter_(-1, idx, 1.0)
+            # straight-through: value = hard, gradient flows through soft
+            return hard + soft - soft.detach()
+
+        return gumbel_topk_layer
+
     else:
         raise ValueError(
-            f"Unknown backend '{backend}'. Use 'custom' or 'perturbed'."
+            f"Unknown backend '{backend}'. Use 'custom', 'perturbed' or 'gumbel'."
         )
 
 
@@ -297,10 +320,13 @@ class HybridLoss(nn.Module):
         lambda_task: float = 1.0,
         lambda_ent: float = 0.1,
         pos_weight: Optional[float] = None,
+        task_loss_only: bool = False,
     ):
         super().__init__()
         self.lambda_task = lambda_task
         self.lambda_ent = lambda_ent
+        # noL ablation: when True, drop the imitation term (train on task loss only).
+        self.task_loss_only = task_loss_only
 
         pw = torch.tensor([pos_weight]) if pos_weight is not None else None
         self.bce = nn.BCEWithLogitsLoss(pos_weight=pw)
@@ -424,7 +450,9 @@ class HybridLoss(nn.Module):
         l_task = self.task_loss(mask, model_logits, labels)
         l_ent = self.entropy_loss(scores)
 
-        total = l_imit + self.lambda_task * l_task - self.lambda_ent * l_ent
+        # noL ablation: drop the joint imitation term (task loss only).
+        imit_coeff = 0.0 if self.task_loss_only else 1.0
+        total = imit_coeff * l_imit + self.lambda_task * l_task - self.lambda_ent * l_ent
 
         details = {
             "L_imitate": l_imit.item(),

@@ -20,14 +20,15 @@ _ROOT = Path(__file__).resolve().parent
 OUT = _ROOT / "experiments" / "baselines_loris" / "ksweep"
 SELECTORS = ["router", "random_ms", "indiv_ms", "hybrid_llm", "caas"]
 CANON_FLAGS = [
-    "--top_labels", "30", "--two_val", "--rule_strategy", "batch",
+    "--two_val", "--rule_strategy", "batch",
     "--cluster_model_selection", "global", "--batch_metric_mode", "global_macro",
     "--track1_baseline", "blank", "--pattern_mode", "full",
     "--max_trials", "40", "--no_adaptive_trials",
 ]
 
 def _caps(ds):
-    d = DATASET_DEFAULTS[ds]; ex = []
+    d = DATASET_DEFAULTS[ds]
+    ex = ["--top_labels", str(d.top_labels)]  # per-dataset (pubmed 14, …), not hardcoded 30
     if d.subset_size: ex += ["--subset_size", str(d.subset_size)]
     if d.max_test_docs: ex += ["--max_test_docs", str(d.max_test_docs)]
     return ex

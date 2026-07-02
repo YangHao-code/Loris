@@ -88,10 +88,29 @@ class _PredictWrapper:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+def _lora_short_name(model_name: str) -> str:
+    """Short pool key for a LoRA SLM, e.g. mistralai/Mistral-7B-v0.1 -> lora_mistral."""
+    base = model_name.split("/")[-1].lower()
+    if "mistral" in base:
+        return "lora_mistral"
+    if "llama" in base:
+        return "lora_llama3"
+    # generic fallback: first alnum token
+    tok = "".join(c for c in base if c.isalnum())[:10] or "slm"
+    return f"lora_{tok}"
+
+
 def init_models(
     n_labels: int,
     lora_model_name: Optional[str] = None,
     drop_tfidf: bool = False,
+    *,
+    lora_r: int = 16,
+    lora_alpha: int = 32,
+    lora_dropout: float = 0.05,
+    lora_target_modules: str = "q_proj,v_proj",
+    pool_size: int = 0,
+    pool_models: str = "",
 ) -> Dict[str, object]:
     """Return OrderedDict name → unfitted classifier.
 
@@ -100,6 +119,14 @@ def init_models(
     the baseline lexically blind so lexical/text RULES contribute orthogonal,
     non-redundant signal (the rule-delta is measured against this base). Default
     False ⇒ full pool (unchanged / golden-neutral).
+
+    ``lora_model_name`` may be a single HF id or a CSV of ids — each is added as a
+    separate PEFT-LoRA SLM (keys ``lora_mistral`` / ``lora_llama3`` / …). PEFT
+    hyperparameters (r/α/dropout/targets) default to the paper values.
+
+    ``pool_models`` (CSV of model names) or ``pool_size`` (top-N in canonical
+    order) restrict the pool for the Varying-|M| experiment — applied at the end
+    so only the kept models are trained.
     """
     pool: Dict[str, object] = {}
 
@@ -144,42 +171,119 @@ def init_models(
                     num_labels=n_labels,
                     model_name=enc_name,
                     classifier_head="mlp",
-                    num_epochs=8,
+                    # 8->12 with patience 2->3: live trajectories showed the encoder
+                    # was still climbing at epoch 8 on some datasets (e.g. aapd), i.e.
+                    # the cap was binding. Early-stop (best-on-val restore) means
+                    # converged datasets (rcv1/bgc) stop for free; undertrained ones
+                    # get the extra epochs.
+                    num_epochs=12,
                     batch_size=64,
                     pred_batch_size=128,
                     gradient_checkpointing=False,
-                    patience=2,
+                    patience=3,
                 )
                 log.info("Added PretrainedEncoderClassifier (%s).", enc_name)
             except Exception as exc:
                 log.warning("Could not add encoder model %s: %s", enc_name, exc)
             break
 
-    # ── LoRA SLM (conditional) ────────────────────────────────────────────────
+    # ── LoRA SLM(s) (conditional) ─────────────────────────────────────────────
+    # Accept a CSV of HF ids so BOTH paper SLMs (Mistral-7B + Llama-3-8B) can join
+    # the pool. PEFT hyperparameters pinned to the paper values (r=16, α=32).
     vram = _gpu_vram_gb()
-    if lora_model_name and vram >= 20:
-        try:
-            from loris.models.lora_slm_classifier import LoRASLMClassifier
-            pool["lora_slm"] = LoRASLMClassifier(
-                num_labels=n_labels,
-                model_name=lora_model_name,
-                use_4bit=True,
-                lora_r=8,
-                lora_alpha=16,
-                num_epochs=2,
-                batch_size=1,
-                accumulation_steps=4,
-            )
-            log.info("Added LoRASLMClassifier (%s, VRAM=%.1f GB).", lora_model_name, vram)
-        except Exception as exc:
-            log.warning("Could not add LoRA model: %s", exc)
-    elif lora_model_name:
-        log.warning(
-            "LoRA model requested but VRAM=%.1f GB < 20 GB — skipping.", vram
-        )
+    lora_ids = [m.strip() for m in (lora_model_name or "").split(",") if m.strip()]
+    _targets = [t.strip() for t in lora_target_modules.split(",") if t.strip()]
+    if lora_ids and vram >= 20:
+        for _mid in lora_ids:
+            key = _lora_short_name(_mid)
+            # keep 'lora_slm' as the historical key when a single model is given
+            if len(lora_ids) == 1:
+                key = "lora_slm"
+            try:
+                from loris.models.lora_slm_classifier import LoRASLMClassifier
+                pool[key] = LoRASLMClassifier(
+                    num_labels=n_labels,
+                    model_name=_mid,
+                    peft_method="lora",
+                    use_4bit=True,
+                    lora_r=lora_r,
+                    lora_alpha=lora_alpha,
+                    lora_dropout=lora_dropout,
+                    lora_target_modules=tuple(_targets),
+                    num_epochs=2,
+                    batch_size=1,
+                    accumulation_steps=4,
+                )
+                log.info("Added LoRASLMClassifier %s (%s, r=%d α=%d drop=%.2f targets=%s, VRAM=%.1f GB).",
+                         key, _mid, lora_r, lora_alpha, lora_dropout, _targets, vram)
+            except Exception as exc:
+                log.warning("Could not add LoRA model %s: %s", _mid, exc)
+    elif lora_ids:
+        log.warning("LoRA model(s) requested but VRAM=%.1f GB < 20 GB — skipping.", vram)
+
+    # ── Varying-|M|: restrict the pool BEFORE training (efficient, controlled) ──
+    keep = [k.strip() for k in pool_models.split(",") if k.strip()]
+    if keep:
+        missing = [k for k in keep if k not in pool]
+        if missing:
+            log.warning("--pool_models names not in pool (ignored): %s", missing)
+        pool = {k: pool[k] for k in keep if k in pool}
+        log.info("Restricted pool to --pool_models: %s", list(pool.keys()))
+    elif pool_size and pool_size > 0 and pool_size < len(pool):
+        kept = list(pool.keys())[:pool_size]
+        pool = {k: pool[k] for k in kept}
+        log.info("Restricted pool to top-%d in canonical order: %s", pool_size, list(pool.keys()))
 
     log.info("Model pool: %s", list(pool.keys()))
     return pool
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Weak-supervision label budget Γ (Exp-2 human cost)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def apply_label_budget(train_X, train_y, train_docs, budget: int,
+                       seeding: str = "coverage", seed: int = 0):
+    """Restrict the labeled training set to Γ=``budget`` docs (the human budget).
+
+    The base model AND rule discovery then see only these Γ gold-labeled docs — the
+    "label from scratch with a small human budget" regime. Returns
+    ``(train_X', train_y', train_docs', kept_idx)``.
+
+    seeding='random'   → stratified-free random subset (RandomState(1000+seed)).
+    seeding='coverage' → greedy label set-cover (guarantee rare labels appear),
+                          then random fill — best for macro-F1 under tiny budgets.
+    """
+    y = np.asarray(train_y)
+    n = len(train_X)
+    if budget <= 0 or budget >= n:
+        return train_X, train_y, train_docs, list(range(n))
+    rng = np.random.RandomState(1000 + int(seed))
+    if seeding == "random":
+        idx = sorted(rng.choice(n, budget, replace=False).tolist())
+    else:  # coverage: greedy label set-cover, vectorised, then random fill
+        yb = y.astype(bool)
+        covered = np.zeros(y.shape[1], dtype=bool)
+        chosen: list = []
+        remaining = np.ones(n, dtype=bool)
+        while len(chosen) < budget and not covered.all() and remaining.any():
+            gains = (yb & ~covered).sum(axis=1)
+            gains[~remaining] = -1
+            best = int(np.argmax(gains))
+            if gains[best] <= 0:
+                break
+            chosen.append(best)
+            remaining[best] = False
+            covered |= yb[best]
+        if len(chosen) < budget:  # random fill from the rest
+            rest = np.where(remaining)[0]
+            fill = rng.permutation(rest)[: budget - len(chosen)]
+            chosen.extend(int(i) for i in fill)
+        idx = sorted(chosen)
+    tX = [train_X[i] for i in idx]
+    ty = y[idx]
+    tdocs = [train_docs[i] for i in idx] if train_docs is not None and len(train_docs) == n else train_docs
+    return tX, ty, tdocs, idx
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -480,15 +584,19 @@ def _train_selection_net(
 
     tfidf_vec = TfidfVectorizer(max_features=20_000, sublinear_tf=True)
     X_sp = tfidf_vec.fit_transform(train_X)
-    svd = TruncatedSVD(n_components=hp.router_feat_dim, random_state=42)
+    # TruncatedSVD needs n_components < n_features; on tiny corpora the vocab can
+    # be < router_feat_dim, so cap it and size the net to the ACTUAL feature dim.
+    _n_comp = min(hp.router_feat_dim, max(2, X_sp.shape[1] - 1))
+    svd = TruncatedSVD(n_components=_n_comp, random_state=42)
     X_dense = svd.fit_transform(X_sp).astype(np.float32)
+    _feat_dim = X_dense.shape[1]
     X_t = torch.from_numpy(X_dense).to(device)
 
     oracle_np = _build_multi_label_oracle_mask(pool, train_X, train_y, k)
     oracle_t = torch.from_numpy(oracle_np).to(device)
 
     net = SelectionNetwork(
-        input_dim=hp.router_feat_dim,
+        input_dim=_feat_dim,
         hidden_dim=hp.router_hidden_dim,
         n_models=n_models,
         k=k,
@@ -498,7 +606,8 @@ def _train_selection_net(
         backend=getattr(hp, "router_backend", "custom"),
     ).to(device)
 
-    loss_fn = HybridLoss(lambda_task=0.1, lambda_ent=0.1)
+    loss_fn = HybridLoss(lambda_task=0.1, lambda_ent=0.1,
+                         task_loss_only=getattr(hp, "task_loss_only", False))
     optimiser = torch.optim.Adam(net.parameters(), lr=hp.router_lr)
 
     _model_probs = []
@@ -518,7 +627,9 @@ def _train_selection_net(
         l_imit = loss_fn.imitation_loss(scores, oracle_t)
         l_task = loss_fn.task_loss_multilabel(mask, model_probs_t, labels_t)
         l_ent = loss_fn.entropy_loss(scores)
-        loss = l_imit + loss_fn.lambda_task * l_task - loss_fn.lambda_ent * l_ent
+        # noL ablation: drop the imitation term (task loss only).
+        _imit_coeff = 0.0 if getattr(loss_fn, "task_loss_only", False) else 1.0
+        loss = _imit_coeff * l_imit + loss_fn.lambda_task * l_task - loss_fn.lambda_ent * l_ent
 
         optimiser.zero_grad()
         loss.backward()
@@ -1047,6 +1158,15 @@ def save_and_print_results(
     }
     if test_metrics_per_model:
         metrics["per_model_test"] = test_metrics_per_model
+    # Fold in run-level timing/counts stashed on hp during the run (Exp-2/3/4):
+    # total_wall_sec, chase_wall_sec, selection_wall_sec, n_llm_calls,
+    # n_human_queries, exact_influence_time, rdg_influence_time, peft_config, …
+    _extra = getattr(hp, "_extra_metrics", None)
+    if isinstance(_extra, dict):
+        metrics.update(_extra)
+    _nha = getattr(hp, "_n_human_annotations", 0)
+    if _nha:
+        metrics.setdefault("n_human_annotations", int(_nha))
     # Fold in the router oracle-hit / MRR diagnostic (Exp-1 influence metric),
     # if the router wrote one this run.
     _diag_path = exp_dir / "router_diag.json"

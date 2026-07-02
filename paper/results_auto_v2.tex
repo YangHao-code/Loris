@@ -1,0 +1,131 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.8in]{geometry}
+\usepackage{booktabs}\usepackage{multirow}\usepackage{amsmath}\usepackage{amssymb}
+\usepackage{xcolor}\usepackage{colortbl}\usepackage{underscore}\usepackage{pifont}
+\newcommand{\bld}[1]{\textbf{#1}}\newcommand{\gn}[1]{\textcolor{blue}{#1}}
+\title{LORIS --- Experimental Results (v2, 7 datasets)}\date{}
+\begin{document}\maketitle
+\section{Setup}
+Seven multi-label corpora: reuters-21578, aapd, rcv1, bgc, arxiv, PubMed-MeSH, HUPD.
+All LORIS runs label \emph{from scratch} (\texttt{--track1\_baseline blank},
+\texttt{--pattern\_mode full}, per-cluster oracle-tuned router). Baseline substitutions
+(RAL$\to$CoMAL, LocalBoost$\to$RuleCleaner, RulePrompt reimpl) are disclosed in
+Table~\ref{tab:baselines}. Seed 0.
+\section{Main Evaluation (Exp-1)}
+\begin{table}[h]\centering\footnotesize\setlength{\tabcolsep}{4pt}
+\caption{\textbf{Main evaluation (full supervision, from scratch).} Per-model rows are
+\emph{reference} accuracies (each model alone), never LORIS's input; LORIS labels from
+scratch (\texttt{--track1\_baseline blank}), a model enters only as a rule predicate
+$M(x,\tau)$. ``pool + LoRA'' adds Mistral-7B + Llama-3-8B (QLoRA). rcv1 ships as hashed
+TF-IDF (no raw text) so subword/LLM models are N/A there.}
+\label{tab:big}
+\begin{tabular}{lcccccccc}
+\toprule
+ & \multicolumn{2}{c}{\textbf{reuters}} & \multicolumn{2}{c}{\textbf{aapd}} & \multicolumn{2}{c}{\textbf{rcv1}} & \multicolumn{2}{c}{\textbf{bgc}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}
+ & mi & ma & mi & ma & mi & ma & mi & ma \\
+\midrule
+\quad tfidf\_svm\_unigram & 0.893 & 0.733 & 0.682 & 0.546 & 0.800 & 0.685 & 0.693 & 0.493 \\
+\quad tfidf\_svm\_bigram & 0.882 & 0.689 & 0.664 & 0.499 & 0.799 & 0.675 & 0.674 & 0.437 \\
+\quad tfidf\_lr\_bigram & 0.697 & 0.157 & 0.496 & 0.193 & 0.707 & 0.457 & 0.523 & 0.164 \\
+\quad textcnn & 0.750 & 0.223 & 0.533 & 0.256 & 0.692 & 0.460 & 0.455 & 0.119 \\
+\quad bilstm & 0.610 & 0.060 & 0.388 & 0.060 & 0.631 & 0.267 & 0.342 & 0.046 \\
+\quad encoder\_mlp & 0.854 & 0.344 & 0.655 & 0.419 & 0.634 & 0.332 & 0.764 & 0.565 \\
+\midrule
+\rowcolor{blue!8}\bld{\quad LORIS (base pool)} & \bld{0.922} & \bld{0.816} & \bld{0.717} & \bld{0.647} & \bld{0.809} & \bld{0.735} & \bld{0.785} & \bld{0.695} \\
+\quad \#rules & \multicolumn{2}{c}{33} & \multicolumn{2}{c}{120} & \multicolumn{2}{c}{59} & \multicolumn{2}{c}{84} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{table}[h]\centering\footnotesize\setlength{\tabcolsep}{4pt}
+\caption{\textbf{Research-method baselines --- macro-F1} (standalone, per method).
+$^{a}$RAL released no code $\Rightarrow$ substituted by \textbf{CoMAL} (KDD'24), reported
+under its own name. $^{b}$LocalBoost (KDD'23) released no code $\Rightarrow$ standalone slot
+uses \textbf{RuleCleaner} (KDD'25). $^{c}$RulePrompt is a documented first-pass reimpl
+(the original pins torch1.12/transformers4.20, which lack sm\_120 kernels for the GPU).
+gpt4/ruleprompt run in mock mode without an API key.}
+\label{tab:baselines}
+\begin{tabular}{lccccc}
+\toprule
+Method & \textbf{reuters} & \textbf{aapd} & \textbf{rcv1} & \textbf{bgc} & \textbf{arxiv} \\
+\midrule
+\quad caas & 0.695 & 0.388 & 0.606 & 0.420 & 0.274 \\
+\quad hybrid\_llm & 0.697 & 0.515 & 0.668 & 0.472 & 0.377 \\
+\quad indiv\_ms & 0.697 & 0.515 & 0.668 & 0.472 & 0.377 \\
+\quad random\_ms & 0.242 & 0.268 & 0.542 & 0.227 & 0.162 \\
+\quad deberta\_svm & 0.483 & 0.318 & -- & 0.519 & 0.299 \\
+\quad deberta\_xgboost & 0.416 & 0.275 & -- & 0.496 & 0.271 \\
+\quad roberta\_svm & 0.671 & 0.505 & -- & 0.616 & 0.455 \\
+\quad roberta\_xgboost & 0.582 & 0.518 & -- & 0.620 & 0.490 \\
+\quad self\_pretrain & 0.631 & 0.476 & 0.632 & 0.386 & 0.343 \\
+\quad snuba & 0.114 & 0.084 & 0.176 & 0.048 & 0.115 \\
+\quad besra & 0.255 & 0.120 & 0.311 & 0.129 & 0.121 \\
+\quad CoMAL$^{a}$ & 0.234 & 0.121 & 0.266 & 0.095 & 0.075 \\
+\quad filter\_chi2 & 0.580 & 0.511 & 0.620 & 0.455 & 0.418 \\
+\quad filter\_mi & 0.588 & 0.493 & 0.623 & 0.462 & 0.402 \\
+\quad RuleCleaner$^{b}$ & 0.347 & 0.210 & -- & 0.212 & 0.196 \\
+\quad weshap & 0.469 & 0.359 & 0.562 & 0.407 & 0.327 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\section{Model Selection (Exp-4)}
+\begin{table}[h]\centering\footnotesize\setlength{\tabcolsep}{4pt}
+\caption{\textbf{Model selection (Exp-4): LORIS final macro-F1 under a component swap.}
+Each cell runs the FULL LORIS pipeline with the model-selection component replaced by the
+named baseline at the same K; the router row is per-cluster + oracle-tuned. Varying-K and
+Varying-$|M|$ sweeps in Tables~\ref{tab:ksweep},~\ref{tab:msweep}.}
+\label{tab:select}
+\begin{tabular}{lccccccc}
+\toprule
+Selector & \textbf{reuters} & \textbf{aapd} & \textbf{rcv1} & \textbf{bgc} & \textbf{arxiv} & \textbf{pubmed} & \textbf{hupd} \\
+\midrule
+\rowcolor{blue!8}\quad router (LORIS) & 0.803 & 0.643 & 0.739 & 0.672 & 0.596 & 0.766 & 0.660 \\
+\quad random\_ms & 0.800 & 0.617 & 0.740 & 0.675 & 0.555 & -- & -- \\
+\quad indiv\_ms & 0.802 & 0.643 & 0.740 & 0.670 & 0.595 & -- & -- \\
+\quad hybrid\_llm & 0.802 & 0.643 & 0.740 & 0.670 & 0.594 & -- & -- \\
+\quad caas & 0.802 & 0.643 & 0.740 & 0.674 & 0.597 & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{table}[h]\centering\footnotesize
+\caption{\textbf{Varying-K (Exp-4).} LORIS macro-F1 vs \# selected models K, per selector.}
+\label{tab:ksweep}
+\begin{tabular}{lccc}
+\toprule
+Selector & K=1 & K=2 & K=3 \\
+\midrule
+\quad caas & 0.524 & 0.802 & 0.802 \\
+\quad hybrid\_llm & 0.794 & 0.794 & 0.802 \\
+\quad indiv\_ms & 0.524 & 0.802 & 0.802 \\
+\quad random\_ms & 0.559 & 0.633 & 0.798 \\
+\quad router & 0.558 & 0.643 & 0.801 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\emph{(M pending)}
+\section{Human Cost (Exp-2)}
+\emph{(human-cost pending — run run\_humancost.py)}
+\section{Scalability (Exp-3)}
+\emph{(scalability pending — run run\_scalability.py)}
+\section{Ablations (Exp-5)}
+\emph{(ablations pending — run run\_ablations.py)}
+\section{Influence Estimation (Exp-1c)}
+\begin{table}[h]\centering\footnotesize
+\caption{\textbf{Influence estimation (Exp-1c): RDG quality + time saving.} Oracle hit@k and
+MRR of the RDG/router influence ranking (held-out; from router tuning). rcv1 omitted
+(hashed-TFIDF). RDG bounded-BFS influence vs exact transitive closure saves \textbf{76\%} time at 240 labels (4.2$\times$).}
+\label{tab:mrr}
+\begin{tabular}{lcc}
+\toprule
+Dataset & hit@k & MRR \\
+\midrule
+\quad reuters & 0.942 & 0.990 \\
+\quad aapd & 0.936 & 0.971 \\
+\quad bgc & 0.930 & 0.966 \\
+\quad arxiv & 0.927 & 0.976 \\
+\quad pubmed & 0.752 & 0.851 \\
+\quad hupd & 0.942 & 0.980 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{document}

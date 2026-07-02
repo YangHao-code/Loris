@@ -182,6 +182,7 @@ class MultiChase:
         sim_decay: float = 1.0,
         sim_conf_threshold: float = 0.0,
         virtual_attrs: Optional[Dict[str, sp.csr_matrix]] = None,
+        disable_incremental: bool = False,
     ) -> None:
         if conflict_mode not in ("halt", "negative_wins", "positive_wins"):
             raise ValueError(f"Invalid conflict_mode: {conflict_mode!r}")
@@ -201,6 +202,9 @@ class MultiChase:
         self.sim_decay = sim_decay
         self.sim_conf_threshold = sim_conf_threshold
         self.virtual_attrs = virtual_attrs or {}
+        # noInc ablation: bypass the incremental affected-docs/evaluated optimisation
+        # and re-scan ALL rules over ALL docs each round (same fixpoint, slower).
+        self.disable_incremental = disable_incremental
 
         # Pre-classify rules
         self._text_rule_idxs: List[int] = []
@@ -912,6 +916,84 @@ class MultiChase:
                 pos_lidxs = list(np.where(lbl.pos[y_idx])[0])
                 if pos_lidxs:
                     self._propagate_transitivity(y_idx, pos_lidxs, lbl, queue)
+
+        # ==============================================================
+        # NON-INCREMENTAL (naive) CHASE — noInc ablation
+        # ==============================================================
+        # Repeat FULL scans of every rule over EVERY doc until the monotone label
+        # state stops growing. Same fixpoint as the incremental loop, but O(rules ×
+        # docs) work per round (no affected-docs narrowing, no `evaluated` skip) —
+        # this isolates the incremental optimisation's runtime win (Exp-3 / noInc).
+        if self.disable_incremental:
+            round_num = 1
+            prev_state = int(lbl.pos.sum() + lbl.neg.sum())
+            while round_num < self.max_rounds:
+                if self.time_limit_sec is not None:
+                    if (time.monotonic() - start_time) >= self.time_limit_sec:
+                        logger.info("Chase (noInc) terminated: time limit")
+                        return ChaseResult(
+                            status="timeout",
+                            predictions=self._build_predictions(lbl),
+                            conflicts=all_conflicts, n_rounds=round_num,
+                            provenance=provenance,
+                        )
+                scan_q: Deque[_QItem] = deque()  # collected but not used to drive rounds
+                # (1) text-only rules over ALL firing docs
+                for rule_idx in self._text_rule_idxs:
+                    if self._label2idx.get(self.rules[rule_idx].consequence) is None:
+                        continue
+                    for doc_idx in np.where(text_fire_cache[rule_idx])[0]:
+                        for lidx in self._apply_consequence(rule_idx, int(doc_idx), lbl, scan_q):
+                            _record_provenance(int(doc_idx), lidx, rule_idx)
+                # (2) label-dependent rules over ALL firing docs
+                for rule_idx in self._label_rule_idxs:
+                    rule = self.rules[rule_idx]
+                    if self._label2idx.get(rule.consequence) is None:
+                        continue
+                    for doc_idx in np.where(text_fire_cache[rule_idx])[0]:
+                        if self._check_label_predicates(rule, lbl, int(doc_idx)):
+                            for lidx in self._apply_consequence(rule_idx, int(doc_idx), lbl, scan_q):
+                                _record_provenance(int(doc_idx), lidx, rule_idx)
+                # (3) sim rules (fresh evaluated set ⇒ full re-eval)
+                if self._sim_rule_idxs and self.sim_graphs:
+                    for doc_idx, label_idx, rule_idx in self._eval_sim_rules(lbl, text_fire_cache, set()):
+                        for lidx in self._apply_consequence(rule_idx, doc_idx, lbl, scan_q):
+                            _record_provenance(doc_idx, lidx, rule_idx)
+                # (4) group rules
+                if self._group_rule_idxs and self.virtual_attrs:
+                    for doc_idx, label_idx, rule_idx in self._eval_group_rules(lbl, text_fire_cache, set()):
+                        for lidx in self._apply_consequence(rule_idx, doc_idx, lbl, scan_q):
+                            _record_provenance(doc_idx, lidx, rule_idx)
+                # (5) comparison-consequence rules
+                if self._equal_rule_idxs and self.virtual_attrs:
+                    self._eval_equal_rules(lbl, scan_q)
+                # conflicts over all docs
+                conflicts = self._handle_conflicts(lbl, set(range(n_docs)))
+                if conflicts:
+                    all_conflicts.extend(conflicts)
+                    if self.conflict_mode == "halt":
+                        return ChaseResult(
+                            status="conflict",
+                            predictions=self._build_predictions(lbl),
+                            conflicts=all_conflicts, n_rounds=round_num,
+                            provenance=provenance,
+                        )
+                round_num += 1
+                state = int(lbl.pos.sum() + lbl.neg.sum())
+                if state == prev_state:
+                    break  # fixpoint: a full pass changed nothing
+                prev_state = state
+            logger.info("Chase (noInc) reached fixpoint in %d rounds", round_num)
+            # Write labels back to doc.lbl (mirror the incremental path).
+            for i, doc in enumerate(docs):
+                doc.lbl = set(self.label_names[j] for j in range(self.n_labels)
+                              if lbl.pos[i, j])
+            return ChaseResult(
+                status="fixpoint",
+                predictions=self._build_predictions(lbl),
+                conflicts=all_conflicts, n_rounds=round_num,
+                provenance=provenance,
+            )
 
         # ==============================================================
         # INCREMENTAL ROUNDS

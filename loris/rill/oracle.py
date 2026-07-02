@@ -131,46 +131,107 @@ class GroundTruthOracle(OracleBase):
 
 
 class LLMOracle(OracleBase):
-    """Oracle backed by an LLM API (deployment mode).
+    """Oracle backed by an LLM API (the noLLM ablation's *standard* arm).
 
-    Implements the full paper §6.2 prompt protocol:
-    1. ``query_with_evidence`` — ask LLM for label + evidence document E.
-    2. ``query_paraphrased`` — re-ask with paraphrased prompt + evidence.
-    3. TrustChecker runs sandbox mini-Chase on the label.
+    Paper §6.2 protocol, faithfully:
+      1. ``query_with_evidence`` — the LLM pre-annotates the document.
+      2. ``query_paraphrased``  — TrustChecker re-asks with a **paraphrased**
+         prompt (stability / confidence check); the label must be unchanged.
+      3. TrustChecker also runs a sandbox mini-Chase (local consistency).
+      4. ``fallback`` — if the trust check fails, defer to the **human**
+         (``GroundTruthOracle``). This is the only path that costs a human
+         annotation, so ``n_human_queries`` measures the human budget the LLM
+         pre-annotator saves.
 
-    .. note::
-       This is a stub.  Concrete API integration (OpenAI, Anthropic, etc.)
-       should be added when moving to deployment.
+    Determinism (no prompt-engineering bias): a small FIXED bank of
+    semantically-equivalent prompt templates; ``query`` uses template 0 and
+    ``query_paraphrased`` picks a *different* template deterministically by doc
+    index. The LLM is called at temperature 0 (see ``LLMClient``).
+
+    Parameters
+    ----------
+    label_names : List[str]
+    ground_truth : np.ndarray, optional
+        ``(n_docs, n_labels)`` — the human fallback answers (experiment mode).
+    llm_client : LLMClient, optional
+        Pre-built client; otherwise one is created from env (OPENAI_API_KEY /
+        OPENAI_BASE_URL / LORIS_LLM_MODEL — SiliconFlow-compatible).
     """
+
+    # Fixed, semantically-equivalent templates: (system, user_format). The
+    # user_format takes {labels} and {text}. Committed here so paraphrasing is
+    # reproducible and unbiased across a sweep (no LLM-generated paraphrase).
+    _TEMPLATES = [
+        ("You are a precise multi-label text classifier. Given a document and a "
+         "fixed set of candidate labels, return ONLY a JSON array (possibly "
+         "empty) of the labels that apply, drawn verbatim from the candidate set. "
+         "No explanation.",
+         "Candidate labels: [{labels}]\n\nDocument:\n{text}\n\n"
+         "Return a JSON array of the applicable labels."),
+        ("You assign topic labels to documents. From the allowed label list, "
+         "output the subset that describes the document as a JSON array only "
+         "(use the labels exactly as written; output [] if none apply).",
+         "Allowed labels: [{labels}]\n\nText to label:\n{text}\n\n"
+         "Which of the allowed labels apply? Respond with a JSON array."),
+        ("Act as a document tagging system. Select every candidate tag that is "
+         "relevant to the passage and reply with just a JSON array of those tags "
+         "(verbatim from the candidates; [] if nothing fits).",
+         "Tags to choose from: [{labels}]\n\nPassage:\n{text}\n\n"
+         "List the relevant tags as a JSON array."),
+    ]
 
     def __init__(
         self,
-        model_name: str = "gpt-4",
         label_names: Optional[List[str]] = None,
+        ground_truth: Optional[np.ndarray] = None,
+        llm_client: object = None,
+        model_name: Optional[str] = None,
+        max_chars: int = 6000,
     ) -> None:
-        self.model_name = model_name
-        self.label_names = label_names or []
+        self.label_names = list(label_names or [])
+        self.max_chars = max_chars
         self._last_evidence: Optional[str] = None
-        self.n_queries = 0
+        self.n_queries = 0          # documents processed (compat)
+        self.n_llm_calls = 0        # LLM API calls (query + stability re-query)
+        self.n_human_queries = 0    # human fallbacks (trust-check failures)
+        if llm_client is None:
+            from loris.baselines.llm_client import LLMClient
+            llm_client = LLMClient(model=model_name)
+        self.client = llm_client
+        self.model_name = getattr(llm_client, "model", model_name or "")
+        self._human = (
+            GroundTruthOracle(ground_truth, label_names)
+            if ground_truth is not None else None
+        )
+
+    @staticmethod
+    def _doc_text(doc: Document) -> str:
+        ttl = getattr(doc, "ttl", None) or ""
+        cnt = getattr(doc, "cnt", None) or ""
+        return (ttl + ". " + cnt) if ttl else cnt
+
+    def _classify(self, text: str, label_names: List[str], tmpl_idx: int) -> List[str]:
+        system, user_fmt = self._TEMPLATES[tmpl_idx % len(self._TEMPLATES)]
+        user = user_fmt.format(labels=", ".join(label_names), text=text[: self.max_chars])
+        reply = self.client.chat(system, user)
+        self.n_llm_calls += 1
+        return self.client._parse_label_list(reply, label_names)
 
     def query(
         self, doc_idx: int, doc: Document, label_names: List[str],
     ) -> List[str]:
-        raise NotImplementedError(
-            "LLMOracle.query() is a stub — implement with actual LLM API."
-        )
+        return self._classify(self._doc_text(doc), label_names, 0)
 
     def query_with_evidence(
         self, doc_idx: int, doc: Document, label_names: List[str],
     ) -> Tuple[List[str], Optional[str]]:
-        """Ask LLM: classify document AND provide evidence document E.
-
-        Returns ``(labels, evidence_text)``.
-        """
         self.n_queries += 1
-        raise NotImplementedError(
-            "LLMOracle.query_with_evidence() is a stub."
-        )
+        labels = self._classify(self._doc_text(doc), label_names, 0)
+        # No separate evidence document: trust is enforced by the stability
+        # (paraphrase) + sandbox mini-chase checks, so evidence stays None
+        # (TrustChecker skips the evidence step when get_last_evidence() is None).
+        self._last_evidence = None
+        return labels, self._last_evidence
 
     def query_paraphrased(
         self,
@@ -179,11 +240,16 @@ class LLMOracle(OracleBase):
         label_names: List[str],
         evidence: Optional[str] = None,
     ) -> List[str]:
-        """Re-ask with paraphrased prompt + evidence E (stability check).
+        # Deterministic: a DIFFERENT template than query(), chosen by doc index.
+        n = len(self._TEMPLATES)
+        tmpl = (1 + (doc_idx % (n - 1))) if n > 1 else 0
+        return self._classify(self._doc_text(doc), label_names, tmpl)
 
-        Returns list of labels.
-        """
-        self.n_queries += 1
-        raise NotImplementedError(
-            "LLMOracle.query_paraphrased() is a stub."
-        )
+    def fallback(
+        self, doc_idx: int, doc: Document, label_names: List[str],
+    ) -> Optional[List[str]]:
+        """Trust check failed → the human annotator (ground truth) answers."""
+        if self._human is None:
+            return None
+        self.n_human_queries += 1
+        return self._human.query(doc_idx, doc, label_names)
