@@ -1,0 +1,16 @@
+{
+  "seed": 42,
+  "device": "cuda",
+  "cpu_threads": 4,
+  "linear_max_iter": 2000,
+  "neural_epochs": 60,
+  "neural_min_epochs": 10,
+  "neural_patience": 6,
+  "encoder_epochs": 24,
+  "encoder_min_epochs": 8,
+  "encoder_patience": 4,
+  "aux_epochs": 16,
+  "aux_min_epochs": 10,
+  "aux_patience": 5,
+  "max_phase_seconds": 14400
+}

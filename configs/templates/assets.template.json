@@ -1,0 +1,30 @@
+{
+  "schema": "loris_release_assets_v1",
+  "dataset": "YOUR_DATASET_AND_LABEL_AXIS",
+  "scope": "paper_table3",
+  "rules_mode": "reuse",
+  "artifacts": {
+    "dataset_audit": {
+      "path": "${ASSET_ROOT}/manifests/dataset_audit.json"
+    },
+    "discovery_manifest": {
+      "path": "${ASSET_ROOT}/manifests/discovery.json"
+    },
+    "labeling_manifest": {
+      "path": "${ASSET_ROOT}/manifests/labeling.json"
+    },
+    "reliability_protocol": {
+      "path": "${ASSET_ROOT}/manifests/independent_calibration.json"
+    },
+    "evaluation": {
+      "path": "${ASSET_ROOT}/manifests/evaluation.json"
+    },
+    "cached_program": {
+      "path": "${ASSET_ROOT}/rules/SELECTED.json"
+    },
+    "cached_completion": {
+      "path": "${ASSET_ROOT}/rules/COMPLETE.json"
+    }
+  },
+  "notes": "Supply actual complete data/model/rule assets. Omit unavailable optional roles. Each path is hashed during binding; expected sha256 may also be supplied. Missing or incomplete caches fail, never silently start BO."
+}

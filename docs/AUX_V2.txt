@@ -1,0 +1,103 @@
+V2: append an isolated trainable Aux to a frozen V1 program
+
+Contract
+
+The original learned program file is never rewritten. Every original rule,
+including an ML predicate marked dynamic=True, continues to read its original
+model table and threshold. Original ensemble tables are frozen too.
+
+The selected model in the input labeling manifest's dynamic section supplies
+the initial checkpoint, backend/configuration and initial probability table.
+These must already have matching document and label axes. A different encoder
+can be selected through that input manifest if it has a compatible trainable
+backend/checkpoint and application/calibration predictions. A static score file
+alone is not sufficient to train an arbitrary model architecture.
+
+A fresh alias (default loris_aux_online_v2) receives the trainable copy. For each
+label l the effective program appends:
+
+  Doc(x) AND P[loris_aux_online_v2](x,l) >= kappa_l -> +Label(x,l)
+
+The initial threshold is explicit (default 0.5); --thresholds accepts a JSON
+object keyed by label for different thresholds. Select these using development
+or calibration data, never test answers. The existing threshold calibration
+updates only the appended channels. Original rule thresholds cannot move.
+
+Original conflict arbitration continues to read the old frozen Aux. If V1 used
+an independent-calibration fallback, preparation authenticates its actual
+FALLBACK_CALIBRATION.json and freezes those thresholds and its old model alias.
+V2 therefore requires a calibrated V1 input manifest in that case. The old
+placeholder default_threshold is not substituted for calibrated thresholds.
+
+The existing vectorized unary-rule evaluation and incremental Chase are reused.
+There is no Python loop over document-label pairs. Initial old/new Aux aliases
+share one immutable probability snapshot; only the new model's later snapshot
+changes. Original rules may still derive different conclusions when Gamma or
+new Aux facts change, because they are ordinary rules in the same Chase. Their
+definitions and model interpretations remain frozen; their consequences are
+not artificially frozen.
+
+Querying and feedback
+
+Preparation defaults to 128 requested documents, batches of 16, and querying
+after each closure. all_unanswered includes model-covered documents without a
+complete trusted answer. It avoids the V1 stopping rule in which one positive
+label effectively ends work on a multi-label document. A new verified answer
+enters the next training batch in full. Budgets can be specified explicitly.
+These are separate recorded V2 protocol changes, not exact V1-equivalent speed
+optimizations. For an Aux-only ablation, override --query-pool uncovered at run
+time and keep V1's other query settings.
+
+LLM-first checking is retained. A failed consistency check requests a human
+answer; a logically compatible answer is not proof of factual correctness.
+Real-human and simulated-human counts remain separate. This feature neither
+fabricates human answers nor changes their provenance or counts.
+
+Prepare and calibrate (paths below are examples)
+
+  python -m loris.labeling prepare-aux-extension \
+    --manifest /path/to/V1/workspace/effective/labeling_main.json \
+    --protocol /path/to/V1/workspace/calibration/PROTOCOL.json \
+    --output /path/to/new/V2_inputs \
+    --alias loris_aux_online_v2 --default-threshold 0.5 \
+    --label-budget 128 --query-batch-size 16
+
+  python -m loris.labeling calibrate-reliability \
+    --manifest /path/to/new/V2_inputs/labeling.json \
+    --protocol /path/to/new/V2_inputs/reliability_protocol.json \
+    --output /path/to/new/V2_calibration
+
+  python -m loris.labeling check \
+    --manifest /path/to/new/V2_inputs/labeling.json \
+    --weighting direct_rule_precision_discount \
+    --source-reliability /path/to/new/V2_calibration/RELIABILITY.json
+
+  python -m loris.labeling run \
+    --manifest /path/to/new/V2_inputs/labeling.json \
+    --weighting direct_rule_precision_discount \
+    --source-reliability /path/to/new/V2_calibration/RELIABILITY.json \
+    --output /path/to/new/V2_run
+
+Preparation uses uniform only to bootstrap the new calibration; PREPARED.json
+records the original preferred weighting. Do not mistake that preparation
+manifest for a final q-weighted Main protocol. Pass the desired weighting and
+new reliability artifact when running. Keep the source manifest's calibrated
+commit gate enabled. Calibration results from the original program are rejected
+for the extended program. Use a new workspace for workflow-based runs too.
+
+Limitations
+
+Adding positive rules alone cannot remove false positives supported by original
+rules. New trusted negative answers may defeat those derivations under the
+existing validated-Gamma-wins policy. A model veto/fusion over original rule
+output would be another explicit method change; it is not silently introduced.
+
+The frozen V1 AAPD/BGC development sets were reused for BO/model/rule selection.
+They are held out from gradient fitting, but are not untouched statistical
+holdouts. Reusing them for a V2 gate does not remove that limitation. No test
+answers are used for threshold or protocol selection. A nondecreasing gate
+score cannot guarantee nondecreasing test F1, and an initial added-rule program
+is itself a new baseline that must be evaluated before a large experiment.
+
+V1 results and source remain archived separately. This code supplies the V2
+mechanism and tests; it does not claim a new empirical improvement result.

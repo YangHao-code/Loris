@@ -1,0 +1,45 @@
+{
+  "schema": "loris_rich_discovery_manifest_v1",
+  "dataset": {
+    "name": "YOUR_DATASET_AND_LABEL_AXIS",
+    "split_protocol": {
+      "path": "${ASSET_ROOT}/data/SPLITS.json",
+      "sha256": "REPLACE_WITH_SHA256"
+    },
+    "scope": "train_dev_only",
+    "roots_contract": "complete_signed_known_train"
+  },
+  "context": {
+    "path": "${ASSET_ROOT}/contexts/discovery.pkl",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "model_selection": {
+    "path": "${ASSET_ROOT}/upstream/model_selection.json",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "pattern_supply": {
+    "path": "${ASSET_ROOT}/upstream/pattern_supply.json",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "supervision_exposure": {
+    "path": "${ASSET_ROOT}/upstream/supervision_exposure.json",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "relation_attributes": [
+    "cnt",
+    "ttl",
+    "mtd",
+    "mtd.semantic_cluster_id"
+  ],
+  "oracle_policy": "accuracy_then_vote_bce",
+  "run": {
+    "seed": 42,
+    "budget_per_cluster": 6000,
+    "workers": 4,
+    "initializer_slots": 0,
+    "label_rotation": "seeded_cluster_rotation",
+    "admission_order": "standalone_score_desc"
+  },
+  "lexical_cache_dir": "${ASSET_ROOT}/upstream/lexical_cache",
+  "notes": "New discovery only after complete fit/model/selector/pattern preparation. Four clusters and 1350 trials/cluster are declared candidate settings from historical runs, not filled-in paper claims. Freeze exact label axis and all row IDs before fitting."
+}

@@ -1,0 +1,58 @@
+{
+  "schema": "loris_release_dataset_audit_v1",
+  "dataset": "YOUR_DATASET",
+  "scope": "Name exact corpus version, full row scope, exact fixed label task, split policy",
+  "source_provenance": "Document original source/version/hash and whether labels or rows were projected; do not call a subset full.",
+  "labels": [
+    "REPLACE_WITH_ENTIRE_ORDERED_LABEL_AXIS"
+  ],
+  "expected_counts": {
+    "train": 0,
+    "dev": 0,
+    "test": 0
+  },
+  "duplicate_policy": "report_official",
+  "application_splits": ["train", "test"],
+  "text_policy": {"empty_text": "reject", "missing_text_reason": ""},
+  "splits": {
+    "train": {
+      "documents": {
+        "path": "${ASSET_ROOT}/data/documents/train.jsonl",
+        "sha256": "REPLACE_WITH_SHA256"
+      },
+      "truth": {
+        "path": "${ASSET_ROOT}/data/truth/train.npz",
+        "sha256": "REPLACE_WITH_SHA256"
+      },
+      "id_key": "row_id",
+      "text_key": "text",
+      "target_key": "targets"
+    },
+    "dev": {
+      "documents": {
+        "path": "${ASSET_ROOT}/data/documents/dev.jsonl",
+        "sha256": "REPLACE_WITH_SHA256"
+      },
+      "truth": {
+        "path": "${ASSET_ROOT}/data/truth/dev.npz",
+        "sha256": "REPLACE_WITH_SHA256"
+      },
+      "id_key": "row_id",
+      "text_key": "text",
+      "target_key": "targets"
+    },
+    "test": {
+      "documents": {
+        "path": "${ASSET_ROOT}/data/documents/test.jsonl",
+        "sha256": "REPLACE_WITH_SHA256"
+      },
+      "truth": {
+        "path": "${ASSET_ROOT}/data/truth/test.npz",
+        "sha256": "REPLACE_WITH_SHA256"
+      },
+      "id_key": "row_id",
+      "text_key": "text",
+      "target_key": "targets"
+    }
+  }
+}

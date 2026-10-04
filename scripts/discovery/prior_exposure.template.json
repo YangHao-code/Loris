@@ -1,0 +1,5 @@
+{
+  "schema": "loris_declared_prior_task_exposure_v1",
+  "prior_model_and_data_exposure": "REPLACE_WITH_ACCURATE_DISCLOSURE_OF_PRIOR_TRAINING_SELECTION_AND_TEST_ACCESS",
+  "role": "Disclosure only; actual permitted fit/dev/test boundaries are enforced by the supervision and discovery readers."
+}

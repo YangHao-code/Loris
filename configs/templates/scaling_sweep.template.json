@@ -1,0 +1,20 @@
+{
+  "schema": "loris_prepared_scaling_sweep_v1",
+  "dimension": "document_ids",
+  "points": [
+    {
+      "id": "D_small",
+      "document_ids": ["REPLACE_WITH_ACTUAL_ROW_ID_1"],
+      "rule_ids": ["REPLACE_WITH_CANONICAL_RULE_JSON_SHA256"],
+      "labels": ["REPLACE_WITH_ACTUAL_LABEL"],
+      "assets": {"path": "assets_small.json", "sha256": "REPLACE_WITH_SHA256"}
+    },
+    {
+      "id": "D_large",
+      "document_ids": ["REPLACE_WITH_ACTUAL_ROW_ID_1", "REPLACE_WITH_ACTUAL_ROW_ID_2"],
+      "rule_ids": ["REPLACE_WITH_CANONICAL_RULE_JSON_SHA256"],
+      "labels": ["REPLACE_WITH_ACTUAL_LABEL"],
+      "assets": {"path": "assets_large.json", "sha256": "REPLACE_WITH_SHA256"}
+    }
+  ]
+}

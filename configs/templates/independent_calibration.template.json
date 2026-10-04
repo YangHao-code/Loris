@@ -1,0 +1,29 @@
+{
+  "schema": "loris_independent_rule_calibration_v2",
+  "context": {
+    "path": "${ASSET_ROOT}/contexts/independent_calibration.pkl",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "answers": {
+    "path": "${ASSET_ROOT}/calibration/answers.npz",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "calibration_row_ids": [
+    "REPLACE_WITH_ALL_INDEPENDENT_CALIBRATION_IDS"
+  ],
+  "model_fit_row_ids": [
+    "REPLACE_WITH_ALL_MODEL_FIT_IDS"
+  ],
+  "rule_fit_row_ids": [
+    "REPLACE_WITH_ALL_RULE_FIT_IDS"
+  ],
+  "model_binding": {
+    "checkpoint_sha256": "REPLACE_WITH_SHA256",
+    "probability_lineage": {
+      "checkpoint_sha256": "REPLACE_WITH_SHA256",
+      "probabilities_sha256": "REPLACE_WITH_SHA256",
+      "note": "Actual application probabilities must come from this exact complete checkpoint, using the declared label order."
+    }
+  },
+  "independence_statement": "Replace with the audited origin, group/content overlap checks and exclusion from all model/rule learning. Calibration truth cannot be premises used to prove its own labels."
+}

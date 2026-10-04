@@ -1,0 +1,162 @@
+{
+  "schema": "loris_latest_paper_labeling_v1",
+  "context": {
+    "path": "${ASSET_ROOT}/contexts/application.pkl",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "program": {
+    "path": "${ASSET_ROOT}/rules/SELECTED.json",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "dynamic": {
+    "alias": "loris_clf_aux_dynamic",
+    "checkpoint": {
+      "path": "${ASSET_ROOT}/models/aux/checkpoint.pt",
+      "sha256": "REPLACE_WITH_SHA256"
+    },
+    "backend_source": "${REPO_ROOT}/backends/transformer/src",
+    "configuration": {
+      "model_name": "${ASSET_ROOT}/models/pretrained_encoder",
+      "cache_dir": "${ASSET_ROOT}/model_cache",
+      "offline": true,
+      "head": "label_attention_linear",
+      "max_length": 384,
+      "truncation": "head_tail",
+      "dropout": 0.1,
+      "projection_dim": 128,
+      "gradient_checkpointing": false,
+      "loss": "masked_weighted_bce",
+      "asl_gamma_negative": 4.0,
+      "asl_gamma_positive": 0.0,
+      "asl_negative_clip": 0.05,
+      "epochs": 1,
+      "min_epochs": 1,
+      "patience": 0,
+      "batch_size": 8,
+      "prediction_batch_size": 64,
+      "grad_accum_steps": 2,
+      "learning_rate": 3e-06,
+      "head_learning_rate": 1.5e-05,
+      "weight_decay": 0.01,
+      "warmup_ratio": 0.08,
+      "max_grad_norm": 1.0,
+      "ema_decay": 0.995,
+      "prefer_ema": true,
+      "amp": "auto",
+      "num_workers": 0,
+      "seed": 42,
+      "initialize_class_priors": false,
+      "initial_checkpoint_path": "",
+      "initial_checkpoint_sha256": "",
+      "initial_checkpoint_source_labels": [],
+      "initial_checkpoint_target_labels": []
+    },
+    "device": "cuda",
+    "amp_skip_tolerance": 0.05,
+    "amp_init_scale": 1024,
+    "prediction_amp": "fp16",
+    "prediction_length_sort": true,
+    "gpu_lock": "${ASSET_ROOT}/locks/gpu.lock",
+    "ensemble_dependencies": [],
+    "probability_lineage": "Replace with the actual checkpoint and prediction source. Application probabilities must use that model and the declared document/label axes. This text is a source declaration, not proof of model execution; extra hashes are not required."
+  },
+  "domains": {
+    "training_roles": [
+      "source_fit",
+      "unlabeled_train",
+      "target"
+    ],
+    "query_roles": [
+      "target"
+    ],
+    "scoring_roles": []
+  },
+  "loop": {
+    "max_inner_rounds": 1,
+    "query_batch_size": null,
+    "label_budget": null,
+    "source_review_budget": 0,
+    "conflict_policy": "unknown_arbitrate",
+    "saturation_rounds": 1,
+    "max_chase_calls": 10000,
+    "max_rdg_estimates": 500000,
+    "max_update_seconds": 7200,
+    "execution": "incremental",
+    "unknown_semantics": "retain_consequences",
+    "query_batch_fraction": 0.01,
+    "query_batch_min": 32,
+    "query_cadence": "each_closure",
+    "query_answer_mode": "complete",
+    "intermediate_exports": "periodic",
+    "history_export_interval": 10,
+    "gamma_conflict_policy": "validated_gamma_wins",
+    "commit_gate": "independent_calibration",
+    "commit_gate_tolerance": 0.005
+  },
+  "feedback": {
+    "new_verified_supervision": "full_batch",
+    "trusted_replay": true,
+    "trusted_replay_fraction": 0.05,
+    "rule_feedback_scope": "new_or_changed",
+    "normalization": "common_mass_per_accumulation_window",
+    "channel_policy": "any_actual_occurrence_disagrees_deduplicate_pair",
+    "candidate_check": "checked",
+    "check_failure_policy": "halt",
+    "self_train_confidence": 0.95,
+    "source_filter": "none",
+    "receiver_policy": "same_model",
+    "rule_reliability_update": "current_model",
+    "disagreement_discount": 0.5
+  },
+  "calibration": {
+    "grid": [
+      0.05,
+      0.1,
+      0.15,
+      0.2,
+      0.25,
+      0.3,
+      0.35,
+      0.4,
+      0.45,
+      0.5,
+      0.55,
+      0.6,
+      0.65,
+      0.7,
+      0.75,
+      0.8,
+      0.85,
+      0.9,
+      0.95
+    ],
+    "minimum_support_each_sign": 10,
+    "cells": "trusted_only",
+    "max_step": 0.1
+  },
+  "oracle": {
+    "kind": "directory_llm_then_human",
+    "directory": "answers",
+    "allow_known_source_review": false
+  },
+  "query": {
+    "strategy": "rdg",
+    "seed": 42
+  },
+  "strategy": "paper",
+  "weighting": "direct_rule_precision_discount",
+  "source_reliability": null,
+  "notes": "Author-supplied checkpoint configuration must replace example numeric settings. Main weighting is independent current-model direct-rule precision times the pre-update model disagreement discount: q*(1-c*abs(p_before-A)), default c=.5. This formula supplements the paper requirement to combine model confidence and derivation reliability. source_reliability is intentionally unbound until workflow calibrate creates a genuine independent artifact; workflow main then binds it. Calibration itself temporarily uses uniform inference without q. Pure direct-rule precision, complete-provenance, and complete-provenance-discount weights are additional ablations. Frozen preserves declared external permissions; only frozen_zero_budget or the explicit fixed_gamma comparison sets them to zero. max_inner_rounds/max_chase_calls are compute caps, not convergence criteria. The main protocol uses unlimited document queries (label_budget=null), with LLM-first external answers and human fallback. The answer provider must actually run; missing answers are pending, never successful completion. Explicit zero-budget/fixed-Gamma controls remain separately named. Conflicting label pairs are quarantined for the current model state, including their effective Gamma view while stored Gamma remains unchanged. Explicit model arbitration supplies temporary signed facts only for conflict_unknown pairs; it does not promote predictions to Gamma. Arbitration thresholds are declared here and frozen with the model in Frozen. The new retain_consequences protocol isolates only the conflicting cell and preserves already derived labels and relations. Incremental execution schedules affected rules and built-in propagation; NoInc scans all rules on the same retained history. Model changes still retract invalid ML supports and rederive in the same update. Stored one-hop ancestry gates logical training without retracting active historical conclusions. full_rebuild explicitly selects the earlier unknown protocol; historical manifests lacking unknown_semantics retain that earlier meaning. An unexpected feedback consistency-check failure still halts diagnostically. This template makes no optimality claim. 2026-09-30 defaults: amp='auto' trains in bf16 on compute capability >= 8 and in fp16 with dynamic loss scaling (initial scale 1024) on older GPUs such as V100; skipped updates of the startup scale calibration are not counted against amp_skip_tolerance; prediction runs in fp16; validated Gamma wins over derived labels (never quarantined); a candidate model is committed only if the final-output mean F1 on the independent calibration documents does not drop by more than commit_gate_tolerance; kappa is recalibrated on verified cells only, with at least 10 cells per sign and a bounded step; logically undecided cells are filled with Aux positives above per-label thresholds calibrated on the independent calibration documents (fallback; output only, never feedback, Gamma or queries). Training uses micro-batch 8 x accumulation 2 (the same effective batch 16, updates and per-window loss normalization as 2 x 8) without gradient checkpointing: about 3x faster, about 18 GiB peak for a large encoder at 384 tokens. amp_skip_tolerance=0.05 bounds fp16 skips after the startup calibration.",
+  "arbitration": {
+    "alias": "loris_clf_aux_dynamic",
+    "default_threshold": 0.5,
+    "thresholds": {}
+  },
+  "fallback": {
+    "enabled": true,
+    "alias": "loris_clf_aux_dynamic",
+    "calibration": "independent_calibration",
+    "default_threshold": 1.0,
+    "thresholds": {}
+  }
+}

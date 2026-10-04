@@ -1,0 +1,46 @@
+{
+  "schema": "loris_curated_transformer_source_v1",
+  "upstream_package": "loris_ssl",
+  "retained_files": [
+    {
+      "path": "src/loris_ssl/__init__.py",
+      "upstream_sha256": "8c81aefb941cd3e5393c43d4e0cd4cdce1a721b43442f1d239d06729f4562377",
+      "release_sha256": "8c81aefb941cd3e5393c43d4e0cd4cdce1a721b43442f1d239d06729f4562377"
+    },
+    {
+      "path": "src/loris_ssl/chase_backend.py",
+      "upstream_sha256": "94ffaa102ea164e07474531ac8053c991e0801323b2744d7237fe05ae2bec94e",
+      "release_sha256": "ecaa6a9a821d90da75bcccf46691ba3cb2ae9c3cb16bf074db9abe9cee2c63bb"
+    },
+    {
+      "path": "src/loris_ssl/config.py",
+      "upstream_sha256": "9bd694b07227bad3e2b38c49ad0a11ce7ead596a6085165cba483a83c9d491d3",
+      "release_sha256": "450c3c5004fb6903b60611803783ff16ccee0c64ba506561ec9d046ba5d971a5"
+    },
+    {
+      "path": "src/loris_ssl/data.py",
+      "upstream_sha256": "a4ca2e00429bd557b38427cca4694cbd72c71a6c0b166dd7ee21c3fe32113ad6",
+      "release_sha256": "e3d36452a92e1077378c9dc06b4ed915f2ad53b2686c147489069398011238a5"
+    },
+    {
+      "path": "src/loris_ssl/model.py",
+      "upstream_sha256": "988c360416aaecff704059a503c32bb1a6aff1e05178fc26c0e26bf7cf8c87eb",
+      "release_sha256": "988c360416aaecff704059a503c32bb1a6aff1e05178fc26c0e26bf7cf8c87eb"
+    },
+    {
+      "path": "src/loris_ssl/utils.py",
+      "upstream_sha256": "4bdac0c7564484f020a630aff4287fdcec2c2224a5da06f0762c3794c3267940",
+      "release_sha256": "4bdac0c7564484f020a630aff4287fdcec2c2224a5da06f0762c3794c3267940"
+    }
+  ],
+  "changes": [
+    "retain only Chase backend and its transitive imports",
+    "replace machine-specific default paths with caller/cache defaults",
+    "fix head-tail truncation for zero tail/body budgets and reject lengths below required special tokens",
+    "2026-09-30: inference runs under torch.no_grad(); optional prediction_amp (fp16/bf16) and length-sorted prediction batches restored to the original row order",
+    "2026-10-01: optional amp_init_scale for the fp16 GradScaler; skips during the startup scale calibration are reported separately as startup_skipped_optimizer_updates",
+    "2026-10-02: independent validation_batch_size with legacy fingerprint compatibility; per-epoch training/student/EMA validation timings"
+  ],
+  "historical_byte_identical_tree": false,
+  "unused_source_files_removed": 92
+}

@@ -1,0 +1,28 @@
+{
+  "schema": "loris_full_inventory_discovery_plan_v1",
+  "dataset": "YOUR_NATIVE_TASK_AND_LABEL_AXIS",
+  "prepared_manifest": "../../../work/YOUR_TASK/prepared/MANIFEST.json",
+  "historical_exposure": "prior_exposure.template.json",
+  "workdir": "../../../work/YOUR_TASK/discovery_run_001",
+  "seed": 42,
+  "fit_fraction": {"numerator": 1, "denominator": 1},
+  "pretrained_model": "../../../models/roberta-base",
+  "feature_backbone": "../../../models/all-MiniLM-L6-v2",
+  "backend_source": "../../backends/transformer/src",
+  "gpu_lock": "../../../work/GPU.lock",
+  "pool_settings": "pool_settings.template.json",
+  "title_field": "title",
+  "semantic_metadata_fields": [],
+  "relation_attributes": ["cnt", "ttl", "mtd", "mtd.semantic_cluster_id"],
+  "n_clusters": 4,
+  "workers": 2,
+  "disk_reserve_gib": 10,
+  "prewarm": {"memory_mib": 128, "disk_mib": 4096},
+  "bo": {
+    "budget_per_cluster": 6000,
+    "initializer_slots": 0,
+    "context_probes": 128,
+    "acquisition_candidates": 256,
+    "expected_body_size": 3.0
+  }
+}

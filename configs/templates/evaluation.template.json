@@ -1,0 +1,8 @@
+{
+  "schema": "loris_final_evaluation_v1",
+  "role": "interactive_test",
+  "truth": {
+    "path": "${ASSET_ROOT}/evaluation/test_truth.npz",
+    "sha256": "REPLACE_WITH_SHA256"
+  }
+}
