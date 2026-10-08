@@ -1,9 +1,59 @@
-# 每轮完整标注的查询池
+# 已覆盖文档的查询与复核
 
-`--query-pool all_unanswered` 将查询角色中尚无完整可信答案的文档纳入查询池，即使规则或模型已经给出正标签。默认 `uncovered` 保留论文原有未覆盖文档入口；正标签覆盖率并不代表整份多标签答案已正确。
+一个正标签不代表整份多标签答案完整。`loop.query_pool` 支持：
 
-与 `--query-cadence each_closure --query-batch-fraction 0.01 --query-batch-min 32 --query-answer-mode complete` 配合，每轮从初始查询池的 1% 选取文档，至少 32 篇，受剩余预算和未回答文档数限制。最后一批答案仍会用于微调，再处理预算结束。已获取的答案累积保留，不重复请求完整标注过的文档。
+- `uncovered`：保留原来只查询未覆盖文档的行为。
+- `all_unanswered`：查询角色中尚无完整可信答案的文档，即使已有逻辑正标签。
+- `needs_review`：使用 `query.strategy: "review"` 排序，并按声明的比例随机审计其余未完整回答的文档。
 
-BGC 完整 test 为 18,394 篇，修复对照使用每批 184 篇、总预算 552 篇。此次使用显式 `--query-strategy uncertainty` 对照，只读取当前模型概率排序，不读取未询问真值。它不是 RDG 结果。原先未覆盖池在初始闭包后仅剩 9 篇 test，因而设置 184 的批大小也无法产生要求的三批标注。
+查询角色由输入上下文显式指定，可以是目标标注集；它不由变量名 `training` 决定。查询后用于训练的行可以包含授权获取答案的目标文档，但未询问的真值不会进入选样或训练。
 
-`m0` 每轮回到同一初始权重，用累积完整答案及本轮规则反馈训练；`previous` 接上轮权重，使用新增答案、新增或变化的规则反馈及所配置的旧真标签回放。每轮的 epoch 数与训练轮数分开记录。
+## 按证据复核
+
+以下片段应合并到已有完整 manifest，其他预算和反馈设置仍需明确填写：
+
+```json
+{
+  "loop": {
+    "query_pool": "needs_review",
+    "query_cadence": "each_closure",
+    "query_batch_fraction": 0.01,
+    "query_batch_min": 32,
+    "query_answer_mode": "complete"
+  },
+  "query": {
+    "strategy": "review",
+    "seed": 0,
+    "review": {
+      "eligibility_mode": "evidence",
+      "near_boundary_ratio": 0.9,
+      "audit_fraction": 0.125
+    }
+  }
+}
+```
+
+`evidence` 模式优先复核未完整回答且符合以下条件的文档：没有正标签、仍有未仲裁的逻辑冲突、模型与当前输出在未知真值格上分歧，或标签数低于训练平均数且至少一个缺失标签的模型分数接近其部署阈值。
+
+最后一种情况要求 `0.9 × κ ≤ p < κ`，且 `κ > 0`。标签少本身不是缺标签的证据，因此原本只有一两个标签、其他标签分数远低于阈值的文档不会仅因标签数少而被选中。已获可信答案的格不参与分歧和近阈值判断；已有部分答案的文档仍可复核，完整可信答案的文档排除。
+
+训练平均标签数只从指定训练角色中有完整可信答案的行计算，不包含目标集已获取的答案。部署阈值是谓词判定阈值，不是经过独立认证的正确率。
+
+`audit_fraction` 默认 `0.125`。随机审计涵盖没有风险证据的未完整回答文档；风险候选不足时，也可用审计补足批量。设为 `0` 则只使用证据候选。
+
+省略 `eligibility_mode` 时保留 `legacy` 行为：标签数少于 `cardinality_ratio × 训练平均数` 也可成为候选，默认比例 `0.7`。这不是要求“70% 的文档标签不足”，而是每篇文档的标签数门槛；`evidence` 模式不使用该比例作为独立查询条件。
+
+## 批大小和预算
+
+未声明固定 `query_batch_size` 时：
+
+```python
+requested = max(query_batch_min, ceil(initial_pool_size * query_batch_fraction))
+count = min(requested, current_eligible_documents, remaining_total_budget)
+```
+
+实际送去询问的是 `count` 篇。`initial_pool_size` 始终是启动时查询角色中尚无完整可信 Γ 答案的文档数，不会因 `uncovered` 或风险证据筛选而缩小；当前候选数只限制 `count`。无总预算上限时省略最后一项。默认每批至少 32、初始未完整回答文档数的 1%；最后一批可以少于 32。
+
+预算按请求文档计数，同一请求从 LLM 转人工只占一个请求预算。调用来源、LLM 接受和人工回退分别记录；模拟 GT 答案必须显式声明，不能报告为真人标注。完整答案、部分答案和仍未知的格分别保留，未知格不作为负例。
+
+这些选项扩展查询资格，没有新增基于 test F1 的停止条件。预算耗尽、候选耗尽及原有运行终止协议继续生效。若目标标注集包含 test 文档，应分别报告全体结果和未直接询问文档的结果。

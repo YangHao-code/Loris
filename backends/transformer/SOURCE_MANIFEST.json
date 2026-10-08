@@ -10,7 +10,7 @@
     {
       "path": "src/loris_ssl/chase_backend.py",
       "upstream_sha256": "94ffaa102ea164e07474531ac8053c991e0801323b2744d7237fe05ae2bec94e",
-      "release_sha256": "ecaa6a9a821d90da75bcccf46691ba3cb2ae9c3cb16bf074db9abe9cee2c63bb"
+      "release_sha256": "1c257f3320a156f9f08f68ee997eabbb7974cd3b52a9995fe6737371701a27a0"
     },
     {
       "path": "src/loris_ssl/config.py",
@@ -25,12 +25,18 @@
     {
       "path": "src/loris_ssl/model.py",
       "upstream_sha256": "988c360416aaecff704059a503c32bb1a6aff1e05178fc26c0e26bf7cf8c87eb",
-      "release_sha256": "988c360416aaecff704059a503c32bb1a6aff1e05178fc26c0e26bf7cf8c87eb"
+      "release_sha256": "c396c65a7c62f52fccb0c713f616c8d6dce23985f8251f2f6d552da109ded65e"
     },
     {
       "path": "src/loris_ssl/utils.py",
       "upstream_sha256": "4bdac0c7564484f020a630aff4287fdcec2c2224a5da06f0762c3794c3267940",
       "release_sha256": "4bdac0c7564484f020a630aff4287fdcec2c2224a5da06f0762c3794c3267940"
+    },
+    {
+      "path": "src/loris_ssl/aux_feature_cache.py",
+      "upstream_sha256": null,
+      "release_sha256": "a11ee14f6b2fc634f54c995617365fc41b4e1cc7911ee69369c8d8006222a9c0",
+      "added_in_v4": true
     }
   ],
   "changes": [
@@ -39,7 +45,9 @@
     "fix head-tail truncation for zero tail/body budgets and reject lengths below required special tokens",
     "2026-09-30: inference runs under torch.no_grad(); optional prediction_amp (fp16/bf16) and length-sorted prediction batches restored to the original row order",
     "2026-10-01: optional amp_init_scale for the fp16 GradScaler; skips during the startup scale calibration are reported separately as startup_skipped_optimizer_updates",
-    "2026-10-02: independent validation_batch_size with legacy fingerprint compatibility; per-epoch training/student/EMA validation timings"
+    "2026-10-02: independent validation_batch_size with legacy fingerprint compatibility; per-epoch training/student/EMA validation timings",
+    "2026-10-07: opt-in eval logits-only preserves original logits operations; prediction-only authenticated P/normalized-first-token feature cache, old encoder/head frozen; legacy training forward unchanged",
+    "2026-10-07 review fix: disabled prediction_logits_only omitted from serialized config as well as fingerprint; explicit True retained; untouched V3 default config/digest regression fixture"
   ],
   "historical_byte_identical_tree": false,
   "unused_source_files_removed": 92

@@ -2,7 +2,7 @@
 import math
 
 CADENCES = ("after_saturation", "each_closure")
-QUERY_POOLS = ("uncovered", "all_unanswered")
+QUERY_POOLS = ("uncovered", "all_unanswered", "needs_review")
 
 
 def remaining_budget(limit, used):

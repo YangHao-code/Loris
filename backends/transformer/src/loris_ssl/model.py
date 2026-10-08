@@ -161,6 +161,42 @@ class MultiLabelEncoder(nn.Module):
             "prototype_logits": prototype_logits,
         }
 
+    def prediction_outputs(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        token_type_ids: Optional[torch.Tensor] = None,
+        *,
+        document_features: bool = False,
+        **_: torch.Tensor,
+    ) -> Dict[str, torch.Tensor]:
+        """Eval-only exact logits, without unused projection/prototype outputs.
+
+        The encoder, label attention, dropout and logit operations are the same
+        as forward. The training forward remains unchanged: removing its unused
+        computations could otherwise change hooks or future RNG assumptions.
+        """
+        if self.training:
+            raise RuntimeError("prediction_outputs is restricted to evaluation")
+        encoder_kwargs = {"input_ids": input_ids, "attention_mask": attention_mask}
+        if token_type_ids is not None:
+            encoder_kwargs["token_type_ids"] = token_type_ids
+        hidden = self.encoder(**encoder_kwargs, return_dict=True).last_hidden_state
+        context = self.dropout(self._label_context(hidden, attention_mask))
+        if self.linear_classifier:
+            logits = torch.einsum("blh,lh->bl", context, self.classifier_weight)
+            logits = logits + self.classifier_bias
+        else:
+            normal_context = F.normalize(context, dim=-1)
+            normal_weight = F.normalize(self.classifier_weight, dim=-1)
+            cosine = torch.einsum("blh,lh->bl", normal_context, normal_weight).clamp(-0.9999, 0.9999)
+            scale = self.logit_scale.exp().clamp(1.0, 100.0)
+            logits = scale * cosine + self.classifier_bias
+        result = {"logits": logits}
+        if document_features:
+            result["document_features"] = F.normalize(hidden[:, 0], dim=-1)
+        return result
+
     @torch.no_grad()
     def initialize_label_representations(
         self,

@@ -131,8 +131,19 @@ def validate(data):
         "query_cadence", "intermediate_exports", "history_export_interval",
         "query_answer_mode", "query_pool",
         "gamma_conflict_policy", "commit_gate", "commit_gate_tolerance", "llm_check_base",
+        "conflict_update_policy",
+        "commit_gate_metric_policy", "commit_gate_comp_tolerance", "commit_gate_fn_tolerance",
+        "commit_gate_aux_grid", "joint_gate_partition",
     }:
         raise ValueError("all compute and request budgets must be explicit")
+    update_policy = loop.get("conflict_update_policy", "retain_history")
+    if update_policy not in ("retain_history", "fresh_from_gamma"):
+        raise ValueError("unsupported conflict_update_policy")
+    if update_policy == "fresh_from_gamma" and (
+        loop.get("conflict_policy") != "unknown_arbitrate"
+        or loop.get("unknown_semantics") != "retain_consequences"
+    ):
+        raise ValueError("fresh_from_gamma requires retained unknown conflict semantics")
     if loop.get("llm_check_base", "batch_start") not in ("batch_start", "refreshed"):
         raise ValueError("llm_check_base must be batch_start or refreshed")
     if loop.get("llm_check_base", "batch_start") == "refreshed" and (
@@ -152,6 +163,37 @@ def validate(data):
     tolerance = loop.get("commit_gate_tolerance", 0.0)
     if type(tolerance) not in (int, float) or not np.isfinite(tolerance) or tolerance < 0:
         raise ValueError("commit_gate_tolerance must be a finite nonnegative number")
+    gate_policy = loop.get("commit_gate_metric_policy", "mean_f1")
+    if gate_policy not in ("mean_f1", "aux_loris_joint"):
+        raise ValueError("commit_gate_metric_policy must be mean_f1 or aux_loris_joint")
+    for key in ("commit_gate_comp_tolerance",):
+        value = loop.get(key, 0.0)
+        if type(value) not in (int, float) or not np.isfinite(value) or not 0 <= value <= 1:
+            raise ValueError(key + " must be finite in [0,1]")
+    if type(loop.get("commit_gate_fn_tolerance", 0)) is not int or loop.get("commit_gate_fn_tolerance", 0) < 0:
+        raise ValueError("commit_gate_fn_tolerance must be a nonnegative integer")
+    if gate_policy == "aux_loris_joint":
+        if update_policy != "fresh_from_gamma":
+            raise ValueError("joint gate requires conflict_update_policy=fresh_from_gamma to match calibration")
+        if (loop.get("commit_gate") != "independent_calibration" or tolerance != 0
+                or "aux_extension" not in data):
+            raise ValueError("joint gate requires independent_calibration, zero mean tolerance, and isolated Aux")
+        partition = loop.get("joint_gate_partition")
+        if not isinstance(partition, dict) or set(partition) != {"fit_row_ids", "score_row_ids"}:
+            raise ValueError("joint gate requires explicit fit and score row IDs")
+        for ids in partition.values():
+            if (not isinstance(ids, list) or not ids
+                    or any(not isinstance(value, str) or not value for value in ids)
+                    or len(set(ids)) != len(ids)):
+                raise ValueError("joint gate partitions require nonempty unique string row IDs")
+        if set(partition["fit_row_ids"]) & set(partition["score_row_ids"]):
+            raise ValueError("joint gate fit and score row IDs must be disjoint")
+        from .fallback import DEFAULT_GRID
+        grid = loop.get("commit_gate_aux_grid", DEFAULT_GRID)
+        if (not isinstance(grid, (list, tuple)) or not grid
+                or any(type(v) not in (int, float) or not np.isfinite(v) or not 0 <= v <= 1 for v in grid)
+                or len(set(grid)) != len(grid)):
+            raise ValueError("joint gate auxiliary grid must be finite unique cutoffs in [0,1]")
     if "fallback" in data:
         from .fallback import configuration
 
@@ -221,9 +263,15 @@ def validate(data):
         "weak_rows_per_label",
         "reliability_floor",
         "max_training_rows",
+        "verified_replay_policy",
     }:
         raise ValueError("explicit replay/normalization/threshold-channel policy required")
     fb = data["feedback"]
+    if fb.get("verified_replay_policy", "pending_batch") not in ("pending_batch", "cumulative_acquired"):
+        raise ValueError("verified_replay_policy must be pending_batch or cumulative_acquired")
+    if (fb.get("verified_replay_policy") == "cumulative_acquired"
+            and fb.get("new_verified_supervision", "full_batch") != "full_batch"):
+        raise ValueError("cumulative acquired answers require full_batch supervision")
     if fb.get("max_training_rows") is not None and (
             type(fb["max_training_rows"]) is not int or fb["max_training_rows"] < 1):
         raise ValueError("max_training_rows must be a positive integer or null")
@@ -301,12 +349,19 @@ def validate(data):
         raise ValueError("disagreement_discount must be finite in [0,1]")
     if (
         not {"strategy", "seed"} <= set(data["query"])
-        or set(data["query"]) - {"strategy", "seed", "rdg_candidate_limit"}
-        or data["query"]["strategy"] not in ("rdg", "random", "uncertainty")
+        or set(data["query"]) - {"strategy", "seed", "rdg_candidate_limit", "review"}
+        or data["query"]["strategy"] not in ("rdg", "random", "uncertainty", "review")
         or type(data["query"]["seed"]) is not int
         or not 0 <= data["query"]["seed"] < 2**32
     ):
         raise ValueError("explicit query strategy and uint32 seed required")
+    from .query_selection import configuration as review_configuration
+    review_options = review_configuration(data)
+    if review_options.get("eligibility_mode", "legacy") == "evidence" and (
+            data["query"]["strategy"] != "review" or loop.get("query_pool") != "needs_review"):
+        raise ValueError("evidence query eligibility requires strategy=review and pool=needs_review")
+    if loop.get("query_pool") == "needs_review" and data["query"]["strategy"] != "review":
+        raise ValueError("needs_review requires the review query strategy")
     rdg_limit = data["query"].get("rdg_candidate_limit")
     if rdg_limit is not None and (type(rdg_limit) is not int or rdg_limit <= 0):
         raise ValueError("rdg_candidate_limit must be a positive integer or null")
@@ -517,6 +572,9 @@ def load(
             raise ValueError("oracle is bound to another complete context")
     with refs["context"].open("rb") as f:
         context = pickle.load(f)  # authenticated trusted-local asset only
+    from .query_selection import configuration as review_configuration
+    if set(review_configuration(data)["aux_thresholds"]) - set(context["labels"]):
+        raise ValueError("query Aux threshold label is outside the complete label axis")
     program = json.loads(refs["program"].read_text())
     records = program["rules"] if isinstance(program, dict) else program
     from loris._engine.rdl_reference import Rule
@@ -590,7 +648,8 @@ def load(
         validate_artifact(reliability, context, rules, data)
     from .runner import rule_channels
 
-    affected = {data["dynamic"]["alias"]}
+    from .aux_extension import adaptive_aliases
+    affected = {data["dynamic"]["alias"]} | set(adaptive_aliases(data))
     for spec in specifications:
         if affected.intersection(spec["dependencies"]):
             affected.add(spec["alias"])
@@ -635,7 +694,8 @@ def load(
             check_failure_policy=data["feedback"]["check_failure_policy"],
             receiver_policy=data["feedback"]["receiver_policy"],
             receiver_occurrences=len(
-                rule_channels(rules, data["dynamic"]["alias"], tuple(context["labels"]))
+                rule_channels(rules, {data["dynamic"]["alias"]} | set(adaptive_aliases(data)),
+                              tuple(context["labels"]))
             ),
         ),
     )
@@ -644,6 +704,9 @@ def load(
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
+    p = sub.add_parser("residual-aux", help="Gate independent saved Aux checkpoints using complete calibration closures")
+    p.add_argument("--protocol", required=True)
+    p.add_argument("--output", required=True)
     p = sub.add_parser("prepare-aux-extension", help="Append an isolated adaptive Aux rule per label to a frozen learned program")
     p.add_argument("--manifest", required=True)
     p.add_argument("--output", required=True)
@@ -713,7 +776,7 @@ def main(argv=None):
             choices=("halt", "reject_batch"),
             help="Author-confirmed default halt: stop with diagnostics when the complete check fails; reject_batch is an explicit engineering extension, not error filtering.",
         )
-        p.add_argument("--query-strategy", choices=("rdg", "random", "uncertainty"))
+        p.add_argument("--query-strategy", choices=("rdg", "random", "uncertainty", "review"))
         p.add_argument("--rdg-candidate-limit", type=int, help="Explicit uniform candidate-domain approximation for RDG; default uncapped")
         p.add_argument("--self-train-confidence", type=float)
         p.add_argument("--label-budget", type=parse_budget, help="Maximum requested documents; unlimited disables the cap. LLM-to-human fallback uses one document budget.")
@@ -732,6 +795,11 @@ def main(argv=None):
         if name == "run":
             p.add_argument("--output", required=True)
     args = parser.parse_args(argv)
+    if args.command == "residual-aux":
+        from .residual_aux import main_protocol
+
+        print(json.dumps(main_protocol(args.protocol, args.output), indent=2))
+        return 0
     if args.command == "prepare-aux-extension":
         from .aux_extension import prepare
 

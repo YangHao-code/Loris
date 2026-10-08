@@ -91,6 +91,8 @@ class ChaseBackendConfig:
     patience: int = 5
     batch_size: int = 2
     prediction_batch_size: int = 8
+    # Explicit inference-only shortcut; training forward and RNG are unchanged.
+    prediction_logits_only: bool = False
     # None preserves historical training/validation batching and fingerprints.
     # Validation has no backward pass and can use a larger batch independently.
     validation_batch_size: Optional[int] = None
@@ -120,6 +122,8 @@ class ChaseBackendConfig:
     initial_checkpoint_target_labels: Tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        if type(self.prediction_logits_only) is not bool:
+            raise ValueError("prediction_logits_only must be an explicit bool")
         # JSON checkpoint metadata naturally reconstructs tuples as lists.
         # Canonicalise them here so an in-memory and restored config have the
         # same public type and fingerprint.
@@ -266,11 +270,18 @@ class ChaseBackendConfig:
         return cls(**values)
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        values = asdict(self)
+        # The opt-in inference feature must not change the serialized schema
+        # of historical default configurations or their saved checkpoints.
+        if not self.prediction_logits_only:
+            values.pop("prediction_logits_only")
+        return values
 
     @property
     def fingerprint(self) -> str:
         values = self.to_dict()
+        if not self.prediction_logits_only:
+            values.pop("prediction_logits_only", None)
         if self.validation_batch_size is None:
             values.pop("validation_batch_size", None)
         # Preserve fingerprints of pre-bootstrap (schema-v1) checkpoints when
@@ -1524,7 +1535,15 @@ class ChaseTransformerBackend:
         with torch.no_grad():
             for batch in loader:
                 with self._prediction_autocast():
-                    logits = self._forward_logits(self._model, batch)
+                    if self.config.prediction_logits_only and isinstance(self._model, MultiLabelEncoder):
+                        # This branch is eval/no-grad only. Custom model factories
+                        # keep their original forward contract.
+                        output = self._model.prediction_outputs(**_model_inputs(batch, self._device))
+                        logits = output["logits"]
+                        if logits.ndim != 2 or logits.shape[1] != self.num_labels:
+                            raise RuntimeError("model returned an invalid fast prediction logit shape")
+                    else:
+                        logits = self._forward_logits(self._model, batch)
                 rows.append(torch.sigmoid(logits.float()).cpu().numpy())
         probabilities = np.concatenate(rows, axis=0).astype(np.float32, copy=False)
         if order is not None:

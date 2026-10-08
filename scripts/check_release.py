@@ -212,6 +212,14 @@ print(json.dumps({'installed_imports': all_modules, 'cli_help': 'passed', 'conso
             "tests/test_discovery_metadata_projection.py",
             "tests/test_workflow_calibration_semantics.py",
             "tests/test_zero_fit_initializer.py",
+            "tests/test_aux_correction_v3.py",
+            "tests/test_aux_joint_v4.py",
+            "tests/test_correction_calibration_integration_v3.py",
+            "tests/test_correction_loop_v3.py",
+            "tests/test_query_selection_v3.py",
+            "tests/test_review_query_integration_v3.py",
+            "tests/test_query_eligibility_only_v14.py",
+            "tests/test_residual_aux.py",
         ]
         run(
             "installed_semantics",

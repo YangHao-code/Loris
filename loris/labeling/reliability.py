@@ -156,6 +156,8 @@ def source_binding(context, rules, manifest):
         initial_Gamma=seed_identity(context["gamma"]),
         row_ids_id=digest(context["row_ids"]),
         labels=list(context["labels"]),
+        **({"conflict_update_policy": "fresh_from_gamma"}
+           if manifest["loop"].get("conflict_update_policy") == "fresh_from_gamma" else {}),
     )
 
 
@@ -983,6 +985,7 @@ def _estimate(
     load_receipt,
     before_chase=None,
     prior_inference_receipt=None,
+    lexical_cache_dir=None,
 ):
     n = len(calibration["docs"])
     semantics = chase_semantics(manifest)
@@ -1027,7 +1030,13 @@ def _estimate(
             independence_is_declared_provenance_not_statistical_proof=True,
         ),
     )
-    runner = make_discovery_runner(projected, output / "cache", subset_direction="standard")
+    # Only text/presence/source-bound lexical primitives may be shared. The
+    # dynamic runner, model masks, Gamma and closure remain candidate-specific.
+    runner_options = ({} if lexical_cache_dir is None
+                      else {"lexical_cache_dir": Path(lexical_cache_dir).resolve()})
+    runner = make_discovery_runner(projected, output / "cache", subset_direction="standard", **runner_options)
+    lexical_root = (Path(lexical_cache_dir).resolve() if lexical_cache_dir is not None
+                    else (output / "cache" / "lexical_primitives").resolve())
     inference_cache = None
     inference_reused = False
     try:
@@ -1123,6 +1132,7 @@ def _estimate(
         truth_independence_is_provenance_declaration=True,
         fallback_calibration=fallback_file,
         rule_inference_cache=inference_cache,
+        lexical_cache_directory=str(lexical_root),
         calibration_inference_execution=("verified_dependency_cache" if inference_reused else "fresh_chase"),
         fallback_and_gate_evaluated_for_current_manifest=True,
         conclusion_collection_scope=(
@@ -1178,29 +1188,86 @@ def _fallback_calibration(manifest, target, projected, closure, pos, neg, select
     alias = manifest.get("aux_extension", {}).get(
         "source_alias", manifest["dynamic"]["alias"])
     unknown = np.asarray(getattr(closure, "conflict_unknown", np.zeros(pos.shape, bool)), bool)
-    thresholds, score, audit = fallback_module.calibrate(
-        positive=np.asarray(closure.positive_facts, bool),
-        negative=np.asarray(closure.negative_facts, bool),
-        unknown=unknown,
-        probabilities=projected["model_probabilities"][alias],
-        arbitration_kappa=fallback_module.arbitration_thresholds(manifest, labels),
-        truth_positive=pos, truth_negative=neg, rows=selected, config=config, labels=labels,
-    )
-    if not config["enabled"] or config["calibration"] != "independent_calibration":
-        # Gate only: score the final output with the declared (or no) fallback.
-        thresholds = None
-        score = fallback_module.score_output(
-            positive=np.asarray(closure.positive_facts, bool),
-            negative=np.asarray(closure.negative_facts, bool), unknown=unknown,
-            probabilities=projected["model_probabilities"][alias],
+    joint = manifest.get("loop", {}).get("commit_gate_metric_policy", "mean_f1") == "aux_loris_joint"
+    fit_rows, score_rows = selected, selected
+    if joint:
+        partition = manifest["loop"].get("joint_gate_partition")
+        if not isinstance(partition, dict) or set(partition) != {"fit_row_ids", "score_row_ids"}:
+            raise ValueError("joint gate requires declared fit and score partitions")
+        fit_ids, score_ids = partition["fit_row_ids"], partition["score_row_ids"]
+        for ids in (fit_ids, score_ids):
+            if (not isinstance(ids, list) or not ids
+                    or any(not isinstance(value, str) or not value for value in ids)
+                    or len(set(ids)) != len(ids)):
+                raise ValueError("joint gate partitions require unique explicit row IDs")
+        if set(fit_ids) & set(score_ids):
+            raise ValueError("joint gate fitting and scoring rows overlap")
+        fit_rows = np.isin(projected["row_ids"], fit_ids)
+        score_rows = np.isin(projected["row_ids"], score_ids)
+        if (int(fit_rows.sum()) != len(fit_ids) or int(score_rows.sum()) != len(score_ids)
+                or np.any((fit_rows | score_rows) & ~selected)):
+            raise ValueError("joint gate partitions must lie within declared calibration rows")
+        if not (pos | neg)[fit_rows | score_rows].any(axis=1).all():
+            raise ValueError("joint gate rows must have explicit calibration observations")
+    def scope(values, mask):
+        return np.asarray(values)[mask] if joint else np.asarray(values)
+
+    if joint and (not config["enabled"] or config["calibration"] != "independent_calibration"):
+        # The original fallback is frozen. Do not run an unused 20-cutoff
+        # search across millions of full-train anchor cells.
+        thresholds, score = None, None
+        audit = dict(schema=fallback_module.SCHEMA, fixed_fallback_calibration_skipped=True)
+    else:
+        thresholds, score, audit = fallback_module.calibrate(
+            positive=scope(closure.positive_facts, fit_rows),
+            negative=scope(closure.negative_facts, fit_rows),
+            unknown=scope(unknown, fit_rows),
+            probabilities=scope(projected["model_probabilities"][alias], fit_rows),
             arbitration_kappa=fallback_module.arbitration_thresholds(manifest, labels),
-            truth_positive=pos, truth_negative=neg, rows=selected,
-            thresholds=(fallback_module.declared_thresholds(config, labels)
-                        if config["enabled"] else None),
+            truth_positive=scope(pos, fit_rows), truth_negative=scope(neg, fit_rows),
+            rows=np.ones(int(fit_rows.sum()), bool) if joint else fit_rows, config=config, labels=labels,
         )
-        audit = dict(audit, thresholds_source="declared" if config["enabled"] else "no_fallback")
-    return dict(schema=fallback_module.SCHEMA, thresholds=thresholds, gate=score, audit=audit,
-                calibration_rows=int(np.sum(selected)), answers_entered_inference=False)
+    if not config["enabled"] or config["calibration"] != "independent_calibration" or joint:
+        # Gate only: score the final output with the declared (or no) fallback.
+        fitted_thresholds = thresholds
+        thresholds = None
+        final_thresholds = (
+            np.array([fitted_thresholds[label] for label in labels], np.float64)
+            if joint and config["enabled"] and config["calibration"] == "independent_calibration"
+            else fallback_module.declared_thresholds(config, labels) if config["enabled"] else None
+        )
+        if joint and config["enabled"] and config["calibration"] == "independent_calibration":
+            thresholds = fitted_thresholds
+        score = fallback_module.score_output(
+            positive=scope(closure.positive_facts, score_rows),
+            negative=scope(closure.negative_facts, score_rows), unknown=scope(unknown, score_rows),
+            probabilities=scope(projected["model_probabilities"][alias], score_rows),
+            arbitration_kappa=fallback_module.arbitration_thresholds(manifest, labels),
+            truth_positive=scope(pos, score_rows), truth_negative=scope(neg, score_rows),
+            rows=np.ones(int(score_rows.sum()), bool) if joint else score_rows,
+            thresholds=final_thresholds,
+        )
+        audit = dict(audit, thresholds_source=("fit_partition" if joint and config["enabled"]
+                     and config["calibration"] == "independent_calibration"
+                     else "declared" if config["enabled"] else "no_fallback"))
+    record = dict(schema=fallback_module.SCHEMA, thresholds=thresholds, gate=score, audit=audit,
+                  calibration_rows=int(np.sum(selected)), answers_entered_inference=False)
+    if joint:
+        auxiliary = projected["model_probabilities"][manifest["dynamic"]["alias"]]
+        quality = fallback_module.auxiliary_quality(
+            auxiliary[score_rows], pos[score_rows], neg[score_rows],
+            fit_probabilities=auxiliary[fit_rows], fit_positive=pos[fit_rows], fit_negative=neg[fit_rows],
+            grid=manifest["loop"].get("commit_gate_aux_grid", fallback_module.DEFAULT_GRID),
+        )
+        record["joint_gate"] = dict(auxiliary=quality, loris=score,
+            fit_row_ids=list(partition["fit_row_ids"]), score_row_ids=list(partition["score_row_ids"]),
+            thresholds_fitted_on_scoring_rows=False,
+            scoring_binding=digest(dict(fit=partition["fit_row_ids"], score=partition["score_row_ids"],
+                fit_positive=array_identity(pos[fit_rows]), fit_negative=array_identity(neg[fit_rows]),
+                score_positive=array_identity(pos[score_rows]), score_negative=array_identity(neg[score_rows]))))
+        audit.update(fit_rows=int(fit_rows.sum()), score_rows=int(score_rows.sum()),
+                     rule_q_scope="all_declared_calibration_rows_unchanged")
+    return record
 
 
 def load_fallback_record(artifact_record, artifact, context, rules, manifest, labels):
@@ -1228,7 +1295,8 @@ def load_fallback_record(artifact_record, artifact, context, rules, manifest, la
     return record
 
 
-def refresh_current(artifact, target, rules, manifest, prediction, output, *, before_chase=None):
+def refresh_current(artifact, target, rules, manifest, prediction, output, *, before_chase=None,
+                    lexical_cache_dir=None):
     """Calibrate q on the candidate checkpoint/thresholds before installation.
 
     Every model input is predicted by the same already-fitted backend; gold is
@@ -1242,6 +1310,16 @@ def refresh_current(artifact, target, rules, manifest, prediction, output, *, be
         raise FileExistsError("current-model calibration output already exists")
     protocol_path = bound(artifact["protocol"], Path("."))
     original = json.loads(protocol_path.read_text())
+    if lexical_cache_dir is None:
+        parent_receipt_path = bound(artifact["estimation_receipt"], Path("."))
+        parent_receipt = json.loads(parent_receipt_path.read_text())
+        # Historical receipts have the factory's original lexical location.
+        # Cache entries authenticate actual texts/presence and implementation;
+        # a different corpus or code naturally gets a different subdirectory.
+        lexical_cache_dir = parent_receipt.get(
+            "lexical_cache_directory",
+            str(parent_receipt_path.parent / "cache" / "lexical_primitives"),
+        )
     context_path = bound(original["context"], protocol_path.parent)
     answers_path = bound(original["answers"], protocol_path.parent)
     with context_path.open("rb") as stream:
@@ -1286,6 +1364,8 @@ def refresh_current(artifact, target, rules, manifest, prediction, output, *, be
         pos, neg = archive["positive"].copy(), archive["negative"].copy()
     projected = inference_context(calibration, selected)
     projected["model_probabilities"][manifest["dynamic"]["alias"]] = probabilities
+    from .aux_extension import probability_views
+    projected["model_probabilities"].update(probability_views(manifest, probabilities))
     for spec in manifest["dynamic"]["ensemble_dependencies"]:
         projected["model_probabilities"][spec["alias"]] = np.mean(
             [
@@ -1340,6 +1420,7 @@ def refresh_current(artifact, target, rules, manifest, prediction, output, *, be
         ),
         before_chase=before_chase,
         prior_inference_receipt=artifact["estimation_receipt"],
+        lexical_cache_dir=lexical_cache_dir,
     )
     if status != 0:
         raise ValueError(

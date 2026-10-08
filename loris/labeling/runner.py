@@ -31,6 +31,7 @@ from .feedback import (
     assignments,
     incremental_batch,
     limit_training_rows,
+    cumulative_verified_rows,
     batch_id,
     calibrate,
     canonical_weighting,
@@ -174,7 +175,9 @@ class LabelingRun:
         self.aux_initialization = manifest["dynamic"].get("initialization", "previous")
         if self.aux_initialization not in ("previous", "m0"):
             raise ValueError("unsupported Aux initialization")
-        if self.aux_initialization == "m0":
+        if (self.aux_initialization == "m0"
+                or manifest["feedback"].get("verified_replay_policy", "pending_batch") != "pending_batch"
+                or manifest["loop"].get("commit_gate_metric_policy", "mean_f1") != "mean_f1"):
             from .cli import validate
 
             validate(manifest)
@@ -195,6 +198,7 @@ class LabelingRun:
         self.initial_answers = set(self.answered)
         self.decisions = []
         self.pending_verified_rows = set()
+        self.verified_replay_policy = manifest["feedback"].get("verified_replay_policy", "pending_batch")
         self.previous_feedback_state = None
         self.query_batches = 0
         self.initial_query_pool_size = int(np.count_nonzero(
@@ -240,6 +244,11 @@ class LabelingRun:
             self.quarantine_enabled
             and manifest["loop"].get("unknown_semantics", "full_rebuild") == "retain_consequences"
         )
+        self.conflict_update_policy = manifest["loop"].get("conflict_update_policy", "retain_history")
+        if self.conflict_update_policy not in ("retain_history", "fresh_from_gamma"):
+            raise ValueError("unsupported conflict_update_policy")
+        if self.conflict_update_policy == "fresh_from_gamma" and not self.retain_unknown:
+            raise ValueError("fresh_from_gamma requires the retained unknown conflict protocol")
         self.arbitration_rules = (
             arbitration_rules(manifest, self.labels) if self.quarantine_enabled else ()
         )
@@ -260,6 +269,8 @@ class LabelingRun:
         self._check_base = None
         self._preflight_precision(manifest)
         self.commit_gate = manifest["loop"].get("commit_gate", "none")
+        self.commit_gate_metric_policy = manifest["loop"].get("commit_gate_metric_policy", "mean_f1")
+        self.current_joint_gate = None
         self.best_gate_score = None
         self.started = time.monotonic()
         source_alias = (self.aux_extension["source_alias"]
@@ -272,7 +283,8 @@ class LabelingRun:
         if share_initial_aux:
             self.tables[self.alias] = self.tables[source_alias]
         self.initial_tables = {a: probability_identity(p) for a, p in self.tables.items()}
-        self.affected = {self.alias}
+        from .aux_extension import adaptive_aliases, channel_polarities
+        self.affected = {self.alias} | set(adaptive_aliases(manifest))
         declared = set()
         for ensemble in manifest["dynamic"]["ensemble_dependencies"]:
             name = ensemble["alias"]
@@ -292,11 +304,28 @@ class LabelingRun:
             ri < self.aux_extension["frozen_rules"] for ri, _ in self.channels
         ):
             raise ValueError("old learned rules must not have adaptable channels in isolated Aux mode")
-        self.receiver_occurrences = set(rule_channels(self.rules, self.alias, self.labels))
+        self.receiver_occurrences = set(rule_channels(
+            self.rules, {self.alias} | set(adaptive_aliases(manifest)), self.labels))
+        self.channel_polarities = channel_polarities(self.rules, manifest)
         if manifest["strategy"] != "frozen" and not self.channels and not self.quarantine_enabled:
             raise ValueError("declared adaptable model and ensembles have no dynamic ML occurrence")
         self.training_rows = np.isin(self.roles, manifest["domains"]["training_roles"])
         self.query_rows = np.isin(self.roles, manifest["domains"]["query_roles"])
+        self.review_reference = None
+        self.review_evidence = False
+        if manifest["query"]["strategy"] == "review":
+            from .query_selection import train_label_cardinality, configuration
+            options = configuration(manifest)
+            self.review_evidence = options.get("eligibility_mode", "legacy") == "evidence"
+            if self.review_evidence and manifest["loop"].get("query_pool", "uncovered") != "needs_review":
+                raise ValueError("evidence query eligibility requires needs_review")
+            if set(options["aux_thresholds"]) - set(self.labels):
+                raise ValueError("query Aux threshold label is outside the complete label axis")
+            # Query answers must never change this training-only reference.
+            reference_rows = self.training_rows & ~self.query_rows
+            self.review_reference = train_label_cardinality(
+                self.gamma.pos, self.gamma.neg, reference_rows)
+            write(self.output / "QUERY_TRAIN_CARDINALITY.json", self.review_reference)
         self.version = Version(
             self.tables[self.alias],
             manifest["dynamic"]["checkpoint"],
@@ -358,6 +387,10 @@ class LabelingRun:
                 self.fallback_thresholds = np.array(
                     [float(initial_record["thresholds"][label]) for label in self.labels])
             self.best_gate_score = float(initial_record["gate"]["mean_f1"])
+            if self.commit_gate_metric_policy == "aux_loris_joint":
+                if "joint_gate" not in initial_record:
+                    raise ValueError("strict joint gate requires new A/B-bound calibration; recalibrate")
+                self.current_joint_gate = copy.deepcopy(initial_record["joint_gate"])
         initial = self.tables_for(self.version)
         if any(not np.array_equal(initial[a], self.tables[a]) for a in self.affected):
             raise ValueError(
@@ -510,6 +543,16 @@ class LabelingRun:
     def tables_for(self, version):
         tables = dict(self.tables)
         tables[self.alias] = version.probabilities
+        if self.aux_extension is not None and self.aux_extension.get("derived_aliases"):
+            from .aux_extension import probability_views
+            identity = probability_identity(version.probabilities)
+            saved = getattr(self, "_aux_view_cache", None)
+            if saved is None or saved[0] is not version.probabilities or saved[1] != identity:
+                views = probability_views(self.manifest, version.probabilities)
+                views = {a: (p if a == self.alias else freeze_probability(p))
+                         for a, p in views.items()}
+                self._aux_view_cache = (version.probabilities, identity, views)
+            tables.update(self._aux_view_cache[2])
         for spec in self.manifest["dynamic"]["ensemble_dependencies"]:
             deps = spec["dependencies"]
             if not all(a in tables for a in deps):
@@ -655,6 +698,17 @@ class LabelingRun:
             raise ResourceLimit("max_complete_Chase_calls reached; no partial closure scored")
         setup_started = time.monotonic()
         gamma = self.gamma if gamma is None else gamma
+        fresh_update = (
+            self.conflict_update_policy == "fresh_from_gamma"
+            and update_kind in ("chaseInc", "chaseDelta") and not decision_only
+        )
+        if fresh_update:
+            # A changed negative rule can invalidate a positive ancestor.
+            # Previous weak descendants and arbitration seeds are not trusted
+            # roots. Rebuild from current Gamma using the warm static indexes.
+            previous, initial_unknown, temporary_seed, seed_arbitration = None, None, None, None
+            self.event("conflict_update_from_verified_roots", requested_update=update_kind,
+                       previous_weak_history_reused=False, temporary_arbitration_roots_reused=False)
         rules = with_channels(self.rules, version.channels) if rules is None else tuple(rules)
         ctx = dict(
             self.context,
@@ -723,7 +777,7 @@ class LabelingRun:
                     old_runner=old_session.runner if old_session is not None else None,
                     old_rules=old_session.rules if old_session is not None else None,
                     old_gamma=old_session.gamma if old_session is not None else None,
-                    update_kind=update_kind,
+                    update_kind="fresh" if fresh_update else update_kind,
                     initial_positive=seed_positive,
                     initial_negative=seed_negative,
                     initial_unknown=initial_unknown,
@@ -731,6 +785,18 @@ class LabelingRun:
                     gamma_wins=self.gamma_wins,
                     check_candidates=check_candidates,
                     decision_only=decision_only,
+                    collect_rule_conclusions=(
+                        self.aux_extension is not None
+                        and bool(self.aux_extension.get("derived_aliases"))
+                        and before is None and not decision_only
+                    ),
+                    rule_conclusion_observed=(
+                        ~(gamma.pos | gamma.neg)
+                        if self.aux_extension is not None
+                        and self.aux_extension.get("derived_aliases")
+                        and before is None and not decision_only
+                        else None
+                    ),
                 )
                 count_kind = (
                     update_kind
@@ -775,11 +841,16 @@ class LabelingRun:
                                         inference_seconds=inference_seconds,
                                         export_seconds=export_seconds),
                            decision_only=True, full_provenance_exported=False)
+                if self.review_evidence:
+                    result.query_aux_probabilities = version.probabilities
+                    result.query_aux_channels = version.channels
                 return (result, SimpleNamespace(runner=runner, rules=rules, gamma=signed_gamma(gamma)),
                         folder)
             if not self.retain_unknown:
                 result.temporary_seed = temporary_seed
             result.seed_arbitration = seed_arbitration
+            result.query_aux_probabilities = version.probabilities
+            result.query_aux_channels = version.channels
             if temporary_seed is not None:
                 write(
                     folder / "SEED_ARBITRATION.json",
@@ -832,7 +903,8 @@ class LabelingRun:
                 )
             result.reference_audit["requested_execution"] = execution
             result.reference_audit["full_recompute_reason"] = (
-                "nonmonotone_conflict_quarantine_and_temporary_model_seeds"
+                "withdraw_obsolete_weak_consequences_from_verified_roots"
+                if fresh_update else "nonmonotone_conflict_quarantine_and_temporary_model_seeds"
                 if not self.retain_unknown
                 else None
             )
@@ -935,6 +1007,9 @@ class LabelingRun:
                          export_seconds=export_seconds),
             full_provenance_exported=full_export,
         )
+        if self.review_evidence:
+            result.query_aux_probabilities = version.probabilities
+            result.query_aux_channels = version.channels
         return (
             result,
             SimpleNamespace(runner=runner, rules=rules, gamma=signed_gamma(gamma)),
@@ -1095,6 +1170,7 @@ class LabelingRun:
             require_independent=require_independent,
             disagreement_discount=self.manifest["feedback"].get("disagreement_discount", 0.5),
             probabilities_by_channel=self.channel_tables(selection_version),
+            channel_polarities=self.channel_polarities,
             receiver_policy=self.receiver_policy,
             receiver_occurrences=self.receiver_occurrences,
             replay=self.manifest["feedback"]["trusted_replay"],
@@ -1109,10 +1185,17 @@ class LabelingRun:
             selection_seed=int(self.manifest["query"]["seed"]) + self.training_attempts,
         )
         fresh_rows = np.array(sorted(self.pending_verified_rows), dtype=int)
-        if (len(fresh_rows) and self.manifest["strategy"] != "frozen"
+        required_rows = fresh_rows
+        acquired_rows = np.array([], dtype=int)
+        if self.verified_replay_policy == "cumulative_acquired":
+            acquired_rows, required_rows = cumulative_verified_rows(
+                self.gamma, self.training_rows, self.answered - self.initial_answers,
+                self.pending_verified_rows,
+            )
+        if (len(required_rows) and self.manifest["strategy"] != "frozen"
                 and self.manifest["feedback"].get("new_verified_supervision", "full_batch") == "full_batch"):
             fresh = np.zeros_like(batch.observed)
-            fresh[fresh_rows] = (self.gamma.pos | self.gamma.neg)[fresh_rows]
+            fresh[required_rows] = (self.gamma.pos | self.gamma.neg)[required_rows]
             fresh &= self.training_rows[:, None]
             batch.targets[fresh] = self.gamma.pos[fresh]
             batch.weights[fresh] = 1.0
@@ -1157,16 +1240,32 @@ class LabelingRun:
         )
         if self.manifest["feedback"].get("rule_feedback_scope", "all") == "new_or_changed":
             batch = incremental_batch(
-                batch, self.gamma, self.training_rows, fresh_rows,
+                batch, self.gamma, self.training_rows, required_rows,
                 self.manifest["feedback"].get("trusted_replay_fraction", 0.05)
                 if self.manifest["feedback"]["trusted_replay"] else 0.0,
                 self.previous_feedback_state,
             )
         batch = limit_training_rows(
-            batch, self.manifest["feedback"].get("max_training_rows"), fresh_rows,
+            batch, self.manifest["feedback"].get("max_training_rows"), required_rows,
             self.previous_feedback_state,
             seed=int(self.manifest["query"]["seed"]) + self.training_attempts,
         )
+        if self.verified_replay_policy == "cumulative_acquired":
+            active = np.flatnonzero(batch.observed.any(1))
+            trained_acquired = np.intersect1d(active, acquired_rows)
+            batch.audit.update(
+                verified_replay_policy="cumulative_acquired",
+                acquired_verified_rows_available=acquired_rows.tolist(),
+                cumulative_verified_training_rows=trained_acquired.tolist(),
+                required_verified_training_rows=required_rows.tolist(),
+                fresh_verified_batch_rows=fresh_rows.tolist(),
+                fresh_verified_batch_cells=int(batch.true_mask[fresh_rows].sum()),
+                new_verified_correction_cells=int(batch.true_mask[fresh_rows].sum()),
+                cumulative_verified_cells=int(batch.true_mask[trained_acquired].sum()),
+                cumulative_verified_mass=float(batch.weights[trained_acquired][
+                    batch.true_mask[trained_acquired]].sum(dtype=np.float64)),
+                trusted_correction_policy="all_acquired_complete_answers_plus_sampled_initial_replay",
+            )
         weak_pos = batch.weak_mask & (batch.targets == 1)
         weak_neg = batch.weak_mask & (batch.targets == 0)
         entailed = not (
@@ -1319,7 +1418,8 @@ class LabelingRun:
             self.release(cached["session"])
 
     def oracle_answer(self, row, reason, *, result=None, session=None, version=None):
-        if row in self.answered or (self.gamma.pos[row] | self.gamma.neg[row]).all():
+        if ((row in self.answered and not self.review_evidence)
+                or (self.gamma.pos[row] | self.gamma.neg[row]).all()):
             raise ValueError("known complete answers must not be queried twice")
         if not self.query_rows[row]:
             return False
@@ -1600,23 +1700,78 @@ class LabelingRun:
         pool = self.manifest["loop"].get("query_pool", "uncovered")
         if pool == "uncovered":
             eligible &= pending_rows(result, self.gamma)
+        elif pool == "needs_review":
+            from .query_selection import configuration
+            if configuration(self.manifest)["audit_fraction"] == 0:
+                eligible &= self.review_plan(result)["eligible"]
         elif pool != "all_unanswered":
             raise ValueError("unsupported query_pool")
-        if self.answered:
+        if self.answered and not self.review_evidence:
             eligible[np.asarray(sorted(self.answered), dtype=int)] = False
         return eligible
 
     def has_query_work(self, result):
+        if self.review_evidence:
+            return bool(self.eligible_query_rows(result).any())
         return pending_rows(result, self.gamma).any() or (
-            self.manifest["loop"].get("query_pool", "uncovered") == "all_unanswered"
+            self.manifest["loop"].get("query_pool", "uncovered") in ("all_unanswered", "needs_review")
             and self.eligible_query_rows(result).any()
         )
+
+    def review_plan(self, result, probabilities=None):
+        from .query_selection import configuration, review_candidates
+        options = configuration(self.manifest)
+        if self.review_reference is None:
+            raise ValueError("review selection requires a training-only cardinality reference")
+        rows = self.query_rows.copy()
+        if self.answered and not self.review_evidence:
+            rows[np.asarray(sorted(self.answered), dtype=int)] = False
+        thresholds = np.array([options.get("aux_thresholds", {}).get(
+            label, options.get("aux_default_threshold", .5)) for label in self.labels], float)
+        for occurrence, (label, value) in getattr(result, "query_aux_channels", {}).items():
+            if self.channel_polarities.get(occurrence, 1) > 0:
+                thresholds[label] = value
+        if self.review_evidence and probabilities is None and not hasattr(result,"query_aux_probabilities"):
+            raise ValueError("evidence review requires probabilities from the current closure")
+        conflicts = getattr(result, "remaining_unknown", unknown_mask(result))
+        if self.review_evidence:
+            conflicts = unknown_mask(result) & conflicts
+        return review_candidates(
+            positive=available_predictions(result), negative=result.negative_facts,
+            unknown=conflicts, gamma_positive=self.gamma.pos,
+            gamma_negative=self.gamma.neg, query_rows=rows,
+            aux_probabilities=(getattr(result, "query_aux_probabilities", self.version.probabilities)
+                               if probabilities is None else probabilities),
+            aux_thresholds=thresholds,
+            train_mean=self.review_reference["mean"], ratio=options["cardinality_ratio"],
+            eligibility_mode=options.get("eligibility_mode", "legacy"),
+            near_boundary_ratio=options.get("near_boundary_ratio", .9))
 
     def rdg(self, result, session, limit=1):
         eligible = np.flatnonzero(self.eligible_query_rows(result)).tolist()
         if not eligible:
             return None
         policy = self.manifest["query"]["strategy"]
+        if policy == "review":
+            from .query_selection import configuration, rank_review_candidates
+            options = configuration(self.manifest)
+            plan = self.review_plan(result, session.runner.probabilities[self.alias])
+            # Respect an explicitly narrower domain while retaining random audits.
+            permitted = np.zeros(self.n, bool)
+            permitted[eligible] = True
+            plan["unanswered"] &= permitted
+            plan["eligible"] &= permitted
+            chosen_rows, audit = rank_review_candidates(
+                plan, limit=limit, seed=self.manifest["query"]["seed"] + self.queries,
+                audit_fraction=options["audit_fraction"])
+            if not chosen_rows:
+                return None
+            chosen = chosen_rows[0] if limit == 1 else chosen_rows
+            write(self.output / ("RDG_%05d.json" % self.queries), dict(
+                selected=chosen, criterion="review", audit=audit,
+                parameters=plan["parameters"], query_pool=self.manifest["loop"].get("query_pool"),
+                training_reference=self.review_reference, unqueried_truth_used=False))
+            return chosen
         if policy in ("random", "uncertainty"):
             if policy == "random":
                 chosen_rows = ([eligible[int(self.query_random.randint(len(eligible)))]]
@@ -1799,6 +1954,8 @@ class LabelingRun:
             current_history_has_quarantined_fixpoint=bool(current_valid and self.retain_unknown),
             active_quarantine_pairs=int(unknown_mask(result).sum()) if result is not None else 0,
             effective_execution=(
+                "fresh_from_gamma_updates_with_retained_proposal_checks"
+                if self.conflict_update_policy == "fresh_from_gamma" else
                 (
                     "retained_incremental"
                     if self.manifest["loop"].get("execution", "incremental") == "incremental"
@@ -1812,6 +1969,8 @@ class LabelingRun:
                 )
             ),
             full_recompute_reason=(
+                "withdraw_obsolete_weak_consequences_from_verified_roots"
+                if self.conflict_update_policy == "fresh_from_gamma" else
                 "nonmonotone_conflict_quarantine_and_temporary_model_seeds"
                 if self.quarantine_enabled and not self.retain_unknown
                 else None
@@ -1838,6 +1997,7 @@ class LabelingRun:
             aux_extension=self.aux_extension,
             conflict_policy=self.manifest["loop"].get("conflict_policy", "halt"),
             unknown_semantics=self.manifest["loop"].get("unknown_semantics", "full_rebuild"),
+            conflict_update_policy=self.conflict_update_policy,
             rule_revision_extension_used=self.reviews > 0,
             effective_ground_program_changed=bool(self.decisions),
             inference_semantics_changed_by_quarantine=self.quarantine_enabled,
@@ -1965,14 +2125,22 @@ class LabelingRun:
                             metrics(y, snapshot["aux_raw"][selected]) if len(ids) else None
                         )
                         item["dynamic_predicate_F1"] = {}
+                        item["negative_event_F1"] = {}
                         for occurrence, label in item["occurrence_labels"].items():
+                            polarity = self.channel_polarities.get(
+                                tuple(map(int, occurrence.split("_"))), 1)
+                            event = snapshot[occurrence][selected, None]
                             item["dynamic_predicate_F1"][occurrence] = (
                                 metrics(
-                                    y[:, label : label + 1], snapshot[occurrence][selected, None]
+                                    y[:, label : label + 1], event if polarity > 0 else ~event
                                 )
                                 if len(ids)
                                 else None
                             )
+                            if polarity < 0:
+                                item["negative_event_F1"][occurrence] = (
+                                    metrics(~y[:, label : label + 1].astype(bool), event)
+                                    if len(ids) else None)
         write(self.output / "COMPLETE.json", report)
         return report
 
@@ -2091,8 +2259,15 @@ class LabelingRun:
                                     batch,
                                     version.channels,
                                     probabilities_by_channel=self.channel_tables(provisional),
+                                    channel_polarities=self.channel_polarities,
                                     **self.manifest["calibration"],
                                 )
+                                from .aux_extension import clamp_channels
+                                constrained = clamp_channels(self.manifest, channels, self.rules)
+                                calibration["constraints"] = dict(
+                                    changed=[list(key) for key in channels if channels[key] != constrained[key]],
+                                    policy="disjoint_positive_negative_regions_shared_low_per_label")
+                                channels = constrained
                             self.timings["threshold_calibration_seconds"] += time.monotonic() - threshold_started
                             write(folder / "CALIBRATION.json", calibration)
                             candidate = Version(
@@ -2270,7 +2445,26 @@ class LabelingRun:
                                 if self.commit_gate == "independent_calibration":
                                     score = float(gate_record["gate"]["mean_f1"])
                                     tolerance = float(self.manifest["loop"].get("commit_gate_tolerance", 0.0))
-                                    if self.best_gate_score is not None and score < self.best_gate_score - tolerance:
+                                    joint_decision = None
+                                    if self.commit_gate_metric_policy == "aux_loris_joint":
+                                        from .fallback import joint_gate_decision
+                                        if self.current_joint_gate is None or "joint_gate" not in gate_record:
+                                            raise ValueError("strict joint gate candidate lacks bound A/B metrics")
+                                        if (gate_record["joint_gate"]["scoring_binding"] !=
+                                                self.current_joint_gate["scoring_binding"]):
+                                            raise ValueError("strict joint gate scoring rows/answers changed")
+                                        joint_decision = joint_gate_decision(
+                                            self.current_joint_gate, gate_record["joint_gate"],
+                                            completeness_tolerance=self.manifest["loop"].get("commit_gate_comp_tolerance", 0.0),
+                                            false_negative_tolerance=self.manifest["loop"].get("commit_gate_fn_tolerance", 0),
+                                        )
+                                        write(folder / "JOINT_GATE_DECISION.json", dict(
+                                            parent=self.current_joint_gate, candidate=gate_record["joint_gate"],
+                                            decision=joint_decision, checkpoint=candidate.checkpoint,
+                                            candidate_version=candidate.identity))
+                                    rejected = (not joint_decision["accepted"] if joint_decision is not None
+                                                else self.best_gate_score is not None and score < self.best_gate_score - tolerance)
+                                    if rejected:
                                         self.release(test_session)
                                         self.decisions = old_decisions
                                         self.pending_verified_rows.clear()
@@ -2282,6 +2476,7 @@ class LabelingRun:
                                             tolerance=tolerance,
                                             retained=version.identity,
                                             Gamma_retained=True,
+                                            joint_gate=joint_decision,
                                         )
                                         if self.valid_gamma_id != digest(seed_identity(self.gamma)):
                                             previous = session
@@ -2307,6 +2502,8 @@ class LabelingRun:
                                 self.release(session)
                                 result, session, version = tested, test_session, candidate
                                 if gate_record is not None:
+                                    if self.commit_gate_metric_policy == "aux_loris_joint":
+                                        self.current_joint_gate = copy.deepcopy(gate_record["joint_gate"])
                                     if self.fallback_independent:
                                         self.fallback_thresholds = np.array(
                                             [float(gate_record["thresholds"][label]) for label in self.labels])

@@ -50,6 +50,29 @@ class Batch:
     feedback_state: object = None
 
 
+def cumulative_verified_rows(gamma, training_rows, acquired_rows, pending_rows):
+    """Required optimizer rows are acquired complete answers plus current partial answers.
+
+    Gamma is the sole target source. The caller supplies the acquired-answer
+    ledger; no unknown or unqueried row is invented as a negative example.
+    """
+    rows = np.asarray(training_rows)
+    if rows.dtype != np.bool_ or rows.shape != (len(gamma.pos),):
+        raise ValueError("cumulative verified rows need an explicit training domain")
+    acquired = np.asarray(sorted(set(acquired_rows)), dtype=int)
+    pending = np.asarray(sorted(set(pending_rows)), dtype=int)
+    for values in (acquired, pending):
+        if np.any(values < 0) or np.any(values >= len(rows)):
+            raise ValueError("verified answer row is outside Gamma")
+    # The acquired ledger is tiny compared with full-train Gamma. Avoid an
+    # extra N x labels temporary solely to check at most a few hundred rows.
+    acquired_known = gamma.pos[acquired] | gamma.neg[acquired]
+    pending_known = gamma.pos[pending] | gamma.neg[pending]
+    complete = acquired[rows[acquired] & acquired_known.all(1)]
+    current = pending[rows[pending] & pending_known.any(1)]
+    return complete, np.union1d(complete, current)
+
+
 def limit_training_rows(batch, maximum, fresh_rows, previous, *, seed):
     """Explicit approximate row budget, shared by every training strategy.
 
@@ -165,6 +188,7 @@ def assignments(
     replay=True,
     self_train_confidence=0.95,
     probabilities_by_channel=None,
+    channel_polarities=None,
     receiver_policy="same_model",
     receiver_occurrences=None,
     replay_fraction=1.0,
@@ -219,6 +243,7 @@ def assignments(
     decision_positive = np.where(known, gp, pos)
     disagree = np.zeros_like(known)
     channel_tables = _channel_tables(p, channels, probabilities_by_channel)
+    polarities = _channel_polarities(channels, channel_polarities)
     if receiver_policy not in RECEIVER_POLICIES:
         raise ValueError("unsupported correction receiver policy")
     if receiver_occurrences is None:
@@ -231,19 +256,32 @@ def assignments(
         receiver_occurrences = set(receiver_occurrences)
     if not receiver_occurrences <= set(channels):
         raise ValueError("receiver occurrences must belong to the actual dynamic channels")
-    if receiver_policy == "same_model" and any(
-        not np.array_equal(channel_tables[occurrence], p) for occurrence in receiver_occurrences
-    ):
-        raise ValueError(
-            "receiver occurrence probability table differs from receiver probabilities"
-        )
+    if receiver_policy == "same_model":
+        checked = set()
+        complement = None
+        for occurrence in receiver_occurrences:
+            table, polarity = channel_tables[occurrence], polarities[occurrence]
+            key = (id(table), polarity)
+            if key in checked:
+                continue
+            checked.add(key)
+            if polarity == -1 and complement is None:
+                complement = 1.0 - p
+            expected = p if polarity == 1 else complement
+            if not np.array_equal(table, expected):
+                raise ValueError(
+                    "receiver occurrence probability table differs from receiver probabilities"
+                )
     eligible_occurrences = (
         receiver_occurrences if receiver_policy == "same_model" else set(channels)
     )
     all_disagree = np.zeros_like(known)
     for occurrence, (label, threshold) in channels.items():
+        prediction = channel_tables[occurrence][:, label] >= threshold
+        if polarities[occurrence] == -1:
+            prediction = ~prediction
         occurrence_disagrees = decision_observed[:, label] & (
-            decision_positive[:, label] != (channel_tables[occurrence][:, label] >= threshold)
+            decision_positive[:, label] != prediction
         )
         all_disagree[:, label] |= occurrence_disagrees
         if occurrence in eligible_occurrences:
@@ -472,13 +510,27 @@ def _channel_tables(probabilities, channels, probabilities_by_channel):
         raise ValueError(
             "per-occurrence probability mapping must match every actual dynamic channel"
         )
-    tables = {}
+    tables, checked = {}, {}
     for occurrence, value in probabilities_by_channel.items():
+        key = id(value)
+        if key in checked:
+            tables[occurrence] = checked[key]
+            continue
         p = np.asarray(value, dtype=np.float64)
         if p.shape != probabilities.shape or not np.isfinite(p).all() or np.any((p < 0) | (p > 1)):
             raise ValueError("per-occurrence probability table differs from complete checked axes")
+        checked[key] = p
         tables[occurrence] = p
     return tables
+
+
+def _channel_polarities(channels, values):
+    if values is None:
+        return {key: 1 for key in channels}
+    if set(values) - set(channels) or any(type(v) is not int or v not in (-1, 1)
+                                       for v in values.values()):
+        raise ValueError("channel polarities must identify actual channels with +1 or -1")
+    return {key: values.get(key, 1) for key in channels}
 
 
 def calibrate(
@@ -489,6 +541,7 @@ def calibrate(
     grid,
     minimum_support_each_sign,
     probabilities_by_channel=None,
+    channel_polarities=None,
     cells="all",
     max_step=None,
 ):
@@ -522,6 +575,8 @@ def calibrate(
     if p.shape != batch.targets.shape or not np.isfinite(p).all() or np.any((p < 0) | (p > 1)):
         raise ValueError("calibration probabilities differ from checked assignment axes")
     channel_tables = _channel_tables(p, channels, probabilities_by_channel)
+    polarities = _channel_polarities(channels, channel_polarities)
+    checked_id = batch_id(batch)
     result, records = {}, []
     for occurrence, (label, old) in channels.items():
         valid = batch.observed[:, label] & (batch.weights[:, label] > 0)
@@ -535,7 +590,8 @@ def calibrate(
             label_index=label,
             previous=old,
             signed_support=counts,
-            checked_assignments_id=batch_id(batch),
+            checked_assignments_id=checked_id,
+            channel_polarity=polarities[occurrence],
             criterion="weighted_binary_accuracy",
             comparator=">=",
             probability_comparison_dtype="float64_like_ReferenceChase",
@@ -550,8 +606,9 @@ def calibrate(
         if max_step is not None:
             values = [t for t in values if abs(t - old) <= max_step + 1e-12]
         channel_p = channel_tables[occurrence]
+        event_target = y if polarities[occurrence] == 1 else ~y
         scores = {
-            t: float(np.sum(w * ((channel_p[valid, label] >= t) == y)) / w.sum()) for t in values
+            t: float(np.sum(w * ((channel_p[valid, label] >= t) == event_target)) / w.sum()) for t in values
         }
         best = max(scores.values())
         selected = old if best <= scores[old] else max(t for t in values if scores[t] == best)
@@ -565,7 +622,7 @@ def calibrate(
             )
         )
     return result, dict(
-        checked_assignments_id=batch_id(batch),
+        checked_assignments_id=checked_id,
         occurrences=records,
         no_unqueried_truth=True,
         comparison="same_train_assignments_not_heldout_selection",

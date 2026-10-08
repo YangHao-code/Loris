@@ -23,7 +23,7 @@ weights.
 
 - Discovery fits the complete supplied training split (`1/1`), preserving the
   caller's row order and explicit development exclusion manifest.
-- Chase queries use one percent of the initial eligible pool, with a minimum of
+- Chase queries use one percent of the initial unanswered query-role population, with a minimum of
   32 rows. Answers are complete vectors on the supplied label axis; the human
   path must provide the full ground-truth vector, while SiliconFlow may use the
   named `positive_labels` response format.
@@ -63,6 +63,21 @@ The M0 option reproduces the initialization idea, not the old ASL/three-epoch
 experiment or its development-selected threshold protocol.
 
 ## Aux training controls
+
+The [post-V1 options](docs/POST_V1_UPDATES.md) add isolated signed Aux correction,
+calibration gates, review queries and prediction/cache optimizations. These
+extensions are explicit: existing manifests keep their historical defaults.
+
+An opt-in [signed residual Aux workflow](docs/residual_aux.md) appends ordinary
+positive and negative RDL rules to a frozen program. Per-label cuts are fitted on
+calibration data, then each checkpoint runs a complete Chase before a macro/micro
+dual gate can replace the incumbent. `loris-label residual-aux` records separate
+current and retained endpoints for every supplied checkpoint; test answers do
+not enter its gate. Existing labeling commands keep their manifest behavior.
+
+The [query-pool guide](docs/QUERY_POOL_ZH.md) explains how to review documents
+that already have positive labels without treating a naturally short label
+vector as proof of missing labels.
 
 `loris-experiments aux-tuning` runs explicit train-only controls for 1, 3, or
 5 epochs, supervised replay, fixed-confidence pseudo labels, and a per-label,
