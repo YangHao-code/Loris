@@ -1,0 +1,22 @@
+{
+  "default": "diverse",
+  "aapd": {
+    "mode": "diverse",
+    "seed": 28101,
+    "pool": "aapd_pool.json",
+    "rules": "aapd_diverse_rules.json",
+    "quality_reference": "aapd_quality_rules.json"
+  },
+  "bgc": {
+    "mode": "frozen",
+    "seed": 25101,
+    "pool": "bgc_pool.json",
+    "rules": "bgc_diverse_rules.json",
+    "quality_reference": "bgc_quality_rules.json"
+  },
+  "selection": {
+    "priority": "diversity",
+    "macro_tolerance": 0.0,
+    "micro_tolerance": 0.002
+  }
+}

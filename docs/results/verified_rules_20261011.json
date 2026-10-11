@@ -1,0 +1,186 @@
+{
+  "schema": "loris_public_verified_rules_v1",
+  "evaluation": "full_official_test_no_interaction",
+  "profiles": [
+    {
+      "dataset": "aapd",
+      "profile": "diverse",
+      "candidate": "replace_B_pruned",
+      "rule_count": 60,
+      "rule_families": {
+        "single_model": 55,
+        "multi_model": 2,
+        "text": 2,
+        "model_text": 1
+      },
+      "train_rows": 53840,
+      "test_rows": 1000,
+      "native_labels": 54,
+      "quality_B": {
+        "macro_f1": 0.6586180817972273,
+        "micro_f1": 0.7848739495798319,
+        "TP": 934,
+        "FP": 256,
+        "FN": 256,
+        "Comp": 0.8065202927478377,
+        "rows": 501,
+        "native_labels": 54,
+        "completeness_documents": 501
+      },
+      "quality_test": {
+        "macro_f1": 0.6212468391827779,
+        "micro_f1": 0.7632077457377394,
+        "TP": 1813,
+        "FP": 517,
+        "FN": 608,
+        "Comp": 0.7776285714285713,
+        "rows": 1000,
+        "native_labels": 54,
+        "completeness_documents": 1000
+      },
+      "LLM": 0,
+      "human": 0,
+      "GT_sim": 0,
+      "new_Aux_training": false,
+      "historical_dev_reused": true,
+      "B_used_for_pruning": true,
+      "source_report_sha256": "32f74319b208ade89802da3975257e7f0bfa3a2fc1d93b7017fff020be4d1e88",
+      "rules_sha256": "b6779262f406b0fcd228d3c987b8ef5ff28da4e5ca6fb529e6d76dc9013e6a63",
+      "pool_sha256": "2303871ef775b9d651e64fdbd670d12de360d956301db789ea26271eae609e13"
+    },
+    {
+      "dataset": "aapd",
+      "profile": "quality",
+      "candidate": "model_base",
+      "rule_count": 54,
+      "rule_families": {
+        "single_model": 54
+      },
+      "train_rows": 53840,
+      "test_rows": 1000,
+      "native_labels": 54,
+      "quality_B": {
+        "macro_f1": 0.6481734963870781,
+        "micro_f1": 0.7794612794612794,
+        "TP": 926,
+        "FP": 260,
+        "FN": 264,
+        "Comp": 0.8010645375914838,
+        "rows": 501,
+        "native_labels": 54,
+        "completeness_documents": 501
+      },
+      "quality_test": {
+        "macro_f1": 0.6295907174076051,
+        "micro_f1": 0.7712833545108005,
+        "TP": 1821,
+        "FP": 480,
+        "FN": 600,
+        "Comp": 0.780545238095238,
+        "rows": 1000,
+        "native_labels": 54,
+        "completeness_documents": 1000
+      },
+      "LLM": 0,
+      "human": 0,
+      "GT_sim": 0,
+      "new_Aux_training": false,
+      "historical_dev_reused": true,
+      "B_used_for_pruning": false,
+      "source_report_sha256": "1466804db7f75d26663fd5fb51019caa724d021c234b136eb784c5af996d9593",
+      "rules_sha256": "9e3360c786e4782b48acf0ffeed336a4021b2f7e5918f02434bed39d63ac6cfd",
+      "pool_sha256": "2303871ef775b9d651e64fdbd670d12de360d956301db789ea26271eae609e13"
+    },
+    {
+      "dataset": "bgc",
+      "profile": "diverse",
+      "candidate": "propagation_then_text",
+      "rule_count": 225,
+      "rule_families": {
+        "single_model": 146,
+        "label_propagation": 8,
+        "cross_document": 29,
+        "model_text": 42
+      },
+      "train_rows": 58715,
+      "test_rows": 18394,
+      "native_labels": 146,
+      "quality_B": {
+        "macro_f1": 0.7002694829672402,
+        "micro_f1": 0.834850277600801,
+        "TP": 18345,
+        "FP": 3819,
+        "FN": 3439,
+        "Comp": 0.8539928691777499,
+        "rows": 7232,
+        "native_labels": 146,
+        "completeness_documents": 6085
+      },
+      "quality_test": {
+        "macro_f1": 0.7082854426566711,
+        "micro_f1": 0.8332317182512642,
+        "TP": 46466,
+        "FP": 9738,
+        "FN": 8862,
+        "Comp": 0.850850287067947,
+        "rows": 18394,
+        "native_labels": 146,
+        "completeness_documents": 15538
+      },
+      "LLM": 0,
+      "human": 0,
+      "GT_sim": 0,
+      "new_Aux_training": false,
+      "historical_dev_reused": true,
+      "B_used_for_pruning": false,
+      "source_report_sha256": "0c30fca22b452130b5882c89a2aa9bbc085216539c021a9c88fc374945a0440c",
+      "rules_sha256": "d8b77970e5adb7bce4312d045f5036ade316c7a8ef54542e9d7d193951601bec",
+      "pool_sha256": "b47c3d1e42ffec1a75f642ac23b8c0251302716a4628a554955f48cce7989a02"
+    },
+    {
+      "dataset": "bgc",
+      "profile": "quality",
+      "candidate": "propagation",
+      "rule_count": 183,
+      "rule_families": {
+        "single_model": 146,
+        "label_propagation": 8,
+        "cross_document": 29
+      },
+      "train_rows": 58715,
+      "test_rows": 18394,
+      "native_labels": 146,
+      "quality_B": {
+        "macro_f1": 0.7001695309463682,
+        "micro_f1": 0.8360997275578653,
+        "TP": 18260,
+        "FP": 3635,
+        "FN": 3524,
+        "Comp": 0.8505767796523753,
+        "rows": 7232,
+        "native_labels": 146,
+        "completeness_documents": 6085
+      },
+      "quality_test": {
+        "macro_f1": 0.7093365783715905,
+        "micro_f1": 0.8341932457786116,
+        "TP": 46241,
+        "FP": 9295,
+        "FN": 9087,
+        "Comp": 0.8472197611887404,
+        "rows": 18394,
+        "native_labels": 146,
+        "completeness_documents": 15538
+      },
+      "LLM": 0,
+      "human": 0,
+      "GT_sim": 0,
+      "new_Aux_training": false,
+      "historical_dev_reused": true,
+      "B_used_for_pruning": false,
+      "source_report_sha256": "0c30fca22b452130b5882c89a2aa9bbc085216539c021a9c88fc374945a0440c",
+      "rules_sha256": "c9d7c192cccb17771e25c42c6ee2bc20d17af0b348591aa1382502f1ba32e50e",
+      "pool_sha256": "b47c3d1e42ffec1a75f642ac23b8c0251302716a4628a554955f48cce7989a02"
+    }
+  ]
+}

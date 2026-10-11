@@ -1,4 +1,8 @@
-"""PDF36 §5 model selection with actual label votes and joint-subset oracle.
+"""PDF36 §5 model selection with explicit vote or calibrated-F1 supervision.
+
+Opt-in global F1 targets retain the MLP, MC Top-K and final frequency selection.
+The margin task evaluates the same calibrated probability mixture as discovery;
+its first 25 epochs use imitation only. Historical vote defaults remain available.
 
 Hard Top-K forward, Gaussian-smoothed Monte Carlo backward, weighted oracle
 BCE + vote-count two-class CE - score entropy, then all-row frequency Top-K.
@@ -47,6 +51,9 @@ SCHEMA = 'paper36_aligned_joint_vote_selection_v1'
 ORACLE_POLICIES = {
     'accuracy_then_vote_bce': 'all combinations; local binary vote correctness, then vote BCE, then lexicographic model indices',
     'bce_first': 'all combinations; vote BCE, then local binary vote correctness, then lexicographic model indices',
+    'global_macro_f1': 'all combinations; whole fitted group macro F1, micro F1 tie break, then stable model order; supervised target for the unchanged neural selector',
+    'global_balanced_f1': 'all combinations; mean whole fitted group macro and micro F1, then stable model order; supervised target for the unchanged neural selector',
+    'global_margin_macro_f1': 'all combinations; calibrated probability margin ensemble macro F1, then micro; teacher only, final output remains neural frequency selection',
 }
 
 
@@ -66,6 +73,7 @@ class ModelSelectionProtocol:
     seed: int
     device: str
     oracle_policy: str = 'accuracy_then_vote_bce'
+    task_objective: str = 'vote_ce'
 
     def __post_init__(self):
         for name in ('k', 'epochs', 'hidden_dim', 'num_samples'):
@@ -84,18 +92,23 @@ class ModelSelectionProtocol:
         if self.device != 'cpu' and not (isinstance(self.device, str) and self.device.startswith('cuda:') and self.device[5:].isdigit()):
             raise ValueError('explicit cpu or cuda:index required; no fallback')
         if not isinstance(self.oracle_policy, str) or self.oracle_policy not in ORACLE_POLICIES:
-            raise ValueError('oracle_policy must be accuracy_then_vote_bce or bce_first')
+            raise ValueError('unknown oracle_policy')
+        if self.task_objective not in ('vote_ce', 'pooled_macro_f1', 'pooled_margin_macro_f1'):
+            raise ValueError('unknown selector task objective')
 
     def manifest(self):
         return dict(asdict(self), schema=SCHEMA,
             oracle=ORACLE_POLICIES[self.oracle_policy],
-            task='mean two-class cross entropy on smoothed binary vote counts',
+            task=('mean two-class cross entropy on smoothed binary vote counts' if self.task_objective == 'vote_ce'
+                  else '0.8 soft macro + 0.2 soft micro F1 of hard frequency pool, using calibrated probability margins' if self.task_objective=='pooled_margin_macro_f1'
+                  else '0.8 soft macro + 0.2 soft micro F1 of hard frequency-aggregated selected pool; same MC TopK gradient'),
+            mc_control_variate='unperturbed hard mask' if self.task_objective=='pooled_margin_macro_f1' else None,
             vote_bce_numerics='original_safe_vote_ratio_else_float64_equivalent_log_counts; reject_unrepresentable_mask_gradients',
             vote_ties='negative', topk_ties='stable supplied model order',
             gradient='E[TopK(s+sigma*z) z^T] / sigma, z standard Gaussian',
             gradient_is_literal_pdf36_eq3=False,
             numeric_defaults_prescribed_by_pdf=False, global_macro_optimality_claimed=False,
-            training='all assigned fit rows every configured epoch, one full batch',
+            training=('all assigned fit rows every epoch, one full batch; margin task begins after 25 imitation-only epochs' if self.task_objective=='pooled_margin_macro_f1' else 'all assigned fit rows every configured epoch, one full batch'),
             final_selection='all-fit-row hard TopK selection frequency, stable ties',
             query_budget_independent=True)
 
@@ -129,6 +142,22 @@ class PerturbedTopK(torch.autograd.Function):
         inner = (selected * grad_output[None]).sum(dim=-1)
         gradient = (noise * inner[..., None]).mean(dim=0) / ctx.sigma
         return gradient, None, None, None
+
+
+class CenteredPerturbedTopK(PerturbedTopK):
+    """Same hard forward and expected MC Jacobian, with a constant control variate.
+
+    E[hard_topk(scores) * z] is zero. Removing this term suppresses gradients
+    due solely to sample noise when the selected set did not change.
+    """
+    @staticmethod
+    def backward(ctx, grad_output):
+        (scores,)=ctx.saved_tensors
+        if ctx.k==scores.shape[-1]:return torch.zeros_like(scores),None,None,None
+        noise=torch.randn(ctx.num_samples,*scores.shape,dtype=scores.dtype,device=scores.device)
+        selected=hard_topk(scores[None]+ctx.sigma*noise,ctx.k)-hard_topk(scores,ctx.k)[None]
+        inner=(selected*grad_output[None]).sum(-1)
+        return (noise*inner[...,None]).mean(0)/ctx.sigma,None,None,None
 
 
 def vote_probabilities(mask, decisions, k, smoothing):
@@ -217,7 +246,7 @@ def majority_predictions(decisions, mask):
     return 2*votes > k[:, None]
 
 
-def build_joint_vote_oracle(decisions, truth, k, smoothing, *, oracle_policy='accuracy_then_vote_bce'):
+def build_joint_vote_oracle(decisions, truth, k, smoothing, *, oracle_policy='accuracy_then_vote_bce', margins=None):
     """Exact all-subset local oracle plus global subset diagnostics; no cap."""
     d, y = np.asarray(decisions), np.asarray(truth)
     if d.ndim != 3 or y.ndim != 2 or not y.size or d.shape[1:] != y.shape or not np.isin(d, [0, 1]).all() or not np.isin(y, [0, 1]).all():
@@ -225,32 +254,83 @@ def build_joint_vote_oracle(decisions, truth, k, smoothing, *, oracle_policy='ac
     if type(k) is not int or not 1 <= k <= len(d) or type(smoothing) not in (int, float) or not math.isfinite(smoothing) or smoothing <= 0:
         raise ValueError('valid K and positive vote smoothing required')
     if not isinstance(oracle_policy, str) or oracle_policy not in ORACLE_POLICIES:
-        raise ValueError('oracle_policy must be accuracy_then_vote_bce or bce_first')
+        raise ValueError('unknown oracle_policy')
     best_correct = np.full(len(y), -1, dtype=np.int64)
     best_ce = np.full(len(y), np.inf)
     oracle = np.zeros((len(y), len(d)), np.float32)
     records = []
+    if oracle_policy=='global_margin_macro_f1':
+        margins=np.asarray(margins)
+        if margins.shape!=d.shape or not np.isfinite(margins).all():raise ValueError('complete calibrated margin supervision required')
+    elif margins is not None:raise ValueError('margin supervision requires its explicit oracle policy')
     for subset in itertools.combinations(range(len(d)), k):
         votes = d[list(subset)].astype(np.int64).sum(axis=0)
-        pred = 2*votes > k
+        pred = margins[list(subset)].sum(0)>=0 if margins is not None else 2*votes > k
         correct = (pred == y).sum(axis=1)
         ce = _oracle_vote_cross_entropy(votes, y, k, smoothing)
         if oracle_policy == 'accuracy_then_vote_bce':
             better = (correct > best_correct) | ((correct == best_correct) & (ce < best_ce))
-        else:
+        elif oracle_policy == 'bce_first':
             better = (ce < best_ce) | ((ce == best_ce) & (correct > best_correct))
+        else:
+            # Local correctness is diagnostic only for the population-F1 targets.
+            better = (correct > best_correct) | ((correct == best_correct) & (ce < best_ce))
         oracle[better] = 0
         for i in subset:
             oracle[better, i] = 1
         best_correct[better], best_ce[better] = correct[better], ce[better]
         records.append({'indices': list(subset), 'macro_f1': macro_f1(y, pred),
             'binary_accuracy': float((pred == y).mean()), 'vote_cross_entropy': float(ce.mean())})
+        if oracle_policy.startswith('global_'):
+            target = y.astype(bool, copy=False)
+            tp = int((pred & target).sum()); fp = int((pred & ~target).sum()); fn = int((~pred & target).sum())
+            records[-1]['micro_f1'] = 2*tp/max(2*tp+fp+fn, 1)
     # Stable combination order breaks equal global Macro-F1 scores.
     global_best = max(records, key=lambda r: r['macro_f1'])
+    if oracle_policy.startswith('global_'):
+        key = ((lambda r: (r['macro_f1'], r['micro_f1'])) if oracle_policy in ('global_macro_f1','global_margin_macro_f1')
+               else (lambda r: ((r['macro_f1']+r['micro_f1'])*.5,)))
+        teacher = max(records, key=key)
+        oracle[:] = 0.; oracle[:, teacher['indices']] = 1.
     return {'mask': oracle, 'correct_labels': best_correct, 'vote_cross_entropy': best_ce,
         'oracle_policy': oracle_policy, 'oracle': ORACLE_POLICIES[oracle_policy],
         'all_subset_scores': records, 'subsets_evaluated': len(records),
         'best_global_macro_subset': global_best, 'local_oracle_global_optimality_claimed': False}
+
+
+def pooled_macro_task(mask, decisions, truth, k, smoothing, num_samples, sigma):
+    """Train the same hard-frequency pool that the original selector exports.
+
+    No learned subset is substituted with the teacher or a hand-picked pool.
+    Gradients pass through the original MC TopK at both document and pool levels.
+    """
+    frequency = mask.mean(0, keepdim=True)
+    pool = PerturbedTopK.apply(frequency, k, num_samples, sigma)
+    probabilities = (torch.einsum('m,mrl->rl', pool[0], decisions) + smoothing)/(k+2*smoothing)
+    tp=(probabilities*truth).sum(0)
+    den=probabilities.sum(0)+truth.sum(0)
+    macro=(2*tp/den.clamp_min(1e-12)).mean()
+    micro=2*tp.sum()/den.sum().clamp_min(1e-12)
+    return 1.-(.8*macro+.2*micro)
+
+
+def interpretation_margins(interpretation, aliases, rows):
+    if interpretation is None:raise ValueError('bound calibrated model interpretation required')
+    index={r:i for i,r in enumerate(interpretation['row_ids'])};take=[index[r] for r in rows]
+    p=np.stack([interpretation['probabilities'][a][take] for a in aliases]).astype(np.float64)
+    if not np.isfinite(p).all() or (p<=0).any() or (p>=1).any():raise ValueError('strictly interior calibrated probabilities required')
+    return np.log(p/(1-p))
+
+
+def margin_predictions(margins, mask):
+    return np.einsum('rm,mrl->rl',mask.astype(np.float64),margins)>=0
+
+
+def pooled_margin_task(mask,margins,truth,k,num_samples,sigma):
+    pool=CenteredPerturbedTopK.apply(mask.mean(0,keepdim=True),k,num_samples,sigma)
+    p=torch.sigmoid(torch.einsum('m,mrl->rl',pool[0],margins)/k)
+    tp=(p*truth).sum(0);den=p.sum(0)+truth.sum(0)
+    return 1-(.8*(2*tp/den.clamp_min(1e-12)).mean()+.2*2*tp.sum()/den.sum().clamp_min(1e-12))
 
 
 def _validate(features, decisions, truth, assignments, row_ids, aliases, labels, binding, protocol):
@@ -349,6 +429,10 @@ def train_model_selection(*, features, decisions, truth, cluster_assignments, ro
         'CUBLAS_WORKSPACE_CONFIG': os.environ.get('CUBLAS_WORKSPACE_CONFIG')}
     interpretation_metadata, interpretation_arrays = _normalize_model_interpretation(
         model_interpretation, aliases, labels, rows, d)
+    margin_values=(interpretation_margins(model_interpretation,aliases,rows)
+                   if protocol.oracle_policy=='global_margin_macro_f1' else None)
+    if (protocol.task_objective=='pooled_margin_macro_f1') != (margin_values is not None):
+        raise ValueError('margin oracle and margin task must use the same calibrated interpretation')
     binding['artifact_contract'] = 'complete_input_arrays_training_chain_and_model_interpretation_v2'
     binding['model_interpretation'] = interpretation_metadata
     bid = digest(binding)
@@ -369,7 +453,7 @@ def train_model_selection(*, features, decisions, truth, cluster_assignments, ro
             out = directory/('cluster_%02d' % pos)
             out.mkdir(exist_ok=True)
             oracle = build_joint_vote_oracle(d[:, idx], y[idx], protocol.k, protocol.vote_smoothing,
-                oracle_policy=protocol.oracle_policy)
+                oracle_policy=protocol.oracle_policy,margins=margin_values[:,idx] if margin_values is not None else None)
             immutable_json(out/'ORACLE.json', {k:v for k,v in oracle.items() if not isinstance(v, np.ndarray)})
             _immutable_npz(out/'oracle.npz', {k:v for k,v in oracle.items() if isinstance(v, np.ndarray)})
             immutable_json(out/'INPUTS.json', {'binding_id': bid, 'cluster': int(cluster),
@@ -385,6 +469,7 @@ def train_model_selection(*, features, decisions, truth, cluster_assignments, ro
                 dt = torch.from_numpy(d[:,idx].astype(np.float32)).to(device)
                 yt = torch.from_numpy(y[idx].astype(np.float32)).to(device)
                 ot = torch.from_numpy(oracle['mask']).to(device)
+                mt=torch.from_numpy(margin_values[:,idx].astype(np.float32)).to(device) if margin_values is not None else None
                 receipts = sorted(out.glob('epoch_*.json'))
                 previous = None
                 for epoch, path in enumerate(receipts):
@@ -413,13 +498,19 @@ def train_model_selection(*, features, decisions, truth, cluster_assignments, ro
                     if epoch:
                         net.train()
                         scores = net(xt)
-                        mask = PerturbedTopK.apply(scores, protocol.k, protocol.num_samples, protocol.sigma)
+                        topk=CenteredPerturbedTopK if mt is not None else PerturbedTopK
+                        mask = topk.apply(scores, protocol.k, protocol.num_samples, protocol.sigma)
                         imitate = F.binary_cross_entropy_with_logits(scores, ot,
                             pos_weight=torch.tensor(protocol.imitation_positive_weight, device=device))
-                        task = vote_cross_entropy(mask, dt, yt, protocol.k, protocol.vote_smoothing)
+                        task = (pooled_margin_task(mask,mt,yt,protocol.k,protocol.num_samples,protocol.sigma) if mt is not None else
+                                vote_cross_entropy(mask, dt, yt, protocol.k, protocol.vote_smoothing)
+                                if protocol.task_objective == 'vote_ce' else pooled_macro_task(
+                                    mask, dt, yt, protocol.k, protocol.vote_smoothing,
+                                    protocol.num_samples, protocol.sigma))
                         logp = F.log_softmax(scores, dim=-1)
                         entropy = -(logp.exp()*logp).sum(dim=-1).mean()
-                        loss = imitate + protocol.lambda_task*task - protocol.lambda_entropy*entropy
+                        task_weight=0. if mt is not None and epoch<=25 else protocol.lambda_task
+                        loss = imitate + task_weight*task - protocol.lambda_entropy*entropy
                         if not torch.isfinite(loss):
                             raise RuntimeError('nonfinite full-cluster loss')
                         opt.zero_grad()
@@ -440,8 +531,8 @@ def train_model_selection(*, features, decisions, truth, cluster_assignments, ro
                     static_mask[:, chosen] = 1
                     summary = {'frequency': freq.tolist(), 'selected_indices': chosen,
                         'selected_aliases': [aliases[i] for i in chosen],
-                        'selected_subset_macro_f1': macro_f1(y[idx], majority_predictions(d[:,idx], static_mask)),
-                        'per_document_selection_macro_f1': macro_f1(y[idx], majority_predictions(d[:,idx], mask_np))}
+                        'selected_subset_macro_f1': macro_f1(y[idx], margin_predictions(margin_values[:,idx],static_mask) if mt is not None else majority_predictions(d[:,idx], static_mask)),
+                        'per_document_selection_macro_f1': macro_f1(y[idx], margin_predictions(margin_values[:,idx],mask_np) if mt is not None else majority_predictions(d[:,idx], mask_np))}
                     previous = {'binding_id':bid, 'epoch':epoch, 'cluster':int(cluster), 'model':net.state_dict(),
                         'optimizer':opt.state_dict(), 'rng':_rng_state(device), 'scores':score_np,
                         'masks':mask_np, 'losses_before_update':losses, 'summary':summary}

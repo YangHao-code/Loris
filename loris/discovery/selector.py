@@ -117,7 +117,11 @@ def train_selector(manifest, output, *, resume=False, cublas_workspace=None):
         python=sys.version,
         pid=os.getpid(),
         delegate="loris.discovery.selector_backend.run_selector_manifest",
-        selector_algorithm_modified=False,
+        selector_algorithm_modified=(
+            definition.get("protocol", {}).get("task_objective", "vote_ce") != "vote_ce"
+            or str(definition.get("protocol", {}).get("oracle_policy", "accuracy_then_vote_bce")).startswith("global_")
+        ),
+        selector_architecture_unchanged=True,
         selector_wrapper_extracted=True,
         resume_policy="same wrapper/source/input identity and original epoch checks; legacy outputs remain read-only",
     )

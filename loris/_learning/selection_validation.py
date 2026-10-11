@@ -79,6 +79,8 @@ def verify_model_selection_output(directory):
             raise ValueError('selector model interpretation binding differs')
     elif result.get('model_interpretation_sha256') is not None:
         raise ValueError('unbound model interpretation result')
+    from .selection import interpretation_margins,margin_predictions
+    margins=interpretation_margins(interpretation,aliases,rows) if cfg.oracle_policy=='global_margin_macro_f1' else None
     clusters = list(np.unique(a))
     if len(result.get('clusters',())) != len(clusters):
         raise ValueError('selector omitted or added clusters')
@@ -158,8 +160,8 @@ def verify_model_selection_output(directory):
         chosen=np.argsort(-frequency,kind='stable')[:cfg.k].tolist()
         static=np.zeros_like(masks);static[:,chosen]=1
         summary={'frequency':frequency.tolist(),'selected_indices':chosen,'selected_aliases':[aliases[i] for i in chosen],
-            'selected_subset_macro_f1':macro_f1(y[indices],majority_predictions(d[:,indices],static)),
-            'per_document_selection_macro_f1':macro_f1(y[indices],majority_predictions(d[:,indices],masks))}
+            'selected_subset_macro_f1':macro_f1(y[indices],margin_predictions(margins[:,indices],static) if margins is not None else majority_predictions(d[:,indices],static)),
+            'per_document_selection_macro_f1':macro_f1(y[indices],margin_predictions(margins[:,indices],masks) if margins is not None else majority_predictions(d[:,indices],masks))}
         if (not np.array_equal(expected_mask,masks) or not np.array_equal(frequency,fs['frequency'])
                 or summary!=final['summary'] or any(sub.get(key)!=value for key,value in summary.items())):
             raise ValueError('selector final frequency/majority metrics differ')

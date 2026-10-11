@@ -6,6 +6,7 @@ import sys
 
 
 UPSTREAM_COMMANDS = {
+    "staged-rules": ("staged.cli", "calibrated model foundation, original BO and optional rule replacement"),
     "admit-pool": ("continue_admission", "continue completed BO in a separate approximate-admission branch; no new BO"),
     "prepare-supervision": (
         "supervision",

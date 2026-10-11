@@ -1,0 +1,31 @@
+{
+  "schema": "loris_staged_discovery_inputs_v1",
+  "context": {
+    "path": "context.pkl",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "pool": {
+    "path": "POOL.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "partitions": {
+    "path": "partitions.npz",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "old_rules": {
+    "path": "old_rules.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "patterns": {
+    "path": "patterns.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "settings": {
+    "mode": "diverse",
+    "priority": "diversity",
+    "seed": 28101,
+    "allow_replacement": true,
+    "macro_tolerance": 0.0,
+    "micro_tolerance": 0.002
+  }
+}
